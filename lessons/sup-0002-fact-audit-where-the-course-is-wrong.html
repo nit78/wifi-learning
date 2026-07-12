@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>补充课 sup-0002 · 事实核查 —— 课件哪里写错了（对照权威资料）</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* 本课专用：核查结果框（✅ 对 / ⚠️ 需修 / ❌ 错） */
+  .audit {
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.15rem;
+    margin: 1.5rem 0;
+    background: #fff;
+    break-inside: avoid;
+  }
+  .audit.ok     { border-left: 4px solid #2f6b42; }
+  .audit.minor  { border-left: 4px solid #b8761c; }
+  .audit.major  { border-left: 4px solid #92302b; }
+
+  .audit-tag {
+    display: inline-block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    margin-bottom: 0.5rem;
+  }
+  .audit.ok    .audit-tag { background: #e8f3ea; color: #2f6b42; }
+  .audit.minor .audit-tag { background: #fbf0dd; color: #b8761c; }
+  .audit.major .audit-tag { background: #f8e8e8; color: #92302b; }
+
+  .audit-title {
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 0.96rem;
+    margin: 0 0 0.4rem;
+    color: var(--ink);
+  }
+  .audit-loc {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    color: var(--ink-faint);
+    margin-bottom: 0.6rem;
+  }
+  .audit p { margin: 0.45rem 0; font-size: 0.92rem; }
+  .audit .wrong { color: #92302b; font-weight: 600; }
+  .audit .right { color: #2f6b42; font-weight: 600; }
+  .audit code, .audit .mono { font-family: var(--mono); font-size: 0.85rem; }
+
+  .src {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    background: var(--bg-callout);
+    border-left: 2px solid var(--rule);
+    padding: 0.5rem 0.85rem;
+    margin: 0.6rem 0 0.2rem;
+    border-radius: 0 4px 4px 0;
+    line-height: 1.5;
+  }
+  .src a { color: var(--ink-soft); }
+  .src strong { color: var(--ink); }
+
+  .formula {
+    display: block;
+    font-family: var(--mono);
+    background: #f5f1e8;
+    border-left: 3px solid var(--accent);
+    padding: 0.7rem 1rem;
+    margin: 1.2rem 0;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .formula .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .toc {
+    background: var(--bg-callout);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.8rem 1.1rem;
+    margin: 1.4rem 0;
+    font-family: var(--sans);
+    font-size: 0.88rem;
+  }
+  .toc-title {
+    font-weight: 700;
+    font-size: 0.74rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 0.4rem;
+  }
+  .toc ul { margin: 0; padding-left: 1.1rem; }
+  .toc li { margin: 0.2rem 0; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+
+  .num-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    margin: 1.2rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .num-table th, .num-table td {
+    padding: 0.45rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .num-table thead th {
+    background: #f3efe6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .num-table tbody tr:last-child td { border-bottom: none; }
+  .num-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .num-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .num-table .ok { color: #2f6b42; }
+  .num-table .bad { color: #92302b; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    补充课 sup-0002 · 事实核查专题（不占主线编号） ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="./sup-0001-linux-wifi-stack-frame-processing.html">← sup-0001</a> ·
+    <a href="./0007-sta-association-flow.html">主线第 7 课</a>
+  </div>
+
+  <h1>事实核查 —— 课件哪里写错了</h1>
+
+  <p>这是一节特殊的<strong>补充课</strong>（主线课编号不受影响，下一主线课仍是第 8 课省电模式）。<strong>它不教你新概念，而是把第 1–7 课的内容拿去对照网络权威资料（IEEE 802.11 标准原文、CWNA、CWNP 白皮书、FCC/ETSI 法规、NI / Qualcomm 一手文档），把不够准、甚至写错的地方摊开。</strong></p>
+
+  <p>为什么要这样做？因为你的使命（见 <a href="../MISSION.md">MISSION</a>）是转型 WiFi 固件工程师，而学习记录 LR-0006 规定「<strong>课程是唯一输入，不读原书</strong>」。这意味着：课件写错的，就是你会当事实记住的。所以这一课的目标是——<strong>把地基里松动的砖挑出来，换上标准原文的砖</strong>。</p>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>核查结论分三档：<strong>7 项核对通过</strong>（可放心复用）、<strong>1 处实质错误</strong>（RF 链路预算漏了 Noise Figure）、<strong>4 处精度问题</strong>（SIFS 拆解数字、法规功率标签、算例 1 dB 偏差、quiz 标题矛盾）。最该修的是 RF 那处——它影响你对灵敏度和 SNR 的整个心智模型。</p>
+  </div>
+
+  <div class="toc">
+    <div class="toc-title">核查目录 / Skip to</div>
+    <ul>
+      <li><a href="#ok">① 先说对的：7 项通过核对</a></li>
+      <li><a href="#nf">② 实质错误：SNR / 链路预算漏了 Noise Figure</a></li>
+      <li><a href="#sifs">③ 精度问题：SIFS 四分量拆解数字不是标准值</a></li>
+      <li><a href="#reg">④ 精度问题：法规功率标签贴错频段</a></li>
+      <li><a href="#misc">⑤ 小问题：算例差 1 dB + quiz 标题矛盾</a></li>
+      <li><a href="#meta">⑥ 方法论：CWNA 经验路线 vs RF 工程路线</a></li>
+    </ul>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2 id="ok">先说对的：7 项通过核对</h2>
+
+  <p>先给你吃颗定心丸——下面这些是课件里写得准的，经得起一手标准核对，可以放心复用、放心记。</p>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · BEB 退避</span>
+    <p class="audit-title">第 5 课：BEB 公式与 CW 序列</p>
+    <p class="audit-loc">lessons/0005-csma-ca-backoff.html</p>
+    <p><span class="mono">CW = 2ⁿ·(CWmin+1) − 1</span>，序列 15→31→63→127→255→511→1023（封顶），<strong>与 IEEE 802.11 DCF 标准逐项吻合</strong>。标准递推是 <span class="mono">CW_new = 2·(CW_old+1) − 1</span>，闭式解正是课件这个。CWmin=15/CWmax=1023 是 <strong>OFDM PHY（802.11a）</strong>的取值——这点课件标对了（注意：802.11b DSSS 是 CWmin=31，课件没误用）。</p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · DCF 时序</span>
+    <p class="audit-title">第 5 课 / 速查表：SIFS / SlotTime / DIFS</p>
+    <p class="audit-loc">lessons/0005, reference/wifi-terms-cheatsheet.html</p>
+    <p>802.11a：<span class="mono">SIFS 16 / Slot 9 / DIFS 34 μs</span>（16+2×9=34 ✓）。802.11b：<span class="mono">SIFS 10 / Slot 20 / DIFS 50 μs</span>（10+2×20=50 ✓）。<strong>全部符合标准。</strong>换算关系 DIFS = SIFS + 2×SlotTime 正确。</p>
+    <p class="src"><strong>备忘（非错误）</strong>：802.11g 默认兼容模式其实复用 802.11b 时序（slot 20 μs），只在 ERP-OFDM-only 模式才切到 9 μs。课件只拿 802.11a/b 做对照，没踩这个坑。</p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · 子载波结构</span>
+    <p class="audit-title">第 2 课：802.11a 子载波布局</p>
+    <p class="audit-loc">lessons/0002-ofdm-orthogonality.html</p>
+    <p>20 MHz ÷ 312.5 kHz = <strong>64 点 FFT</strong>，其中 <strong>52 个有效</strong>（48 数据 + 4 导频），其余 12 个为空（左右保护带 + 中心 DC null）。<strong>与 IEEE Std 802.11a-1999 §17.3.5、Keysight/Tek/CWNP 一致。</strong></p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · OFDM 正交性</span>
+    <p class="audit-title">第 2 课：Δf = 1/T、sinc 零点、两种正交之分</p>
+    <p>OFDM 频域正交（Δf=1/T，sinc 零点对齐）vs QAM 的 I/Q 正交（相位差 90°，单载波内）——区分得清楚、正确。</p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · 状态机与帧结构</span>
+    <p class="audit-title">第 6、7 课：State 1/2/3、四地址、AID、Auth</p>
+    <p>三态状态机 + Class 1/2/3 帧、Open System 两帧 Auth（algorithm=0，几乎不验证身份）、AID 范围 1–2007、ToDS/FromDS 四地址映射——<strong>全部与标准一致</strong>。「802.11 Authentication ≠ 安全认证」这个纠正尤其重要且正确。</p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · Beacon 间隔</span>
+    <p class="audit-title">第 7 课 / 速查表：Beacon 周期 102.4 ms</p>
+    <p>默认 100 TU，<strong>1 TU = 1024 μs = 1.024 ms</strong>，所以 100 × 1.024 = 102.4 ms。正确。CWNP 博客专门讲过这个「常被当成 100 ms」的细节。</p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 通过 · piconet 结构</span>
+    <p class="audit-title">术语表 / 速查表：piconet 1 master + ≤7 active slave</p>
+    <p>标准蓝牙 BR/EDR piconet：1 master + 最多 7 active slave（受 3-bit AM_ADDR 限制），另有最多 255 parked 设备（8-bit PM_ADDR）。课件写的是 active slave 上限，准确。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2 id="nf">实质错误：SNR / 链路预算漏了 Noise Figure</h2>
+
+  <p>这是这次核查发现的<strong>最该修</strong>的地方。第 4 课和 <a href="../reference/rf-math-cheatsheet.html">RF 速查表</a>用<strong>热噪声底 −101 dBm</strong>直接算 SNR：</p>
+
+  <span class="formula">
+    <span class="label">课件当前的写法（有问题）/ As taught</span>
+    SNR(dB) = RSSI(dBm) − N_thermal(dBm)<br>
+    例：RSSI −49 dBm − (−101 dBm) = +52 dB
+  </span>
+
+  <p>但<strong>所有权威 RF 工程来源</strong>都用<strong>接收机噪声底 = kTB + Noise Figure (NF)</strong>：</p>
+
+  <span class="formula">
+    <span class="label">正确的写法 / Authoritative form</span>
+    Sensitivity(dBm) = −174 + 10·log₁₀(B) + NF + SNR_required<br>
+    接收机噪声底 = kTB + NF　（不是裸 kTB）
+  </span>
+
+  <p>Wi-Fi 典型 <strong>NF = 5–10 dB</strong>：IEEE 标准灵敏度推导假设 10 dB，CEPT ECC Report 288 用 10 dB，手机 STA 因紧凑封装（天线开关 + 滤波器插损顶在 LNA 前）约 7–10 dB，AP 约 5–7 dB。课件相当于<strong>把 NF 当成 0 dB</strong>，于是 SNR 被<strong>系统性夸大 5–10 dB</strong>。</p>
+
+  <p>更糟的是，这个遗漏暴露了课件<strong>自己的内部矛盾</strong>——你能用课件给的数字反过来证伪课件：</p>
+
+  <div class="audit major">
+    <span class="audit-tag">❌ 自相矛盾</span>
+    <p class="audit-title">MCS0：「需 ~0 dB SNR」vs「灵敏度 −93 dBm」</p>
+    <p>课件（速查表 §⑤）写 MCS0 需 <span class="wrong">~0 dB SNR</span>，灵敏度 <span class="mono">−93 dBm</span>，噪声底 <span class="mono">−101 dBm</span>。但按课件自己的公式：<span class="mono">−93 − (−101) = +8 dB</span>。<strong>这 8 dB 不是 0。</strong></p>
+    <p>这 8 dB 正好等于 <span class="right">NF(~5–6 dB) + 解调 SNR(~2 dB)</span>。换句话说，课件把两个分量都丢了，但因为它也把灵敏度数字调成了「看起来对」的值，矛盾被表面掩盖了。</p>
+  </div>
+
+  <p><strong>真实的 MCS0 要求</strong>（一手来源核对）：</p>
+  <ul>
+    <li>解调 SNR（在接收机噪声底 kTB+NF 之上）：约 <strong>2 dB</strong>。来源：[RF Essentials](https://rfessentials.com/rf-knowledge-base/what-is-the-sensitivity-requirement-for-a-wi-fi-7-receiver-at-the-maximum-data-r/) 明确给 ~2 dB。无编码 BPSK @ BER 10⁻⁵ 约 9.6 dB（[Princeton COS598A](https://www.cs.princeton.edu/courses/archive/spring17/cos598A/lectures/L3.pdf)），802.11 的 rate-½ 卷积码给 ~5–7 dB 编码增益 → 落到 ~2–4 dB。</li>
+    <li>RSSI 高于热噪声底（课件实际算的那个量）：约 <strong>7–10 dB</strong>（= NF 5–8 + 解调 SNR 2）。</li>
+  </ul>
+
+  <p>另外，<strong>IEEE 802.11n/ac MCS0 @ 20 MHz 的最低灵敏度标准是 −82 dBm</strong>（[NI WLAN 测试 PDF](http://download.ni.com/evaluation/rf/Introduction_to_WLAN_Testing.pdf) 的表），不是 −93；−93 更接近 <strong>802.11ax HE20 MCS0</strong>。课件没标 PHY 代际，把不同代的数字混着用了。</p>
+
+  <div class="callout key">
+    <span class="callout-title">关键的反直觉点</span>
+    <p>你以后读芯片 datasheet 的灵敏度表（比如 <span class="mono">−93 dBm @ MCS0</span>），那个数字<strong>已经把 NF 和解调 SNR 都算进去了</strong>。它就是「这台接收机在这个速率上能解调的最低 RSSI」。所以实战中你<strong>不需要</strong>自己算 NF——<strong>直接拿 datasheet 灵敏度表对照 RSSI</strong> 就行。课件第 3 课「RSSI 对照灵敏度表判 MCS」的思路是对的；错的是第 4 课额外加的那层「SNR = RSSI − 热噪声底」——那一步缺了 NF，把简单的事搞歪了。</p>
+  </div>
+
+  <p class="src">
+    <strong>来源：</strong>
+    [RF Essentials — Noise Floor/BW/NF 关系](https://rfessentials.com/rf-knowledge-base/what-is-the-relationship-between-noise-floor-bandwidth-and-noise-figure-in-a-rec/) ·
+    [RF Essentials — Wi-Fi 7 灵敏度要求（MCS0 SNR≈2 dB）](https://rfessentials.com/rf-knowledge-base/what-is-the-sensitivity-requirement-for-a-wi-fi-7-receiver-at-the-maximum-data-r/) ·
+    [Marki Microwave — NF 与灵敏度](https://markimicrowave.com/technical-resources/application-notes/noise-figure-receiver-sensitivity-guide/) ·
+    [Rohde & Schwarz — 接收机 NF](https://www.rohde-schwarz.com/us/applications/examining-receiver-noise-figure_56279-1170880.html) ·
+    [ECC Report 288（CEPT，Wi-Fi 典型 NF 10 dB）](https://docdb.cept.org/download/4d5f88b8-7f6d/ECC%2520Report%2520288.pdf) ·
+    [NI — WLAN 测量入门（MCS0 = −82 dBm）](http://download.ni.com/evaluation/rf/Introduction_to_WLAN_Testing.pdf)
+  </p>
+
+  <div class="callout">
+    <span class="callout-title">怎么修（二选一）</span>
+    <p><strong>(a) CWNA 经验路线</strong>：噪声底用<strong>实测值</strong>（如频谱仪测的 −95 dBm），SNR = 信号 − 实测噪声底，灵敏度用厂商表。NF 隐含在实测噪声底和灵敏度数字里。这条路简单、贴近实战，CWNA 就是这么干的。</p>
+    <p><strong>(b) RF 工程严格路线</strong>：保留 kTB 公式，但加 NF 项：<span class="mono">Sensitivity = −174 + 10log(B) + NF + SNR_req</span>，给 NF 一个值（AP 5–7 dB / STA 7–10 dB），给 MCS0 SNR_req ≈ 2 dB。这条路精确、适合固件 RF/PHY 调参场景。</p>
+    <p><strong>别再两头不靠</strong>——当前课件借了 kTB 物理公式，又丢了 NF 项，是两种路线的混合体。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2 id="sifs">精度问题：SIFS 四分量拆解数字不是标准值</h2>
+
+  <p>第 5 课的「教学坦白」框、<a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a>、<a href="../GLOSSARY.md">术语表</a> 都写了 SIFS 的四分量拆解：</p>
+
+  <span class="formula">
+    <span class="label">课件当前写法 / As taught</span>
+    aSIFSTime = aRxRFDelay + aRxPLCPDelay + aMACProcessingDelay + aRxTxTurnaroundTime<br>
+    802.11a 拆解：RxRF ~0.5 μs + PLCP 解码 ~12.5 μs + MAC ~0.5 μs + RxTx ~2 μs = 16 μs
+  </span>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 公式对</span>
+    <p class="audit-title">四分量公式本身是标准原文</p>
+    <p>这个公式逐字见于 [CWNP《802.11 Arbitration》白皮书](https://www.cwnp.com/uploads/802-11_arbitration.pdf)、IEEE TGj 的 comment-resolution 记录、Rutgers WINLAB 的 802.11 MAC 字典。<strong>形式正确。</strong></p>
+  </div>
+
+  <div class="audit ok">
+    <span class="audit-tag">✅ 核心论点对</span>
+    <p class="audit-title">「接收机处理占大头，收发切换是小头」</p>
+    <p>这个论点<strong>正确且重要</strong>——它纠正了「SIFS 就是收发切换时间」的常见误解。RxTx 切换标准上界 <span class="mono">&lt; 2 μs</span>，只占 16 μs 的 ~12%；接收机处理（RF + PLCP）才是大头（~75–88%）。这也是为什么 802.11a 的 SIFS（16 μs）比 802.11b（10 μs）长——OFDM 接收机要做 AFC、FFT、串并转换、Viterbi 译码，DSSS 接收机简单得多。</p>
+  </div>
+
+  <div class="audit minor">
+    <span class="audit-tag">⚠️ 数字需修</span>
+    <p class="audit-title">「0.5 / 12.5 / 0.5 / 2 μs」不是标准值</p>
+    <p>IEEE Table 93（OFDM PHY 特性表）<strong>只钉死总和 16 μs + 两个上界</strong>：<span class="mono">aRxTxTurnaroundTime &lt; 2 μs</span>、<span class="mono">aMACProcessingDelay &lt; 2 μs</span>。而 <span class="mono">aRxRFDelay</span> / <span class="mono">aRxPLCPDelay</span> 标的是「Implementation dependent」——<strong>标准不给他们固定数值</strong>。</p>
+    <p>课件那组 <span class="wrong">0.5 / 12.5 / 0.5 / 2</span> 实际来自 [专利 WO2015186941A1](https://patentimages.storage.googleapis.com/04/3e/0a/34a7fb5624f67a/WO2015186941A1.pdf) 的一个示例，不是标准值。</p>
+    <p><strong>更权威的拆解</strong>来自 [IEEE 802.11-99/062](https://www.ieee802.org/11/Documents/DocumentArchives/1999_docs/906272W-LB17-Comment-802.pdf)（NTT 的 Morikura 在 1999 年定稿时的意见）：接收机处理 ~14 μs = AFC 4 μs + 串并转换 4 μs + FFT 4 μs + 译码 2 μs。[NI 的参考实现](https://www.ni.com/en/support/documentation/supplemental/16/labview-communications-802-11-application-framework-2-0-and-2-0-.html)实测 D1 ≈ 12 μs。</p>
+    <p>所以「78%」「12.5 μs PLCP」这个<strong>量级站得住</strong>，但「12.5 μs PLCP」把 FFT、串并转换都算进 PLCP 了——FFT 是数字前端，不严格属于 PLCP。<strong>更准的说法</strong>：接收机侧处理（含 AFC、FFT、译码）是大头（~12–14 μs）。</p>
+  </div>
+
+  <div class="callout">
+    <span class="callout-title">怎么修</span>
+    <p>把「0.5/12.5/0.5/2」标为「<strong>典型/示意值</strong>」，并改引 IEEE 99/062 的推导（接收机处理 ~12–14 μs，含 AFC/FFT/译码），或至少注明「此拆解为专利示例，标准只规定总和与上界」。核心论点（接收机处理是大头）保留不动。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2 id="reg">精度问题：法规功率标签贴错频段</h2>
+
+  <p><a href="../reference/rf-math-cheatsheet.html">RF 速查表 §③</a> 的 dBm↔mW 对照表里，两条法规标注都不对：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>课件标签</th><th>课件含义</th><th>权威实际值</th><th>问题</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">+23 dBm = 200 mW</td>
+        <td>「2.4 GHz 法规上限附近」</td>
+        <td class="bad">FCC 2.4G：30 dBm 传导 / 36 dBm EIRP；ETSI 2.4G：20 dBm EIRP（100 mW）</td>
+        <td class="bad">23 dBm 既离 FCC 远，又超 ETSI 3 dB（欧洲不合规）。<strong>23 dBm 其实是 ETSI 5 GHz 室内限值</strong>，被错贴到 2.4G。</td>
+      </tr>
+      <tr>
+        <td class="num">+30 dBm = 1 W</td>
+        <td>「5 GHz 室外 AP 上限」</td>
+        <td class="bad">FCC U-NII-3 室外：30 dBm 传导 / 36 dBm EIRP；ETSI 5G 室外：基本不允许 &gt;23 dBm</td>
+        <td class="bad">仅对 FCC 成立，且室外更该看 36 dBm EIRP。ETSI 无此数。30 dBm 又恰好等于 FCC 2.4G 传导限——<strong>等于把「FCC 2.4G 传导数」贴给了「5G 室外」</strong>。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="src">
+    <strong>来源：</strong>
+    [FCC §15.247（2.4 GHz）](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-C/subject-group-ECFR2f2e5828339709e/section-15.247) ·
+    [FCC Part 15 Subpart E（U-NII / 5 GHz）](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-E) ·
+    [ETSI EN 300 328（2.4 GHz，EIRP 20 dBm）](https://www.etsi.org/deliver/etsi_en/300300_300399/300328/02.00.20_20/en_300328v020020a.pdf) ·
+    [ETSI EN 301 893（5 GHz，室内 23 dBm）](https://www.etsi.org/deliver/etsi_en/301800_301899/301893/02.02.01_60/en_301893v020201p.pdf)
+  </p>
+
+  <div class="callout">
+    <span class="callout-title">怎么修</span>
+    <p><strong>2.4 GHz</strong>：FCC 传导 30 dBm / EIRP 36 dBm；ETSI EIRP 20 dBm（100 mW）。<br>
+    <strong>5 GHz 室外</strong>：FCC U-NII-3 传导 30 dBm / EIRP 36 dBm；ETSI 以室内为主，23 dBm。<br>
+    法规是<strong>分地区 + 分频段 + 分室内外</strong>的，速查表里一行讲不清，建议要么删掉法规列、要么标「典型值，细节查当地法规」。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2 id="misc">小问题：算例差 1 dB + quiz 标题矛盾</h2>
+
+  <div class="audit minor">
+    <span class="audit-tag">⚠️ 1 dB 偏差</span>
+    <p class="audit-title">速查表 §⑦A 与课程正文不一致</p>
+    <p><a href="../reference/rf-math-cheatsheet.html">rf-math-cheatsheet §⑦A</a> 写「近距离 5 GHz, 20 m → RSSI <span class="wrong">−48 dBm</span> → SNR +53 dB」。但<a href="./0004-noise-floor-snr.html">第 4 课</a>和<a href="./0003-rf-fundamentals.html">第 3 课</a>正文同一场景算的是 RSSI <span class="right">−49 dBm</span> → +52 dB。<strong>同一工作区内 1 dB 漂移</strong>，应统一（建议都以 −49 dBm 为准，因为第 3 课的链路预算明细算出来的就是 −49）。</p>
+  </div>
+
+  <div class="audit minor">
+    <span class="audit-tag">⚠️ quiz 标题与正文打架</span>
+    <p class="audit-title">第 4 课 quiz：「Wi-Fi 比 LoRa 差 30 dB 因带宽」</p>
+    <p class="audit-loc">lessons/0004-noise-floor-snr.html（quiz 题 2）</p>
+    <p>题干归因「带宽」，但选项解释（22 dB 带宽 + 8 dB 调制）是对的，而且<strong>本课自己的「纠错记录」框</strong>（对应 LR-0008）已写明「LoRa 灵敏度高的核心是 SF 的处理增益，BW 是次要因素」。<strong>标题与正文/纠错框自相矛盾</strong>。应把标题改成「带宽 + 调制/SF 处理增益」。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2 id="meta">方法论：CWNA 经验路线 vs RF 工程路线</h2>
+
+  <p>这次核查顺带暴露一个<strong>更深的方法论问题</strong>，值得单独记一笔。</p>
+
+  <p>直接抽取工作区根目录的 CWNA-108（第 6 版）PDF 全文搜，「noise figure」<strong>零命中</strong>。也就是说：</p>
+
+  <ul>
+    <li><strong>CWNA 走经验路线</strong>：噪声底是<strong>实测/环境值</strong>（如「2.4 GHz ISM 信道典型 −100 dBm，工厂 −90 dBm」），SNR = 信号 − 实测噪声底，灵敏度是厂商每速率门限表，链路预算用「Rule of 10s and 3s」近似。<strong>不教 kTB 物理公式。</strong></li>
+    <li><strong>RF 工程走严格路线</strong>：kTB + NF + 解调 SNR，每个项都要算。</li>
+    <li><strong>当前课程两头不靠</strong>：借了 kTB 物理公式（CWNA 不用），又丢了 RF 工程的 NF 项 → 既不简单也不严格。</li>
+  </ul>
+
+  <div class="callout key">
+    <span class="callout-title">给你的建议（作为固件工程师）</span>
+    <p>你是<strong>协议栈/驱动</strong>方向，不是 RFIC 方向。所以<strong>实战里走 CWNA 经验路线就够</strong>——读 datasheet 灵敏度表、用工具测噪声底，不需要手算 NF。kTB 公式留作「理解为什么带宽影响灵敏度」的物理直觉即可（这点第 4 课的带宽对比讲对了）。<strong>第 4 课的「SNR = RSSI − 热噪声底」那层算式建议弱化或删掉</strong>，因为它既不准（漏 NF）也不是你日常要做的（你直接查表）。真正对你有用的是：RSSI 实测 → 对照 datasheet 灵敏度表 → 判 MCS。这条第 3 课已经讲对了。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>这课的钉子：不迷信课件，也不迷信单点资料</h2>
+
+  <p>这节核查课的钉子不是某个具体数字，而是<strong>一个习惯</strong>：</p>
+  <ul>
+    <li><strong>课件是脚手架，不是真理</strong>。LR-0006 让课件成为唯一输入，这放大了错误的影响——所以更要勤核对。</li>
+    <li><strong>核对要找一手</strong>：IEEE 标准原文 &gt; 标准制定过程记录（如 802.11-99/062）&gt; CWNP 白皮书 / NI 参考实现 &gt; 厂商 datasheet &gt; 博客。越靠前越权威。</li>
+    <li><strong>数字会漂</strong>：课件里这次发现 1 dB 偏差、法规标签错位、SIFS 拆解用了专利示例——都是「看起来对、细查有出入」的典型。养成「存疑就标 [待核对]」的习惯。</li>
+    <li><strong>最该修的是 SNR/NF 那处</strong>，因为它直接污染你对「灵敏度怎么来的」这个核心模型的理解。其余是精度问题，不伤根本。</li>
+  </ul>
+
+  <p>完整的核查细节（含每条断言的来源链接、IEEE 标准条款号）已记入 <a href="../learning-records/0016-fact-audit-rf-and-regulatory.md">LR-0016</a>，可当修复清单用。</p>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">两个走向，你选</span>
+    <p><strong>(A) 先修课</strong>：我按本课列的清单，修订第 4 课（NF）、速查表（法规标签 + 1 dB）、第 5 课/SIFS（标示意值），出修订版。修完再继续新内容。这条路保证地基干净。</p>
+    <p><strong>(B) 继续推进</strong>：按原计划进主线第 8 课（Power Save 省电模式：AID/TIM/PS-Poll 三件套），把核查结论记成 LR-0016 留着，等后面 RF/PHY 课再系统修订。这条路不中断进度。</p>
+    <p>我建议 <strong>(A) 先修 RF 那处</strong>（它最影响理解），其余可留。但你来定。</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="lesson-foot">
+    <p>
+      <strong>本课性质</strong>：事实核查专题，不引入新概念。<br>
+      <a href="./0007-sta-association-flow.html">← 第 7 课</a> ·
+      <a href="../learning-records/0016-fact-audit-rf-and-regulatory.md">LR-0016 核查清单</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../RESOURCES.md">资源</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「RF/NF 那处先修，其余按 (A) 走」<br>
+      • 「CWNA 经验路线就够，NF 那层直接删」<br>
+      • 「SIFS 拆解我想看 IEEE 99/062 原文推导」<br>
+      • 「法规这块我自己查 FCC/ETSI，课件删掉法规列即可」<br>
+      • 「继续推进 Power Save，修订留到后面」<br>
+      你的选择决定下一步是修课还是推进。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

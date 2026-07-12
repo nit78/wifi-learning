@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 5 课 · CSMA/CA 退避 —— 分布式竞争怎么不打架</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .timeline {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.45;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.9rem 1rem;
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .timeline .axis { color: var(--ink-faint); }
+  .timeline .difs { color: #b8761c; font-weight: 600; }
+  .timeline .sifs { color: #2f6b42; font-weight: 600; }
+  .timeline .backoff { color: var(--accent); font-weight: 600; }
+  .timeline .frame { color: var(--ink); font-weight: 600; }
+
+  .formula {
+    display: block;
+    font-family: var(--mono);
+    background: #f5f1e8;
+    border-left: 3px solid var(--accent);
+    padding: 0.7rem 1rem;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .formula .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .num-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.88rem;
+    margin: 1.4rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .num-table th, .num-table td {
+    padding: 0.5rem 0.85rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .num-table thead th {
+    background: #f3efe6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .num-table tbody tr:last-child td { border-bottom: none; }
+  .num-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .num-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 5 课 / Lesson 0005 · CSMA/CA 退避 · 协议主线 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="./0004-noise-floor-snr.html">← 第 4 课</a>
+  </div>
+
+  <h1>CSMA/CA 退避 —— 分布式竞争怎么不打架</h1>
+
+  <p>RF 数学告一段落，进入<strong>协议主线</strong> —— 这是你的强项区。第 1 课埋了一根钉子：「Wi-Fi 是分布式竞争，不像蓝牙的调度式 TDMA（时分多址）」。那课只讲了<strong>范式</strong>，这课讲<strong>机制</strong>：分布式竞争具体怎么操作，靠什么尽量避免碰撞。</p>
+
+  <p>你做过协议栈，对「状态机、时序、帧交换」很熟。所以这课用协议栈视角切入 —— CSMA/CA（载波侦听多址接入 / 碰撞避免）本质就是<strong>一个 MAC（介质访问控制层）状态机 + 一组时序规则</strong>。你脑子里可以一直对照：「这步在我做的 BT/sub-G 协议栈里对应什么」。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：CSMA/CA = 先听 + 等随机时间 + 发</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>CSMA/CA 的全部机制可以压缩成一句话：<strong>想发 → 先听信道空闲一段时间（DIFS，DCF 帧间间隔）→ 再等一个随机退避（backoff）→ 然后发</strong>。DIFS 是固定的「准入门槛」，backoff 是随机的「错峰手段」。两者一起，让一堆无中心的 STA 尽量不撞车。</p>
+  </div>
+
+  <span class="sidenote">
+    和 BT 的根本对照：BT 由 master 分配 slot，<strong>时间表是定的</strong>；Wi-Fi 没有 master 发时刻表，每个 STA（站点）<strong>自己算一个随机时间</strong>等。这就是「调度式 vs 竞争式」在 MAC 层的具体兑现。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>时序图：一次成功的发送长什么样</h2>
+
+  <p>先把一次成功的帧发送画出来。这是整个 DCF（Distributed Coordination Function，分布式协调函数）的心脏：</p>
+
+  <div class="timeline">时间 →
+
+STA 想发数据
+  │
+  ├─ 信道忙？是 → 等
+  │   信道闲？→ 继续监听 <span class="difs">DIFS</span>（34 μs，5 GHz）
+  │                    ↓
+  │             DIFS 内一直闲？是 → 进入 backoff
+  │                    ↓
+  │             <span class="backoff">随机 backoff 计数</span>（比如 5 个 slot）
+  │             每个 slot（9 μs）信道闲 → 计数 −1
+  │                    ↓
+  │             计数 = 0 → <span class="frame">发 DATA 帧</span>
+  │                                ↓
+  │                       等 <span class="sifs">SIFS</span>（短帧间间隔，16 μs）
+  │                                ↓
+  │                       收到 AP（接入点）的 <span class="frame">ACK (确认帧)</span>  ✓ 成功
+  │                                ↓
+  │                       CW 重置回 CWmin (最小竞争窗口)，本次结束
+  │
+  └─ 若 DIFS 内信道变忙 → 重新等 DIFS（不递减 backoff）
+     若 backoff 中信道变忙 → 冻结计数，等信道闲 + DIFS 后继续递减
+</div>
+
+  <p>三个要点，记牢：</p>
+  <ol>
+    <li><strong>DIFS 是「准入门槛」</strong>：必须先连续空闲 DIFS（34 μs），才有资格进入 backoff。这一步过滤掉「刚刚有人发完」的时段。</li>
+    <li><strong>backoff 是「随机错峰」</strong>：从 [0, CW] 里随机选一个数，按 slot 递减。多个 STA 即使同时通过 DIFS，<strong>随机数不同</strong>，大概率不会同时发。</li>
+    <li><strong>SIFS 比 DIFS 短</strong>：所以 ACK（用 SIFS）<strong>一定比</strong>新数据（用 DIFS）先抢到信道。进行中的对话优先级高于新对话。</li>
+  </ol>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>IFS 家族：用时间间隔做优先级</h2>
+
+  <p>上面的 DIFS、SIFS 都是 IFS（Interframe Space，帧间间隔）。802.11 用<strong>不同长度的 IFS 实现优先级</strong> —— 短 IFS = 高优先级。这是协议栈工程师应该觉得眼熟的设计（类似中断优先级）。</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>IFS</th><th>802.11a (5 GHz)</th><th>802.11b (2.4 GHz)</th><th>用途 / 优先级</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num"><strong>SIFS</strong></td>  <td class="num">16 μs</td>  <td class="num">10 μs</td>  <td>最高。ACK、CTS (允许发送)、继续已开始的帧交换</td></tr>
+      <tr><td class="num">PIFS (PCF 帧间间隔)</td>  <td class="num">25 μs</td>  <td class="num">30 μs</td>  <td>中。AP 轮询用（PCF，实际很少用）</td></tr>
+      <tr><td class="num"><strong>DIFS</strong></td>  <td class="num">34 μs</td>  <td class="num">50 μs</td>  <td>普通。普通数据帧发起接入</td></tr>
+      <tr><td class="num">EIFS (扩展帧间间隔)</td>   <td class="num">更长</td>    <td class="num">更长</td>   <td>收到错误帧后用（等更久，避免踩到看不懂的交换）</td></tr>
+      <tr><td class="num">AIFS (仲裁帧间间隔)</td>   <td class="num">可变</td>    <td class="num">可变</td>   <td>QoS (服务质量) 用，802.11e / EDCA (增强分布式信道接入) 按业务类型分优先级</td></tr>
+    </tbody>
+  </table>
+
+  <span class="formula">
+    <span class="label">IFS 的换算关系</span>
+    SIFS &lt; PIFS = SIFS + 1×SlotTime（时隙） &lt; DIFS = SIFS + 2×SlotTime
+  </span>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>你在 BT 协议栈里调过 T_IFS（帧间间隔）。BT 的 IFS 主要是「保证收发转换的物理时间」，<strong>单一值</strong>。Wi-Fi 把 IFS <strong>分成多个等级</strong>，用来做接入优先级 —— 这是竞争式系统特有的：没有 master 调度优先级，只能靠「谁等得短谁先发」来区分。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>Backoff 与 CW：随机错峰的数学</h2>
+
+  <p>backoff 计数器从 <strong>CW（Contention Window，竞争窗口）</strong> 里随机取。CW 不是固定的，会随碰撞动态变化 —— 这就是 BEB。</p>
+
+  <p>具体规则：</p>
+  <ol>
+    <li><strong>首次发送</strong>：CW = CWmin = 15（802.11a）。从 [0, 15] 随机选一个数（比如 7）。</li>
+    <li><strong>按 slot 递减</strong>：每过一个空闲 slot（9 μs），计数 −1。信道忙时<strong>冻结</strong>，不递减。</li>
+    <li><strong>计数到 0 → 发送</strong>。</li>
+    <li><strong>收到 ACK → 成功</strong>，CW 重置回 CWmin = 15。</li>
+    <li><strong>没收到 ACK（超时）→ 判定碰撞</strong>，CW 翻倍，重选 backoff，重试。</li>
+  </ol>
+
+  <span class="formula">
+    <span class="label">BEB（二进制指数退避）公式</span>
+    CW = 2ⁿ · (CWmin + 1) − 1<br>
+    n = 重试次数，封顶 CWmax (最大竞争窗口) = 1023
+  </span>
+
+  <p>看 CW 怎么随碰撞增长（802.11a）：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>重试次数 n</th><th>CW</th><th>随机取值范围 [0, CW]</th><th>平均等待</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">0（首次）</td>  <td class="num">15</td>    <td class="num">[0, 15]</td>    <td>8 slot</td></tr>
+      <tr><td class="num">1</td>           <td class="num">31</td>    <td class="num">[0, 31]</td>    <td>16 slot</td></tr>
+      <tr><td class="num">2</td>           <td class="num">63</td>    <td class="num">[0, 63]</td>    <td>32 slot</td></tr>
+      <tr><td class="num">3</td>           <td class="num">127</td>   <td class="num">[0, 127]</td>   <td>64 slot</td></tr>
+      <tr><td class="num">...</td>         <td class="num">...</td>   <td class="num">...</td>        <td>...</td></tr>
+      <tr><td class="num">6（封顶）</td>   <td class="num">1023</td>  <td class="num">[0, 1023]</td>  <td>512 slot</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout key">
+    <span class="callout-title">BEB 的精妙之处</span>
+    <p><strong>碰撞越多，CW 越大，等待越久</strong>。这像自助调节的「退让」：信道拥挤时大家自动拉长退避，给彼此更多空间；空闲时 CW 回到 15，快速发送。这是<strong>无中心的自适应拥塞控制</strong>，不需要 AP 介入。</p>
+    <p>对比 BT：BT 的 slot 由 master 定，不需要这种自适应 —— 调度式系统天然不碰撞。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>为什么还会碰撞？（第 1 课的悬案）</h2>
+
+  <p>第 1 课我问过：「CSMA/CA 先听后说，为什么还会碰撞？」现在你能看懂两个答案了：</p>
+
+  <h3>原因 1：退避撞车（概率碰撞）</h3>
+  <p>两个 STA 同时通过 DIFS，进入 backoff。如果它们<strong>随机数恰好相同或接近</strong>，计数同时归零 → 同时发送 → 碰撞。这是概率事件，无法完全消除，只能靠 BEB 在多次碰撞后把 CW 拉大，<strong>降低</strong>再次撞车的概率。</p>
+
+  <h3>原因 2：隐藏节点（hidden node）</h3>
+  <p>这是 CSMA/CA「先听后说」<strong>结构性无能为力</strong>的场景：</p>
+
+  <div class="timeline">
+       (听不到彼此)
+   STA-A ◄──── 听不到 ────► STA-C
+      \                          /
+       \   A 发时 C 听不到       /
+        \                        /
+         \  C 发时 A 也听不到   /
+          \                    /
+           \                  /
+            \    都能到 AP   /
+             ▼              ▼
+               ┌──────────┐
+               │   AP     │  ← A、C 同时发 → AP 处碰撞
+               └──────────┘
+  </div>
+
+  <p>A 发给 AP 时，C 因为听不到 A，CCA（信道空闲评估）判断信道闲 → C 也发 → 在 AP 处撞。<strong>A 和 C 互相隐藏，所以叫隐藏节点。</strong>「先听后说」在这失效，因为听不到的对方恰恰就是会撞你的人。</p>
+
+  <div class="callout">
+    <span class="callout-title">缓解：RTS/CTS 握手</span>
+    <p>802.11 为隐藏节点设计了 <strong>RTS/CTS</strong>。A 想发数据前，先发一个短的 RTS (请求发送) 给 AP；AP 回 CTS（用 SIFS，高优先级）。CTS 是<strong>广播</strong>的，A 和 C 都能听到。C 听到 AP 说「我要收 A 的数据」，就知道该退避。代价：每次发送多了两个控制帧，小数据不划算，所以通常<strong>只对大数据帧启用</strong>（有阈值 RTS threshold）。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：这套机制落在代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>这套 CSMA/CA 机制大部分在<strong>固件/硬件</strong>里实现（CCA、backoff 计时、SIFS 响应都是微秒级，软件来不及），驱动栈层面你主要打交道的是：</p>
+    <ul>
+      <li><strong>tx 路径</strong>：把帧交给固件排队，固件按 DCF 规则发送。你看到的是「提交后等多久 TX 状态回来」—— 这个延迟里就包含 DIFS + backoff。</li>
+      <li><strong>重传与 retry count</strong>：没收到 ACK 时，固件按 BEB 重试，达到 retry limit 上报失败。驱动层看到的「重传次数」反映信道拥塞程度。</li>
+      <li><strong>QoS / WMM（EDCA）</strong>：不同 AC（语音/视频/尽力而为/背景）用不同 AIFS 和 CW 范围。驱动按业务类型分队列，固件按 AIFS 接入。这是 802.11e 的内容，后续课展开。</li>
+      <li><strong>调试信号</strong>：连续 high retry count / 低 ACK 率 → 信道拥挤或隐藏节点；高 PER + 正常 retry → RF 问题（回看第 4 课 SNR）。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：协议主线立稳了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="802.11a 中，普通数据帧发送前必须先连续空闲多久（DIFS）？"
+       data-explain="DIFS = SIFS + 2×SlotTime = 16 + 2×9 = 34 μs（802.11a/5 GHz）。这是「准入门槛」—— 必须连续空闲这么久，才有资格进入 backoff。">
+    <script type="application/json">
+      [
+        { "text": "34 μs（= SIFS + 2×SlotTime）", "correct": true },
+        { "text": "16 μs（= SIFS 本身）",          "correct": false },
+        { "text": "9 μs（= 一个 SlotTime）",        "correct": false },
+        { "text": "25 μs（= PIFS）",                "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="两次碰撞后（n=2），802.11a 的 CW 变成多少？"
+       data-explain="BEB 公式：CW = 2ⁿ·(CWmin+1) − 1。n=2, CWmin=15：2²·(15+1) − 1 = 4·16 − 1 = 63。所以 CW=63，随机取值范围 [0, 63]。碰撞越多窗口越大。">
+    <script type="application/json">
+      [
+        { "text": "63",   "correct": true },
+        { "text": "31",   "correct": false },
+        { "text": "127",  "correct": false },
+        { "text": "15",   "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="ACK 为什么用 SIFS 而不是 DIFS？"
+       data-explain="SIFS 比 DIFS 短（16 μs vs 34 μs），所以 ACK 一定比任何新数据帧先抢到信道。这保证了「进行中的对话（DATA→ACK）优先级高于新对话」，避免一次帧交换被打断。这就是 IFS 用长度做优先级的核心。">
+    <script type="application/json">
+      [
+        { "text": "SIFS 短，保证 ACK 先于新数据抢到信道",          "correct": true },
+        { "text": "SIFS 是 DIFS 的一半，节省时间",                 "correct": false },
+        { "text": "ACK 不需要等待，所以用最短的 IFS",               "correct": false },
+        { "text": "SIFS 用于控制帧，DIFS 用于数据帧，规则如此",     "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="隐藏节点问题为什么 CSMA/CA 无法解决？"
+       data-explain="隐藏节点是「两个 STA 互相听不到，但都能到 AP」。CSMA/CA 靠「先听」，但听不到对方恰恰就是问题所在 —— CCA 判断信道闲，实际 AP 处会有碰撞。必须靠 RTS/CTS 让 AP 广播「我在收」，周围 STA 才知道退避。">
+    <script type="application/json">
+      [
+        { "text": "两个 STA 互相听不到，CCA 判断不出会撞", "correct": true },
+        { "text": "退避窗口不够大，随机数撞了",            "correct": false },
+        { "text": "DIFS 太短，STA 来不及退避",             "correct": false },
+        { "text": "ACK 丢失导致重传，加剧拥塞",            "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：第二根钉子立起来了</h2>
+
+  <p>现在你有<strong>两根钉子</strong>了：</p>
+  <ul>
+    <li><strong>钉子 1（PHY，物理层）</strong>：OFDM 频域正交（第 2 课）—— 决定「信号怎么传」</li>
+    <li><strong>钉子 2（MAC）</strong>：CSMA/CA 分布式竞争（本课）—— 决定「谁什么时候传」</li>
+  </ul>
+
+  <p>这两根钉子 + RF 工具箱（<a href="../reference/rf-math-cheatsheet.html">速查表</a>），构成了 Wi-Fi 的物理层和介质访问层的核心。<strong>之后的所有协议课（帧结构、关联流程、QoS、漫游、安全）都挂在这两根钉子上。</strong></p>
+
+  <p>你应该现在能在脑子里回答：</p>
+  <ul>
+    <li>一次成功发送的完整时序（DIFS → backoff → DATA → SIFS → ACK）</li>
+    <li>为什么 ACK 用 SIFS（短 IFS = 高优先级，保护进行中的对话）</li>
+    <li>BEB 怎么随碰撞增长（CW 倍增，封顶 1023）</li>
+    <li>两个碰撞原因（退避撞车 + 隐藏节点）和 RTS/CTS 的作用</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">两根钉子立完，进入协议细节展开</span>
+    <p>下一课（第 6 课）计划进入<strong>802.11 帧结构</strong> —— MAC 帧的类型（管理/控制/数据）、关键字段（地址、duration、seq ctl）、帧交换流程。这是你做驱动协议栈最对口的内容（帧解析、状态机），节奏会继续在强项区。</p>
+    <p>之后会按需展开：关联流程（state machine）、QoS/EDCA、漫游、安全。每完成一块就建对应速查表。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 6 课 — 802.11 MAC 帧结构（管理/控制/数据帧、关键字段、帧交换）。<br>
+      <a href="./0004-noise-floor-snr.html">← 第 4 课</a> ·
+      <a href="../reference/rf-math-cheatsheet.html">RF 速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进帧结构」<br>
+      • 「BEB 公式想再算几个例子巩固」<br>
+      • 「QoS/EDCA 的 AIFS 能展开讲吗？」<br>
+      • 「RTS/CTS 阈值在驱动里怎么配？什么时候开？」<br>
+      • 「这套时序在 mac80211 代码里对应哪些函数？」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

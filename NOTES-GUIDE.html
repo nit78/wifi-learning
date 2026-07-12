@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📓 笔记功能使用说明</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    工具说明 ·
+    <a href="MISSION.md">使命</a> ·
+    <a href="GLOSSARY.md">术语表</a>
+  </div>
+
+  <h1>📓 笔记功能使用说明</h1>
+
+  <p>你可以在<strong>任何课程页</strong>里随手记笔记，笔记会保存在浏览器里，跨课、跨天保留。</p>
+
+  <div class="callout key">
+    <span class="callout-title">核心操作</span>
+    <p><strong>选中一段文字 → 右键 → 点「📓 记笔记」</strong></p>
+    <p>就这么简单。选中的内容会自动捕获，你只需填标题（必填）、标签（可选）、自己的理解（可选），点保存。</p>
+  </div>
+
+  <h2>三步上手</h2>
+
+  <ol>
+    <li><strong>选中</strong>：在课程页用鼠标选中你想记的那段话（比如「CW = 2ⁿ·(CWmin+1) − 1」这个公式）。</li>
+    <li><strong>右键</strong>：在选中区域上点右键，会弹出一个小菜单，里面有「📓 记笔记」。</li>
+    <li><strong>填写 + 保存</strong>：弹窗里，选中的原文已自动填好。你加一个标题（比如「BEB 公式」），可选填标签（如「CSMA/CA, 退避」）和自己的理解，点保存。</li>
+  </ol>
+
+  <h2>查看与管理</h2>
+
+  <p>每个课程页<strong>右上角有一个 📓 按钮</strong>。点它打开笔记面板，可以：</p>
+  <ul>
+    <li><strong>搜索</strong>：按标题、标签、内容过滤</li>
+    <li><strong>删除</strong>：每条笔记右上角有 ✕</li>
+    <li><strong>导出</strong>：点「⬇ 导出 HTML」，把所有笔记下载成一个 <code>my-notes-日期.html</code> 文件，可存进工作区备份</li>
+  </ul>
+
+  <div class="callout">
+    <span class="callout-title">⚠️ 重要：数据存在浏览器里</span>
+    <p>笔记保存在浏览器的 <strong>localStorage</strong>，所以：</p>
+    <ul>
+      <li>✅ <strong>同一个浏览器</strong>里，所有课程页共享，关掉重开还在</li>
+      <li>❌ <strong>换浏览器、清缓存、隐私模式</strong>会丢失 —— 所以定期点「导出 HTML」备份</li>
+      <li>❌ <strong>不是真正的本地文件</strong> —— 浏览器安全限制，网页不能直接写你的硬盘</li>
+    </ul>
+    <p><strong>建议</strong>：每攒 10–20 条，导出一次，存到工作区里。</p>
+  </div>
+
+  <h2>现在试试</h2>
+
+  <p>选中下面这句话，右键记一条笔记：</p>
+
+  <blockquote>
+    CSMA/CA 的核心：想发 → 先听信道空闲 DIFS → 再等随机 backoff → 然后发。
+  </blockquote>
+
+  <p>试着把这句话记下来，标题填「CSMA/CA 流程」，标签填「MAC, 退避」。然后点右上角 📓 看看你的第一条笔记。</p>
+
+  <div class="ask-prompt">
+    💡 记笔记的最好方式是<strong>用自己的话写理解</strong>，不要只复制原文。原话课程里有，你的理解才是你自己的。哪怕只写一句「这里我懂了」也比空白强 —— 它标记了你的掌握边界。
+  </div>
+
+</main>
+<script src="assets/note-taker.js"></script>
+</body>
+</html>

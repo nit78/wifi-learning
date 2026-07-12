@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 课 · OFDM 的「正交」到底是什么</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* 本课专用的示意框 —— 复用主样式，只加少量补充 */
+  .freq-diagram {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.9rem 1rem;
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .freq-diagram .axis { color: var(--ink-faint); }
+  .freq-diagram .peak { color: var(--accent); font-weight: 600; }
+  .freq-diagram .zero { color: #6a8b78; }
+  .formula {
+    display: block;
+    font-family: var(--mono);
+    background: #f5f1e8;
+    border-left: 3px solid var(--accent);
+    padding: 0.7rem 1rem;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .formula .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 2 课 / Lesson 0002 · OFDM 正交性专题 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../RESOURCES.md">资源</a> ·
+    <a href="./0001-why-wifi-isnt-faster-bluetooth.html">← 第 1 课</a>
+  </div>
+
+  <h1>OFDM（正交频分复用）的「正交」到底是什么</h1>
+
+  <p>上一课你问「OFDM 的正交是什么意思」，答了「子载波相位差 90°」。这个回答需要纠正 —— 不是说你想错了，而是<strong>它答的是另一个「正交」</strong>。这课的目标，就是让你从此<strong>再也不会把两种正交搞混</strong>，并且建立 OFDM 频域正交的几何直觉。</p>
+
+  <p>这课对你尤其关键，因为你做的是 <strong>sub-GHz 窄带协议栈</strong>（FSK/LoRa 类，单载波或少量载波）。OFDM「几十上百个子载波并行」是和你过往经验最大的断层 —— 也是 WiFi 能比 sub-GHz 快两个数量级的根本原因。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>先纠正：两个「正交」是不同层面</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>无线电里有两层「正交」，必须分清：</p>
+    <ul>
+      <li><strong>I/Q（同相 / 正交）正交（QAM (正交幅度调制) 用）</strong>：单个载波内，cos 与 sin 两路，<strong>相位差 90°</strong>，承载 I、Q 两路基带数据。</li>
+      <li><strong>OFDM 正交（WiFi 用）</strong>：多个子载波<strong>之间</strong>，靠<strong>频率间隔精确 = 1/T</strong>，频域 sinc（sinc 函数）零点对齐，频谱可重叠而互不干扰。</li>
+    </ul>
+    <p>记口诀：<strong>「相位差 90° 是一个波里两路；频率差 1/T 是多个波之间。」</strong></p>
+  </div>
+
+  <p>为什么这两层会搞混？因为它们都用「正交」这个词，但指的是不同的数学对象：</p>
+
+  <div class="compare"
+       data-caption="两种「正交」的对照 —— 别再用一个解释另一个">
+    <script type="application/json">
+      [
+        { "aspect": "作用范围 Scope",
+          "bt":   "—",
+          "wifi": "I/Q 在单载波内；OFDM 在多子载波间" },
+        { "aspect": "正交对象 Orthogonality of",
+          "bt":   "—",
+          "wifi": "I/Q: 两个基带信号；OFDM: 多个子载波函数" },
+        { "aspect": "机制 Mechanism",
+          "bt":   "—",
+          "wifi": "I/Q: 相位差 90°；OFDM: 频率间隔 = 1/T" },
+        { "aspect": "效果 Effect",
+          "bt":   "—",
+          "wifi": "I/Q: 单载波容量翻倍；OFDM: 频谱重叠互不干扰" },
+        { "aspect": "谁用谁 Who uses it",
+          "bt":   "BT GFSK（高斯频移键控）也用 I/Q（FSK 调制在 I/Q 上）",
+          "wifi": "WiFi 两者都用：I/Q 在每个子载波内部，OFDM 在子载波之间" }
+      ]
+    </script>
+  </div>
+
+  <span class="sidenote">
+    关键：WiFi <strong>两个正交都用</strong> —— OFDM 把信道切成多个子载波，每个子载波内部再用 I/Q + QAM。先搞清这层嵌套，后面 MCS（调制与编码方案）、调制阶数才不会乱。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>为什么需要 OFDM：sub-GHz 的直觉先放一边</h2>
+
+  <p>先做个思想实验，唤起你的 sub-GHz 直觉。LoRa / FSK 里，一个载波承载一个数据流。要传更快？两条路：</p>
+
+  <ol>
+    <li><strong>加大带宽</strong>：FSK 调频更快，但单载波太宽会被多径信道毁掉（不同频率分量到达时间不同 → 信号畸变）。</li>
+    <li><strong>用多个载波</strong>：把数据分到 N 个窄载波上并行发。问题来了 —— <strong>窄载波之间怎么隔开？</strong></li>
+  </ol>
+
+  <p>最朴素的办法：每个载波之间留<strong>保护频带</strong>（guard band），互不重叠 —— 这叫 <strong>FDM</strong>（Frequency Division Multiplexing，传统频分复用，无线电早期就这么干）。FDM 简单但<strong>浪费频谱</strong>：保护频带占了大头。</p>
+
+  <p>OFDM 的天才之处：能不能让子载波<strong>重叠</strong>，又<strong>互不干扰</strong>？答案就是「频率间隔 = 1/T」。这把 FDM 的保护频带全节省了，频谱效率直接翻几倍。</p>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From sub-GHz</span>
+    <p>你做 sub-GHz 单载波 FSK/LoRa，频谱是<strong>一个宽 sinc 主瓣</strong>。OFDM 换了个思路：把<strong>很多个窄 sinc 并排，让它们的零点对齐到彼此的中心</strong>。窄子载波抗多径，密集排布省频谱，两全其美。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>核心公式：Δf = 1/T</h2>
+
+  <p>整节课其实就靠这一条公式撑起来。把它刻进脑子：</p>
+
+  <span class="formula">
+    <span class="label">OFDM 正交的根条件 / Root condition</span>
+    Δf = 1 / T_symbol
+  </span>
+
+  <p>含义：相邻两个子载波的<strong>频率差</strong>，必须精确等于<strong>一个 OFDM 符号周期</strong>的倒数。代入 802.11a 的实际数字感受一下：</p>
+
+  <span class="formula">
+    <span class="label">802.11a 的实际取值 / 802.11a numbers</span>
+    T_symbol = 3.2 μs<br>
+    Δf = 1 / 3.2 μs = 312.5 kHz<br>
+    20 MHz 信道 ÷ 312.5 kHz ≈ 64 个子载波（其中 52 个有效，其余做保护/直流）
+  </span>
+
+  <p>这个 312.5 kHz 不是随便选的 —— 它<strong>必须</strong>等于 1/T，否则正交破坏。这也是为什么 802.11 标准里符号周期和子载波间隔是<strong>捆绑定义</strong>的，不能单独改。</p>
+
+  <div class="callout firmware">
+    <span class="callout-title">对固件重要 / For Driver Stack</span>
+    <p>在驱动/协议栈层，你看到的不是「子载波」，而是<strong>整条 OFDM 符号</strong>。但理解 Δf = 1/T 能解释几个你迟早会遇到的驱动现象：① 802.11ax 把 Δf 从 312.5 kHz 砍到 78.125 kHz（符号周期 ×4），是为了<strong>更长符号抗多径</strong>，代价是相同带宽下子载波数 ×4；② <strong>Doppler（多普勒）频偏</strong>（移动场景）会破坏正交 → ICI（子载波间干扰），驱动层会看到 MCS 自动降档。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>几何直觉：sinc 零点对齐</h2>
+
+  <p>公式之外，给你一个能<strong>在脑子里画出来</strong>的直觉。一个持续 T 秒的纯正弦波（一个子载波），它的频谱长这样（sinc 函数）：</p>
+
+  <div class="freq-diagram">  <span class="axis">幅度
+    ↑</span>
+  <span class="peak">  │   ●</span>          ← 子载波 1 的中心，幅度最高
+  <span class="axis">  │  ╱│╲</span>
+  <span class="axis">  │ ╱ │ ╲      ●</span>   ← 子载波 2 的中心（间距 Δf）
+  <span class="axis">  │╱  │  ╲    ╱│╲</span>
+  <span class="zero">──┼───┼───╳───┼──┼──→ 频率</span>
+  <span class="zero">零点  零点  零点</span>     ← 子载波 1 的零点恰好落在子载波 2 的中心
+                       ↑
+              子载波 1 的频谱在子载波 2 中心处 = 0
+</div>
+
+  <p>关键：每个子载波频谱的<strong>零点</strong>（sinc 函数过零的位置），间距正好是 1/T = Δf。所以当你把第二个子载波放在 Δf 处时，<strong>它落在第一个子载波的零点上</strong>。在接收端，对准某子载波中心采样，<strong>其他所有子载波在那里贡献都恰好为零</strong> —— 这就是「正交」。</p>
+
+  <p>数学上更精确的说法：任意两个子载波在一个符号周期 T 内做<strong>内积（积分）</strong>，结果为零。内积为零 = 正交 = 互不干扰。WiFi 接收机用一个 FFT（快速傅里叶变换）就能把所有子载波同时分离出来 —— 这也是 OFDM 能用数字电路高效实现的关键（不用几百个模拟滤波器）。</p>
+
+  <span class="sidenote">
+    术语：「内积为零」是「正交」的严格定义 —— 几何上就是两个向量互相垂直。OFDM 的子载波在<strong>函数空间</strong>里互相垂直，所以叫正交。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>代价：正交不是免费的</h2>
+
+  <p>OFDM 的频谱效率漂亮，但它付了三个代价 —— 这些代价就是 CWNA 第 6 章（PHY，物理层）和驱动调试时你会反复遇到的问题：</p>
+
+  <div class="compare"
+       data-caption="OFDM 的三个代价（与你 sub-GHz 窄带对比）">
+    <script type="application/json">
+      [
+        { "aspect": "PAPR 高峰均比",
+          "bt":   "单载波 FSK 恒包络，功放效率高",
+          "wifi": "多子载波叠加偶尔出现大峰值 → 功放易饱和、耗电（驱动要做功率回退）" },
+        { "aspect": "多径敏感 → 需 CP（循环前缀）",
+          "bt":   "窄带 + FHSS（跳频扩频）跳频天然抗多径",
+          "wifi": "符号要插 Guard Interval（保护间隔）/ Cyclic Prefix 吸收多径时延（占带宽 ~20%）" },
+        { "aspect": "频偏 / 相位噪声敏感",
+          "bt":   "窄带对晶振精度要求低",
+          "wifi": "Δf 只有 312.5 kHz，几 kHz 频偏就破坏正交 → ICI；要求高精度晶振" }
+      ]
+    </script>
+  </div>
+
+  <p>这三条中，<strong>频偏敏感</strong>对你做驱动最直接 —— 关联失败、MCS 异常降档、吞吐暴跌，根因常常是晶振频偏或 Doppler。后面进入 PHY 课会再展开。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：拿到支点了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="802.11a 的子载波间隔是 312.5 kHz，这个数字是怎么来的？"
+       data-explain="OFDM 正交的根条件 Δf = 1/T。802.11a 符号周期 T = 3.2 μs，所以 Δf = 1/3.2μs = 312.5 kHz。不是任选的，是正交性强约束的结果 —— 改 T 就必须同时改 Δf。">
+    <script type="application/json">
+      [
+        { "text": "等于符号周期 T 的倒数（1 / 3.2 μs）", "correct": true },
+        { "text": "等于符号周期 T 本身（3.2 μs）",          "correct": false },
+        { "text": "等于信道带宽的 1/64（20 MHz / 64）",     "correct": false },
+        { "text": "等于子载波相位的 90 度间隔",             "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="接收端对准某个子载波中心采样时，其他子载波在那里为什么贡献为零？"
+       data-explain="每个子载波频谱是 sinc 函数，零点间距 = 1/T = Δf。把其他子载波放在 Δf 的整数倍处，恰好落在彼此的零点。内积为零 = 正交。">
+    <script type="application/json">
+      [
+        { "text": "它们的 sinc 频谱零点恰好落在该子载波中心", "correct": true },
+        { "text": "它们的相位彼此相差精确 90 度",              "correct": false },
+        { "text": "它们的幅度被发射机预先压到了零",            "correct": false },
+        { "text": "接收机用模拟滤波器把它们滤掉了",            "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="下面哪一条是 OFDM 相对单载波 FDM（带保护频带）的核心优势？"
+       data-explain="FDM 用保护频带隔离子载波，浪费频谱。OFDM 让子载波频谱重叠（零点对齐），省掉了保护频带，频谱效率大幅提升。代价是 PAPR、多径敏感、频偏敏感。">
+    <script type="application/json">
+      [
+        { "text": "子载波频谱可重叠，省掉保护频带，频谱效率高", "correct": true },
+        { "text": "功放效率更高，更省电",                        "correct": false },
+        { "text": "对晶振精度要求更低，硬件更便宜",              "correct": false },
+        { "text": "天然抗多径，不需要保护间隔",                  "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子，和下一课</h2>
+
+  <p>学完这课你应该能在脑子里回答：</p>
+  <ul>
+    <li>I/Q 正交和 OFDM 正交分别是什么（一个波里两路 vs 多个波之间）</li>
+    <li>为什么 Δf = 1/T，代入 802.11a 的实际数字（312.5 kHz）</li>
+    <li>sinc 零点对齐的几何直觉</li>
+    <li>OFDM 的三个代价（PAPR、多径、频偏）</li>
+  </ul>
+
+  <p>下一课我会进入 <strong>RF（射频）基础</strong>（dB/dBm/链路预算），把 OFDM 的频偏边界、灵敏度代价这些落成可算的数字。这是后续所有 PHY 课的共同语言。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>想再深入？</h2>
+
+  <div class="callout">
+    <span class="callout-title">可选扩展（不强求）</span>
+    <p>本课内容已自洽，不必额外读资料。后续课程会逐步把 FFT 实现、802.11ax 子载波变化、PAPR 驱动现象接上。如果你想现在就看工程视角的 OFDM 叙述（发射机测量、星座图、EVM (误差向量幅度)），可以翻 <a href="https://www.tek.com/en/documents/primer/wi-fi-overview-80211-physical-layer-and-transmitter-measurements">Tektronix 802.11 PHY Primer</a> 第 2、3 章 —— <strong>完全可选，不读也不影响后续</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 3 课 — CSMA/CA（载波侦听多址接入 / 碰撞避免）退避机制（backoff / CW / 二进制指数退避 / DIFS-SIFS）。<br>
+      <a href="./0001-why-wifi-isnt-faster-bluetooth.html">← 第 1 课</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../RESOURCES.md">资源</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来问</strong> —— 例如：<br>
+      • 「FFT 是怎么把重叠的子载波分开的？需要多少点？」<br>
+      • 「802.11ax 为什么把 Δf 砍到 78.125 kHz？更长符号怎么抗多径？」<br>
+      • 「PAPR 在驱动层会看到什么具体现象？怎么知道是 PAPR 问题？」<br>
+      • 「我做 sub-GHz 时晶振精度要求低，WiFi 到底要多少 ppm？」<br>
+      你的提问决定下一课切入点和深度。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

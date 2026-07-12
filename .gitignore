@@ -1,0 +1,27 @@
+# ===== 大文件 / 受版权保护的教材 =====
+# 87MB 的 CWNA 教材 PDF 不纳入版本库, 留在本地即可
+*.pdf
+
+# ===== 可下载的二进制工具 =====
+# cloudflared.exe (13MB) 是 Cloudflare 官方提供的隧道工具, 不纳入版本库
+# 下载方式见 README.md "在线访问" 一节
+cloudflared.exe
+*.exe
+
+# ===== 编辑器 / IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== ZCode / AI 工具本地缓存 =====
+# 会话计划等本地缓存, 不需要跟踪
+.zcode/
+
+# ===== 操作系统杂项 =====
+ehthumbs.db
+$RECYCLE.BIN/

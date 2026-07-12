@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 3 课 · dB 与 dBm —— 从你见过的数字说起</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .num-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.9rem;
+    margin: 1.4rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .num-table th, .num-table td {
+    padding: 0.55rem 0.85rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .num-table thead th {
+    background: #f3efe6;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .num-table tbody tr:last-child td { border-bottom: none; }
+  .num-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .num-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .formula {
+    display: block;
+    font-family: var(--mono);
+    background: #f5f1e8;
+    border-left: 3px solid var(--accent);
+    padding: 0.7rem 1rem;
+    margin: 1.2rem 0;
+    font-size: 0.95rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .formula .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .worked {
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-left: 4px solid #2f6b42;
+    border-radius: 0 5px 5px 0;
+    padding: 1rem 1.15rem;
+    margin: 1.4rem 0;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    line-height: 1.7;
+  }
+  .worked .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    color: #2f6b42;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  .worked .step { display: block; }
+  .worked .gain { color: #2f6b42; }
+  .worked .loss { color: #92302b; }
+  .worked .result { color: var(--accent); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 3 课 / Lesson 0003 · RF (射频) 基础（重做版）·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="./0002-ofdm-orthogonality.html">← 第 2 课</a>
+  </div>
+
+  <h1>dB 与 dBm —— 从你见过的数字说起</h1>
+
+  <p>这课从零讲 RF 的数学语言。你做协议栈时见过这些数字（发射功率、RSSI (接收信号强度指示)、灵敏度），但没串成体系、也没自己算过链路预算。今天的目标：让你<strong>见到 dB/dBm 不再犯怵</strong>，并能亲手算一道完整的链路预算。</p>
+
+  <p>我们不走「先讲公式再讲例子」的路子 —— 反过来，<strong>先从一个你大概率见过的数字说起</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>从一个你见过的数字开始：RSSI −65 dBm</h2>
+
+  <p>你调 sub-GHz 或 BT 参数时，大概率在日志或工具里见过类似 <code>−65 dBm</code> 这样的 RSSI 值。这个数字告诉你<strong>接收到的信号有多强</strong>。但「−65 dBm」到底是什么意思？为什么是负数？为什么用 dBm 而不说「0.0000000316 瓦」？</p>
+
+  <p>这三个问题，答案都指向同一件事：<strong>RF 世界的功率值跨度太大，用「瓦」根本没法读</strong>。</p>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p><strong>dB 和 dBm 是 RF 工程师发明的「速记法」，为了对付跨 12 个数量级的功率范围。</strong>它们不是高深的物理概念，就是一个对数换算，让 −100 到 +30 这种小范围数字代替 0.0000000000001 到 10 这种让人读不下去的瓦数。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>为什么 RF 要用 dB：一个动机实验</h2>
+
+  <p>假设你不用 dB，全用瓦（W）或毫瓦（mW）来描述功率。看看 Wi-Fi 实际场景里的功率跨度：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>场景</th><th>功率（mW）</th><th>写成小数</th><th>读起来怎样</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>AP 发射功率</td>          <td class="num">100 mW</td>   <td>0.1 W</td>     <td>还好</td></tr>
+      <tr><td>手机 BLE 发射</td>        <td class="num">1 mW</td>     <td>0.001 W</td>   <td>还行</td></tr>
+      <tr><td>近距离接收（强）</td>     <td class="num">0.001 mW</td> <td>0.000001 W</td><td>开始难读</td></tr>
+      <tr><td>中等距离接收</td>         <td class="num">0.00001 mW</td><td>10⁻⁸ W</td>   <td>数零数到眼花</td></tr>
+      <tr><td>灵敏度极限（弱）</td>     <td class="num">0.0000001 mW</td><td>10⁻¹⁰ W</td><td>没法读</td></tr>
+    </tbody>
+  </table>
+
+  <p>看到了吗？<strong>从 AP 发射到接收灵敏度，功率跨越 9 个数量级</strong>（100 mW 到 10⁻¹⁰ W）。用线性瓦数写，全是零，根本没法心算比较。</p>
+
+  <p>对数（log）就是为这种场景生的：<strong>把「乘除」变成「加减」，把「数量级」变成「一位数」</strong>。log₁₀(100) = 2，log₁₀(0.0001) = −4。一个 −4 比四个零好读太多。这就是 dB 存在的全部动机。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>dB：两个功率比值的对数</h2>
+
+  <p>先把<strong>dB</strong> 讲清楚。dB 是<strong>比值</strong>，不是绝对量：</p>
+
+  <span class="formula">
+    <span class="label">dB 的定义 / Definition of dB</span>
+    dB = 10 · log₁₀(P₁ / P₂)
+  </span>
+
+  <p>意思是：拿两个功率相除，再取 log₁₀，再 ×10。结果就是一个「倍数」的对数表示。比如：</p>
+
+  <ul>
+    <li>功率 <strong>×2</strong>：10·log₁₀(2) = 10 × 0.3 ≈ <strong>+3 dB</strong></li>
+    <li>功率 <strong>×10</strong>：10·log₁₀(10) = <strong>+10 dB</strong></li>
+    <li>功率 <strong>×100</strong>：10·log₁₀(100) = <strong>+20 dB</strong></li>
+    <li>功率 <strong>×1000</strong>：10·log₁₀(1000) = <strong>+30 dB</strong></li>
+    <li>功率 <strong>减半 (×0.5)</strong>：10·log₁₀(0.5) ≈ <strong>−3 dB</strong></li>
+    <li>功率 <strong>÷10</strong>：<strong>−10 dB</strong></li>
+  </ul>
+
+  <div class="callout">
+    <span class="callout-title">为什么是 ×10？</span>
+    <p>因为原始 Bel 单位（log₁₀ 比值）单位太大，乘 10 让它更细。1 Bel = 10 dB。Bel 因 Bell 实验室得名，dB = decibel（deci = 十分之一）。</p>
+  </div>
+
+  <p>你不需要每次都算 log。<strong>背熟下面这 6 个对应，就能读 90% 的 RF 文档</strong>：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>功率倍数</th><th>dB</th><th>怎么记</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">×1（不变）</td>  <td class="num">0 dB</td>  <td>log₁₀(1) = 0</td></tr>
+      <tr><td class="num">×2</td>          <td class="num">+3 dB</td> <td>log₁₀(2) ≈ 0.3</td></tr>
+      <tr><td class="num">×4</td>          <td class="num">+6 dB</td> <td>= 2 × (×2) = 3+3</td></tr>
+      <tr><td class="num">×10</td>         <td class="num">+10 dB</td><td>log₁₀(10) = 1</td></tr>
+      <tr><td class="num">×100</td>        <td class="num">+20 dB</td><td>= 10 + 10</td></tr>
+      <tr><td class="num">×1000</td>       <td class="num">+30 dB</td><td>= 10 + 10 + 10</td></tr>
+    </tbody>
+  </table>
+
+  <span class="sidenote">
+    关键洞察：dB 是<strong>加减法</strong>。×4 不是 ×2 的两倍 dB，是 +6 dB（= +3 + 3）。因为 dB 是对数，对数里乘法变加法。这就是 dB 的全部魔力。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>dBm：把「比值」锚定到 1 mW</h2>
+
+  <p>dB 是比值，但工程师需要说「这个 AP 发射功率具体是多少」。于是把比值的<strong>分母固定为 1 mW</strong>，得到绝对单位 <strong>dBm</strong>：</p>
+
+  <span class="formula">
+    <span class="label">dBm 的定义 / Definition of dBm</span>
+    P(dBm) = 10 · log₁₀( P(mW) / 1 mW ) = 10 · log₁₀( P(mW) )
+  </span>
+
+  <p>所以 <strong>0 dBm = 1 mW</strong>。其它值都从这推：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>dBm</th><th>mW</th><th>怎么来的</th><th>典型场景</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">0 dBm</td>    <td class="num">1 mW</td>     <td>定义基准</td>        <td>BLE 典型发射</td></tr>
+      <tr><td class="num">+10 dBm</td>  <td class="num">10 mW</td>    <td>×10 = +10 dB</td>    <td>低功耗 IoT Wi-Fi</td></tr>
+      <tr><td class="num">+20 dBm</td>  <td class="num">100 mW</td>   <td>×100 = +20 dB</td>   <td>典型 Wi-Fi AP / 手机最大</td></tr>
+      <tr><td class="num">+30 dBm</td>  <td class="num">1 W</td>      <td>×1000 = +30 dB</td>  <td>5 GHz 室外 AP 上限</td></tr>
+      <tr><td class="num">−10 dBm</td>  <td class="num">0.1 mW</td>   <td>÷10 = −10 dB</td>    <td>近距离强信号</td></tr>
+      <tr><td class="num">−60 dBm</td>  <td class="num">0.000001 mW</td><td>÷10⁶</td>          <td>极好信号</td></tr>
+      <tr><td class="num">−80 dBm</td>  <td class="num">10 pW</td>    <td>÷10⁸</td>            <td>中等可用</td></tr>
+      <tr><td class="num">−100 dBm</td> <td class="num">0.1 pW</td>   <td>÷10¹⁰</td>           <td>近灵敏度极限</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <span class="callout-title">为什么 RSSI 是负数？</span>
+    <p>因为接收功率<strong>永远小于 1 mW</strong>（除非你贴着 AP）。0 dBm = 1 mW 是基准，接收功率比 1 mW 小 → 取 log 是负数 → dBm 是负数。<strong>RSSI −65 dBm 意思是「比 1 mW 弱 65 dB」，即 1 mW ÷ 10⁶·⁵ ≈ 3.16 × 10⁻⁷ mW</strong>。负号不是坏事，只是因为接收功率天生很小。</p>
+  </div>
+
+  <span class="sidenote">
+    实战读数：<strong>−30 ~ −40 dBm = 极强</strong>（贴着 AP），<strong>−65 dBm = 好</strong>，<strong>−75 dBm = 可用</strong>，<strong>−85 dBm = 边缘</strong>，<strong>−95 dBm 以下 = 灵敏度极限</strong>。这五个档位记住，看 RSSI 日志就有感觉了。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>dBm 之间的运算：全是对数加减</h2>
+
+  <p>这是 RF 工程师每天用的核心技能。<strong>dBm 之间相加，等于功率相乘；dBm 加上 dB，等于功率乘以倍数</strong>。链路预算全靠这条。</p>
+
+  <div class="worked">
+    <span class="label">算例 1：功率翻倍</span>
+    <span class="step">20 dBm = 100 mW</span>
+    <span class="step">功率翻倍 → +3 dB</span>
+    <span class="step">20 dBm + 3 dB = <span class="result">23 dBm = 200 mW</span></span>
+  </div>
+
+  <div class="worked">
+    <span class="label">算例 2：信号衰减</span>
+    <span class="step">发射 20 dBm，路径损耗 60 dB</span>
+    <span class="step">接收 = 20 dBm − 60 dB = <span class="result">−40 dBm</span></span>
+    <span class="step">含义：信号从 100 mW 衰减到 0.0001 mW（÷10⁶）</span>
+  </div>
+
+  <div class="worked">
+    <span class="label">算例 3：天线增益</span>
+    <span class="step">发射 15 dBm，天线增益 5 dBi</span>
+    <span class="step">有效辐射 = 15 dBm + 5 dB = <span class="result">20 dBm EIRP (等效全向辐射功率)</span></span>
+    <span class="step">含义：定向方向上等效于 100 mW 全向发射</span>
+  </div>
+
+  <p>看出规律了吗？<strong>所有 RF 计算最终都是 dB 域的加减法</strong>。发射功率、损耗、增益、灵敏度，全用 dB/dBm 表示，然后像账本一样加减。这就是「链路预算（link budget）」这个名字的由来 —— 它就是一本功率账。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>链路预算：一道加减法，预测能不能通</h2>
+
+  <p>把上面所有东西串起来，就是链路预算。它回答一个问题：<strong>「给定发射功率、距离、频率，接收端信号够不够强？」</strong></p>
+
+  <p>我们做一道完整的，<strong>每一步都解释</strong>。场景：手机连 5 GHz Wi-Fi AP，距离 20 米。</p>
+
+  <div class="worked">
+    <span class="label">完整链路预算 / Full Link Budget（手机 → AP, 5 GHz, 20 m）</span>
+
+    <span class="step">① 发射功率（手机）       Tx Power        = <span class="gain">+15 dBm</span>   <span style="color:var(--ink-faint)">手机典型最大</span></span>
+    <span class="step">② 发射天线增益           Tx Ant Gain     = <span class="gain">+0 dBi</span>    <span style="color:var(--ink-faint)">手机天线几乎无增益</span></span>
+    <span class="step">③ 自由空间路径损耗       FSPL            = <span class="loss">−66 dB</span>    <span style="color:var(--ink-faint)">下方解释怎么来的</span></span>
+    <span class="step">④ 接收天线增益（AP）     Rx Ant Gain     = <span class="gain">+3 dBi</span>    <span style="color:var(--ink-faint)">AP 天线稍好</span></span>
+    <span class="step">⑤ 接收馈线损耗           Rx Loss         = <span class="loss">−1 dB</span>     <span style="color:var(--ink-faint)">AP 内部走线</span></span>
+    <span class="step">─────────────────────────────────────────────────────</span>
+    <span class="step">   接收信号功率 RSSI  =  +15 + 0 − 66 + 3 − 1 = <span class="result">−49 dBm</span></span>
+    <span class="step">   （对照实战读数：−49 dBm = 很强的信号，贴 AP 级别）</span>
+  </div>
+
+  <p>③ 那个 FSPL = −66 dB 怎么来的？用自由空间路径损耗公式：</p>
+
+  <span class="formula">
+    <span class="label">自由空间路径损耗 / Free Space Path Loss</span>
+    FSPL(dB) = 20·log₁₀(d) + 20·log₁₀(f) + 32.44<br>
+    （d = 距离 km，f = 频率 MHz）
+  </span>
+
+  <div class="callout firmware">
+    <span class="callout-title">关于 66 dB 这个数（教学坦白）</span>
+    <p>代入 5 GHz、20 m（=0.02 km），完整公式算出约 <strong>66 dB</strong>。这个数对 5 GHz 室内 20 米是合理量级。要点不是手算精确值，而是<strong>掌握方法：所有 RF 损耗都是 dB 加减</strong>。实战中你会用工具或厂商 SDK 算精确值，但脑子里能估算量级是基本功。别死记数字，记方法。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>有了 RSSI，怎么知道够不够？对照灵敏度</h2>
+
+  <p>算出 RSSI = −49 dBm 后，怎么判断「能不能通」？<strong>对照接收机的灵敏度</strong>。灵敏度是接收机在指定包错误率（PER，通常 10%）下能解调的最低信号功率。</p>
+
+  <p>典型 Wi-Fi 灵敏度（简化）：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>MCS (调制与编码方案) 档</th><th>调制</th><th>灵敏度（约）</th><th>含义</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">MCS0</td>  <td>BPSK (二进制相移键控) 1/2</td>   <td class="num">−93 dBm</td>  <td>最低速率，最弱信号也能收</td></tr>
+      <tr><td class="num">MCS3</td>  <td>16-QAM (正交幅度调制) 1/2</td> <td class="num">−78 dBm</td>  <td>中速</td></tr>
+      <tr><td class="num">MCS7</td>  <td>64-QAM 3/4</td> <td class="num">−64 dBm</td>  <td>高速，需较强信号</td></tr>
+      <tr><td class="num">MCS9</td>  <td>256-QAM 5/6</td><td class="num">−47 dBm</td>  <td>最高速，需极强信号</td></tr>
+    </tbody>
+  </table>
+
+  <p>回到我们的 RSSI = −49 dBm：<strong>它比 MCS9 灵敏度（−47 dBm）还低 2 dB</strong> → MCS9 不稳定。但比 MCS7（−64 dBm）高 15 dB → MCS7 稳稳的。所以驱动会选 MCS7 或 MCS8。</p>
+
+  <p>这就是<strong>自适应速率（rate adaptation）的物理依据</strong> —— 实时测 RSSI/SNR (信噪比)，挑能达到 PER < 10% 的最高 MCS。你做协议栈迟早会调这块逻辑。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：拿到支点了吗</h2>
+
+  <p>三道题，做完就能确认 dB/dBm 是否真的上手了。算不出来也没关系 —— 回看算例再来。</p>
+
+  <div class="quiz" data-type="single"
+       data-question="某 AP 发射功率 20 dBm，手机接收时测得 RSSI = −60 dBm。中间的总损耗是多少 dB？"
+       data-explain="链路预算就是 dB 加减：RSSI = 发射 + 损耗（损耗为负）。所以损耗 = RSSI − 发射 = −60 − 20 = −80 dB。也就是信号衰减了 80 dB（功率 ÷10⁸）。">
+    <script type="application/json">
+      [
+        { "text": "80 dB",   "correct": true },
+        { "text": "40 dB",   "correct": false },
+        { "text": "−40 dB",  "correct": false },
+        { "text": "120 dB",  "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="把发射功率从 20 dBm 提高到 23 dBm，信号在接收端会变强多少？"
+       data-explain="23 − 20 = +3 dB。而 +3 dB = 功率 ×2。所以接收信号也翻倍。这就是为什么 dB 之间直接相减就能得到比值变化。">
+    <script type="application/json">
+      [
+        { "text": "功率翻倍（×2）", "correct": true },
+        { "text": "功率增加 3 mW",  "correct": false },
+        { "text": "功率 ×10",       "correct": false },
+        { "text": "几乎不变",        "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="手机测得 RSSI = −75 dBm。对照灵敏度表，它最可能用哪个 MCS？"
+       data-explain="−75 dBm 介于 MCS3 灵敏度（−78，刚好够）和 MCS7（−64，不够）之间。所以选 MCS3 最稳。MCS0（−93）也能用但浪费速率，MCS7/9 信号不够。这就是速率自适应算法每天在做的判断。">
+    <script type="application/json">
+      [
+        { "text": "MCS3（16-QAM）最稳", "correct": true },
+        { "text": "MCS0（BPSK，最稳但慢）", "correct": false },
+        { "text": "MCS7（64-QAM，高速）", "correct": false },
+        { "text": "MCS9（256-QAM，最快）", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子，和下一课</h2>
+
+  <p>学完这课，你应该能做到：</p>
+  <ul>
+    <li>见到 <code>+3 dB</code> 知道是 ×2，<code>+10 dB</code> 是 ×10，<code>−20 dB</code> 是 ÷100</li>
+    <li>见到 <code>20 dBm</code> 知道是 100 mW，<code>−80 dBm</code> 知道是「中等可用信号」</li>
+    <li>能用 dB 加减算一道完整链路预算，得到 RSSI</li>
+    <li>用 RSSI 对照灵敏度表，判断可达 MCS</li>
+    <li>明白为什么 RSSI 是负数（接收功率天生小于 1 mW）</li>
+  </ul>
+
+  <p><strong>没掌握热噪声和 SNR 公式没关系</strong> —— 那是下一课（第 4 课）的内容，会从「为什么 Wi-Fi 灵敏度比蓝牙差」切入，讲噪声底和 SNR。本课只要求 dB/dBm 和链路预算扎实。</p>
+
+  <p>再下一课（第 5 课）回到协议主线，讲 <strong>CSMA/CA 退避机制</strong>（backoff / CW / BEB / DIFS-SIFS）—— 那是你做驱动协议栈时的强项区。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">不必额外读资料</span>
+    <p>本课内容已自洽，dB/dBm/链路预算的肌肉记忆靠<strong>自检题和后续课的反复使用</strong>来固化，不需要额外阅读。下一课（第 4 课）会直接接着讲<strong>热噪声与 SNR</strong> —— 为什么 Wi-Fi 灵敏度比蓝牙差，带宽怎么吃掉灵敏度。EIRP、FCC 法规上限、传播效应（反射/折射/衍射/散射/吸收）这些本课没展开的内容，会在后续相关课程中按需交付。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 4 课 — 噪声底与 SNR（为什么 Wi-Fi 灵敏度比蓝牙差？热噪声 + 带宽权衡）。<br>
+      <a href="./0002-ofdm-orthogonality.html">← 第 2 课</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../RESOURCES.md">资源</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 这次不用必须「答对」，告诉我感受即可：<br>
+      • 「三道自检题能算出来了」/ 「还算得吃力」<br>
+      • 「dB 加减的思路清楚了」/ 「还是绕不过来」<br>
+      • 「想再多做两道链路预算练习」<br>
+      • 「CWNA 第 4 章读得下去吗」<br>
+      你的真实反馈决定第 4 课（噪声/SNR）是按计划推进还是再放慢。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 7 课 · STA 关联流程 —— 协议栈移植的主战场</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .state-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.5;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.1rem;
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .state-diagram .state { color: var(--accent); font-weight: 700; }
+  .state-diagram .trans { color: #2f6b42; font-weight: 600; }
+  .state-diagram .frame { color: var(--ink); font-weight: 600; }
+  .state-diagram .cls { color: #b8761c; font-style: italic; }
+
+  .seq-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.55;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.1rem;
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .seq-diagram .sta { color: var(--accent); font-weight: 700; }
+  .seq-diagram .ap { color: #b8761c; font-weight: 700; }
+  .seq-diagram .arrow { color: var(--ink); }
+  .seq-diagram .label { color: #2f6b42; font-weight: 600; }
+  .seq-diagram .note { color: var(--ink-faint); font-style: italic; }
+
+  .num-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    margin: 1.4rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .num-table th, .num-table td {
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .num-table thead th {
+    background: #f3efe6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .num-table tbody tr:last-child td { border-bottom: none; }
+  .num-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .num-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+  .num-table .mono { font-family: var(--mono); }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 7 课 / Lesson 0007 · STA 关联流程 · 协议主线 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0006-mac-frame-structure.html">← 第 6 课</a>
+  </div>
+
+  <h1>STA 关联流程 —— 协议栈移植的主战场</h1>
+
+  <p>这是你做 Wi-Fi 驱动移植最核心的一课。前面六课讲的（RF、OFDM、CSMA/CA、帧结构）都是"基础设施"，<strong>这一课讲的是状态机</strong> —— 一个 STA 怎么从"什么都不行"走到"能传数据"。这正是你做 BT 协议栈移植时的老本行，只是把 BLE 的 <span class="mono">Standby → Advertising → Connection</span> 换成 Wi-Fi 的版本。</p>
+
+  <p>第 6 课讲了管理帧是状态机的载体。这课就把状态机本身摊开给你看：<strong>哪些状态、什么帧触发迁移、迁移失败会怎样</strong>。关联连不上、漫游断流、连上不能传 —— 90% 的 Wi-Fi 协议栈 bug 都在这条流程上。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：802.11 的三态状态机</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>802.11 把一个 STA 的生命周期划成<strong>三个状态</strong>，状态之间靠<strong>管理帧</strong>迁移。每个状态只允许发对应"等级"的帧（Class 1/2/3）。这是协议栈状态机的官方骨架，比 BLE Link Layer 的状态机更"扁平"但更细：</p>
+    <ul>
+      <li><strong>State 1 · 未认证 (Unauthenticated)</strong>：刚开机，几乎什么都干不了，只能扫描</li>
+      <li><strong>State 2 · 已认证未关联 (Authenticated, Unassociated)</strong>：过了 802.11 认证，还没加入 BSS</li>
+      <li><strong>State 3 · 已关联 (Associated)</strong>：正式加入 BSS，可以发数据帧（WPA 下还要 4-Way Handshake 才真正能传）</li>
+    </ul>
+  </div>
+
+  <p>状态机和帧等级的关系：</p>
+
+  <div class="state-diagram">
+                     <span class="trans">Authentication</span>
+       <span class="state">State 1</span>  ──────────────────▶  <span class="state">State 2</span>
+     未认证 (Unauth)   ◀──────────────────    已认证未关联
+                       <span class="trans">Deauthentication</span>        (Auth, Unassoc)
+                        (任意状态打回)              │
+                                                   │ <span class="trans">Association</span>
+                          <span class="trans">Disassociate</span>          ▼
+                       ◀──────────────────  <span class="state">State 3</span>
+                          (保留认证)          已关联 (Associated)
+                                                  │ + 4-Way Handshake → "已授权"
+                                                  ▼
+<span class="cls">Class 1 帧</span>: Probe, Beacon, Auth     <span class="frame">→ State 1 起允许</span>
+<span class="cls">Class 2 帧</span>: Association Req/Resp    <span class="frame">→ State 2 起允许</span>
+<span class="cls">Class 3 帧</span>: 数据帧, Deauth, Disassoc <span class="frame">→ State 3 起允许</span>
+</div>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>对照 BLE Link Layer：<span class="mono">Standby → Advertising → Initiating → Connection</span>。Wi-Fi 没有 BLE 的"广播态"概念（AP 永远在广播 Beacon，STA 不广播），但<strong>状态机的思想完全一致</strong> —— 每个状态能做什么、哪些 PDU 触发迁移、迁移失败如何回退，你都做过。这是你迁移 BT 协议栈经验最直接的落点。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>完整序列：从开机到能传数据</h2>
+
+  <p>下面是<strong>开放式 (Open) + WPA2-PSK</strong> 网络下，STA 从无到有连上 AP 的完整管理帧序列。先看全貌，再逐段拆：</p>
+
+  <div class="seq-diagram">
+  <span class="sta">STA (手机)</span>                                    <span class="ap">AP (路由器)</span>
+      │                                                    │
+      │  <span class="label">① 扫描 / Scanning</span>                                       │
+      │ ◀──────────── <span class="frame">Beacon</span> ──────────────────  │  <span class="note">(被动: AP 周期广播)</span>
+      │ ──────────── <span class="frame">Probe Request</span> ────────────▶ │  <span class="note">(主动: STA 问"有人在吗")</span>
+      │ ◀──────────── <span class="frame">Probe Response</span> ───────────  │
+      │                                                    │
+      │  <span class="label">② 认证 / Authentication</span>  <span class="note">(注意: 不是安全认证!)</span>       │
+      │ ──────────── <span class="frame">Auth Seq 1</span> ────────────────▶ │  <span class="note">algorithm=0 (Open System)</span>
+      │ ◀──────────── <span class="frame">Auth Seq 2</span> ────────────────  │  <span class="note">Status=0 (成功)</span>
+      │                              <span class="state">→ State 2</span>     │
+      │                                                    │
+      │  <span class="label">③ 关联 / Association</span>                                │
+      │ ──────────── <span class="frame">Association Request</span> ────────▶│  <span class="note">能力 + 速率 + 监听信道</span>
+      │ ◀──────────── <span class="frame">Association Response</span> ───────  │  <span class="note">Status=0 + <strong>AID=42</strong></span>
+      │                              <span class="state">→ State 3</span>     │
+      │                                                    │
+      │  <span class="label">④ 授权 / Authorization</span>  <span class="note">(WPA 才需要)</span>          │
+      │ ──────────── <span class="frame">EAPOL-Key 1/4</span> ──────────────▶ │
+      │ ◀──────────── <span class="frame">EAPOL-Key 2/4</span> ───────────────  │  <span class="note">4-Way Handshake</span>
+      │ ──────────── <span class="frame">EAPOL-Key 3/4</span> ──────────────▶ │  <span class="note">协商 PTK（加密密钥）</span>
+      │ ◀──────────── <span class="frame">EAPOL-Key 4/4</span> ───────────────  │
+      │                              <span class="state">→ 已授权, 可传数据</span>│
+      │                                                    │
+      │  <span class="label">⑤ 数据传输 / Data</span>                                │
+      │ ═══════════ <span class="frame">加密数据帧 (Protected=1)</span> ═══▶│
+      │ ◀═══════════ <span class="frame">加密数据帧</span> ════════════════  │
+</div>
+
+  <p>注意这五段里的两个"伪命题"，这是新人最常踩的坑：</p>
+  <ul>
+    <li><strong>步骤②不验证身份</strong>：802.11 Authentication 几乎永远成功，它<strong>不是</strong>安全认证，只是状态机过场。真正的身份认证在步骤④。</li>
+    <li><strong>步骤③不等于能传数据</strong>：WPA 网络下，Association 成功只到 State 3，还要过 4-Way Handshake 进"已授权"才能上行。Open 网络下 State 3 就能传。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 扫描：怎么发现 AP</h2>
+
+  <p>STA 要先知道周围有哪些 AP，才能挑一个连。两种扫描方式：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>方式</th><th>怎么做</th><th>时延</th><th>耗电</th><th>典型场景</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">被动扫描 (Passive)</td>
+        <td>STA 在每个信道安静听，等 AP 周期广播的 <span class="mono">Beacon</span>（典型 102.4 ms 一次）</td>
+        <td class="mono">慢（每个信道要等 ~100 ms）</td>
+        <td class="mono">低</td>
+        <td>隐藏 SSID 网络、法规限制主动扫描的地区</td>
+      </tr>
+      <tr>
+        <td class="num">主动扫描 (Active)</td>
+        <td>STA 在每个信道发 <span class="mono">Probe Request</span>，匹配的 AP 回 <span class="mono">Probe Response</span></td>
+        <td class="mono">快</td>
+        <td class="mono">略高（要发帧）</td>
+        <td>绝大多数手机/笔记本的默认行为</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>扫描要在<strong>多个信道</strong>之间跳（2.4 GHz 有 1–13，5 GHz 几十个），每信道停一下听/问，这就是为什么完整扫描要花 1–2 秒。<strong>Beacon 和 Probe Response 内容几乎一样</strong>：SSID、BSSID、Capability Info（能力位）、支持的速率、加密套件、TIM 等。STA 拿这些信息挑 AP（一般按信号强度 RSSI 排序）。</p>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>扫描是 mac80211 / cfg80211 里最复杂的模块之一。上层（wpa_supplicant / Android WiFi HAL）发 <span class="mono">NL80211_CMD_TRIGGER_SCAN</span> 命令，驱动负责<strong>切信道 → 收集 Beacon/Probe → 上报 BSS 列表</strong>。每个信道停留时间（dwell time）、跳信道时怎么保证不漏帧、扫完怎么回到原信道——这些都是你移植时要调的参数。<strong>扫描慢、扫不到 AP，是固件最常见的 bug 之一</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 认证：802.11 的"假"认证</h2>
+
+  <p>选好 AP 后，STA 进入 State 1 → State 2 的迁移：<strong>802.11 Authentication</strong>。这是新概念里最容易误解的一个，先把名字的坑填平：</p>
+
+  <div class="callout key">
+    <span class="callout-title">⚠️ 名字陷阱</span>
+    <p>802.11 标准里的 "Authentication (认证)" <strong>不等于</strong> 安全认证。它是一个固定两帧的握手，Open System 模式下基本永远成功，作用只是"告诉 AP：我要进入 State 2"。真正验证身份（PSK 密码对不对、802.1X 证书）发生在<strong>关联之后</strong>的 4-Way Handshake / EAP 流程。</p>
+    <p>标准这么命名是历史包袱：1997 年的 802.11 原版里这一步还能做 WEP Shared Key 认证（带挑战-应答），后来 WEP 被淘汰，Open System 成了唯一在用的算法，这步就退化为空壳，但名字和帧格式留了下来。</p>
+  </div>
+
+  <p>Open System Authentication 的两帧：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>帧</th><th>方向</th><th>关键字段</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">Authentication (Seq 1)</td>
+        <td>STA → AP</td>
+        <td>Authentication Algorithm = <span class="mono">0 (Open System)</span>；Transaction Seq = 1</td>
+      </tr>
+      <tr>
+        <td class="num">Authentication (Seq 2)</td>
+        <td>AP → STA</td>
+        <td>Algorithm = 0；Seq = 2；Status Code = <span class="mono">0 (Success)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>AP 在 State 1 时收到 Auth Request，正常情况下<strong>没有理由拒绝</strong>（除非 ACL 黑名单、STA 太多）。回个 Auth Seq 2，状态机推进到 State 2。</p>
+
+  <span class="sidenote">
+    抓包看 802.11 Auth 帧时，Auth Seq 1/2 的内容基本是空的——Open System 不带任何挑战/应答数据。如果你看到带 challenge text 的 Auth 帧，那是 90 年代的 WEP Shared Key 模式，现在几乎绝迹了。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 关联：真正加入 BSS</h2>
+
+  <p>State 2 → State 3 的迁移靠 <strong>Association (关联)</strong>。这一步是"实质性"的——AP 在这里给 STA 分配资源、协商能力、分配 AID。</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>帧</th><th>方向</th><th>关键字段</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">Association Request</td>
+        <td>STA → AP</td>
+        <td>Capability Info（我要的能力）、Listen Interval（省电相关）、Supported Rates、SSID</td>
+      </tr>
+      <tr>
+        <td class="num">Association Response</td>
+        <td>AP → STA</td>
+        <td>Status Code、<strong>AID（1–2007）</strong>、Supported Rates、协商后的能力</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>关联请求里 STA 把自己<strong>能干的事</strong>（Capability Info 位域：支持哪些速率、要不要 QoS、要不要短前导等）告诉 AP，AP 在 Response 里回"哪些同意、哪些不行"，并分配一个 <strong>AID (Association ID, 关联标识符)</strong>，范围 <span class="mono">1–2007</span>。</p>
+
+  <div class="callout key">
+    <span class="callout-title">AID 是什么，为什么重要</span>
+    <p>AID 是 AP 给每个关联 STA 的<strong>唯一编号</strong>。它的作用到省电课才显出来：</p>
+    <ul>
+      <li><strong>PS-Poll 帧</strong>的 Duration/ID 字段存 AID，STA 用它向 AP"取快递"（缓存的下行帧）。</li>
+      <li><strong>TIM</strong>（在 Beacon 里）是一个位图，按 AID 标记哪个 STA 有缓存的下行帧。</li>
+    </ul>
+    <p>AID 范围 1–2007 限制了<strong>一个 BSS 最多 2007 个关联 STA</strong>——这是 802.11 单 AP 的硬上限。实际产品里因内存/调度限制远低于此。</p>
+  </div>
+
+  <p>AP 为什么会拒绝关联？常见 Reason Code：<strong>能力不匹配</strong>（STA 要 QoS 但 AP 不支持）、<strong>STA 数已满</strong>、<strong>ACL 黑名单</strong>、<strong>RSSI 太低</strong>。你做协议栈时这些失败原因都要正确上报给上层。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 授权：4-Way Handshake（WPA 才有）</h2>
+
+  <p>这是<strong>安全</strong>课的内容，这里只点一下它在状态机里的位置。Association 成功 → State 3，但 WPA/WPA2/WPA3 网络下，<strong>State 3 还不能立刻发用户数据</strong>。STA 和 AP 要先做 <strong>4-Way Handshake</strong>（四个 EAPOL-Key 帧来回），协商出单播加密密钥 PTK (Pairwise Transient Key) 和组播密钥 GTK。握手完成后 STA 进入"已授权"状态，才能发加密的 Protected=1 数据帧。</p>
+
+  <div class="callout">
+    <span class="callout-title">为什么状态机要分这么细</span>
+    <p>把"关联"和"授权"分开，让 802.11 MAC 层和安全层<strong>解耦</strong>：同一个状态机骨架能挂 Open / WPA2-PSK / WPA2-Enterprise (802.1X) / WPA3 各种安全方案。Open 网络 State 3 直接传明文；WPA 网络 State 3 后多走 EAPOL；Enterprise 还要在 4-Way 之前先走完整的 EAP/RADIUS。这是协议分层的经典设计，也是你做协议栈移植要尊重的边界——<strong>mac80211 管 State 1→2→3，wpa_supplicant 管 4-Way Handshake</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>断开：Deauth vs Disassociate</h2>
+
+  <p>连接的对称面是断开。有两个帧，<strong>区别在回退到哪个状态</strong>：</p>
+
+  <table class="num-table">
+    <thead>
+      <tr><th>帧</th><th>状态回退到</th><th>语义</th><th>触发场景</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">Disassociate</td>
+        <td class="mono">State 3 → State 2</td>
+        <td>取消关联，<strong>保留认证</strong></td>
+        <td>AP 踢人、STA 主动下线（不关 Wi-Fi）</td>
+      </tr>
+      <tr>
+        <td class="num">Deauthentication</td>
+        <td class="mono">任意 → State 1</td>
+        <td>取消认证，<strong>彻底打回原形</strong></td>
+        <td>关 Wi-Fi、超时、严重错误、攻击（Deauth 攻击）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>两个帧都带 <strong>Reason Code</strong>（为什么断），这是抓包定位断连原因的钥匙。常见的有：Reason 7（Class 3 帧来自未关联 STA）、Reason 15（4-Way Handshake 超时）、Reason 23（802.1X 认证失败）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>漫游：Reassociation 的角色</h2>
+
+  <p>STA 在同一个 ESS 内（多 AP 共用一个 SSID）从原 AP 走到新 AP 覆盖范围时，要做<strong>漫游 (Roaming)</strong>。这时候不是从零开始的 Association，而是 <strong>Reassociation (重关联)</strong>：</p>
+
+  <ul>
+    <li>STA 已经在 State 3（和新 AP 没关联，但和原 AP 关联着）。</li>
+    <li>STA 向<strong>新 AP</strong> 发 <span class="mono">Reassociation Request</span>——比 Association Request 多一个字段 <strong>"Current AP"（原 AP 的 MAC）</strong>。</li>
+    <li>新 AP 回 Reassociation Response（带新 AID）。</li>
+    <li>新 AP（在同一个 DS 内）通过有线网通知原 AP："这个 STA 转给我了"，原 AP 把缓存的帧转给新 AP。</li>
+  </ul>
+
+  <p>漫游是 Wi-Fi 协议栈最难调的场景之一——切换太晚掉线、切换太早丢包、4-Way Handshake 重做耗时长、PMK 缓存 (802.11r) 没生效。<strong>这是你以后做固件的主战场之一</strong>。</p>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>BT 没有完全对应的概念，但 BLE 的<strong>连接参数更新</strong>和<strong>PHY 更新</strong>流程在精神上接近——都是连接已经存在时的"重新协商"。Wi-Fi 漫游更接近蜂窝的<strong>切换 (handover)</strong>：从一个接入点转到另一个，状态要迁移、上下文要搬。你做 sub-GHz 协议栈时如果做过中继/接力，这种"换锚点"的思路也通用。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：这套流程落在代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>这课内容在 Linux/mac80211 栈里的对应点：</p>
+    <ul>
+      <li><strong>状态机本体</strong>：mac80211 维护 <span class="mono">ieee80211_if_managed</span> 子状态（扫描中/已认证/已关联/关联中），对应 802.11 的 State 1/2/3。你移植时这个状态机要么用 mac80211 的实现，要么自己重写一份——这是 BT 协议栈状态机经验最直接迁移的地方。</li>
+      <li><strong>管理帧收发</strong>：<span class="mono">ieee80211_sta_tx_auth/assoc</span> 这组函数构造 Auth/Assoc Request；rx 路径按 subtype 分发到 <span class="mono">ieee80211_rx_mgmt_auth/assoc</span>。帧字段填充错了（Capability Info 漏位、AID 解析错）直接导致关联失败。</li>
+      <li><strong>跨进程边界</strong>：mac80211 管到 State 3；<span class="mono">wpa_supplicant</span>（用户态）接管 4-Way Handshake 和漫游决策。两边的接口是 <span class="mono">nl80211</span>（netlink），调试时要同时看内核日志和 wpa_supplicant 日志。</li>
+      <li><strong>调试黄金组合</strong>：<span class="mono">wpa_supplicant -ddd</span>（看状态机日志）+ monitor mode 抓包（看真实帧）+ <span class="mono">dmesg</span>（看驱动日志）。关联失败时三路日志对时间戳，问题在哪一段一眼看出。</li>
+      <li><strong>常见 bug</strong>：①扫描 dwell time 太短漏 AP；②Auth/Assoc 帧地址填错（参考第 6 课 ToDS/FromDS）；③Capability Info 位填错导致 AP 拒关联；④4-Way Handshake 超时（密钥派生 bug）；⑤漫游时没刷旧密钥导致新 AP 拒收。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：状态机吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="802.11 的 Authentication（认证）帧握手，到底做了什么？"
+       data-explain="这是最大的名字陷阱：802.11 Authentication ≠ 安全认证。Open System 是固定两帧（Seq 1/2）握手，几乎永远成功，作用只是让状态机从 State 1 推进到 State 2。真正验证身份（PSK/802.1X）发生在关联之后的 4-Way Handshake。标准这么命名是 WEP 时代的历史包袱。">
+    <script type="application/json">
+      [
+        { "text": "只是状态机过场，几乎不验证身份",     "correct": true },
+        { "text": "验证 PSK 密码对不对",                 "correct": false },
+        { "text": "交换加密密钥 PTK/GTK",                "correct": false },
+        { "text": "协商 STA 和 AP 的能力位",             "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="STA 关联成功后，在 WPA2 网络下能立刻发用户数据吗？"
+       data-explain="关联成功只到 State 3。WPA2 网络下 State 3 还不能传明文数据，必须先做 4-Way Handshake 协商 PTK/GTK，进入'已授权'状态后才能发 Protected=1 的加密数据帧。Open 网络下 State 3 直接能传明文。">
+    <script type="application/json">
+      [
+        { "text": "不能，还要过 4-Way Handshake",  "correct": true },
+        { "text": "能，关联成功即可传数据",         "correct": false },
+        { "text": "能，但要先发 Beacon",           "correct": false },
+        { "text": "不能，要先发 Probe Request",    "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Deauthentication 和 Disassociate 的区别是什么？"
+       data-explain="Disassociate 把状态机从 State 3 打回 State 2（保留认证），Deauthentication 从任意状态彻底打回 State 1（连认证也取消）。所以 Deauth 更'狠'，关 Wi-Fi、超时、攻击都用它；Disassociate 用于'不再关联但不彻底断'的场景。两个帧都带 Reason Code。">
+    <script type="application/json">
+      [
+        { "text": "Deauth 打回 State 1；Disassoc 打回 State 2", "correct": true },
+        { "text": "两者完全等价，只是叫法不同",                   "correct": false },
+        { "text": "Deauth 是 STA 发；Disassoc 是 AP 发",        "correct": false },
+        { "text": "Deauth 用于加密网络；Disassoc 用于 Open",     "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="一个 BSS 理论上最多能关联多少个 STA？为什么？"
+       data-explain="AID（Association ID）范围是 1–2007，AP 给每个关联 STA 分配一个唯一 AID。这限制了单 BSS 硬上限是 2007。实际产品里因内存/调度/性能限制远低于此（家用路由几十个，企业 AP 几百个）。AID 还用在 PS-Poll 和 TIM 位图里，是省电机制的索引。">
+    <script type="application/json">
+      [
+        { "text": "2007 个，受 AID 取值范围限制",      "correct": true },
+        { "text": "255 个，受 MAC 地址表限制",          "correct": false },
+        { "text": "无上限，看 AP 内存",                 "correct": false },
+        { "text": "7 个，像蓝牙 piconet 的 slave 数",   "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：状态机是协议栈的脊椎</h2>
+
+  <p>学完这课，你脑子里应该有 Wi-Fi 协议栈的<strong>第四层骨架</strong>（前三层见第 6 课末）：</p>
+  <ol>
+    <li><strong>介质访问层（第 5 课）</strong>：CSMA/CA + IFS + BEB —— 谁能发、什么时候发</li>
+    <li><strong>帧结构层（第 6 课）</strong>：三类帧 + 四地址 + NAV —— 发的东西长什么样</li>
+    <li><strong>状态机层（本课）</strong>：State 1/2/3 + Auth/Assoc/4-Way —— 怎么从"什么都不行"走到"能传数据"</li>
+    <li><strong>（下一课预告）省电/漫游层</strong>：连接建立后的优化机制</li>
+  </ol>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>看到一段抓包，按帧序列还原出 STA 走到了哪个状态</li>
+    <li>理解 802.11 Auth 是"假认证"，真正安全认证在 4-Way Handshake</li>
+    <li>知道 Association Response 里的 AID 是干嘛的（省电课要用）</li>
+    <li>区分 Disassociate（回 State 2）和 Deauth（回 State 1）</li>
+    <li>把这套状态机和 BT/BLE 的 Link Layer 状态机做类比迁移</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">下一课：省电模式</span>
+    <p>第 8 课计划讲 <strong>Power Save（省电模式）</strong> —— 这课埋的 AID、TIM、PS-Poll 三个伏笔会一起兑现。STA 怎么睡眠、AP 怎么帮它缓存帧、Beacon 里的 TIM 怎么通知"有你快递"、PS-Poll 怎么取帧、U-APSD / WMM Power Save 怎么进一步省电。这是 IoT 场景下 Wi-Fi 续航的关键，也和你做 sub-GHz 低功耗协议栈的经验直接对话。</p>
+    <p>或者你想先看 <strong>4-Way Handshake / WPA 安全</strong>（把这课的伏笔④兑现）、或 <strong>漫游 (802.11r)</strong>，都告诉我。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 8 课 — Power Save 省电模式（AID/TIM/PS-Poll 三件套，IoT 续航关键）。<br>
+      <a href="./0006-mac-frame-structure.html">← 第 6 课</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进省电模式」<br>
+      • 「802.11 Auth 那个'假认证'想多看几个抓包实例」<br>
+      • 「4-Way Handshake 想先展开讲，把安全这一块吃透」<br>
+      • 「Reassociation 漫游想看 802.11r (Fast Transition) 怎么加速」<br>
+      • 「mac80211 里状态机具体是哪个结构体？想看代码映射」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

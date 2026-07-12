@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 课 · 为什么 Wi-Fi 不是「更快的蓝牙」</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 1 课 / Lesson 0001 · CWNA 学习骨架 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../RESOURCES.md">资源</a>
+  </div>
+
+  <h1>为什么 Wi-Fi 不是「更快的蓝牙」</h1>
+
+  <p>你已经写过蓝牙固件，会熟练地说出 <em class="term">connection event (连接事件)</em>、<em class="term">piconet (微微网)</em>、<em class="term">FHSS (跳频扩频)</em>。这一课不教你 Wi-Fi 是什么，而是回答一个能让整本 CWNA 突然变薄的问题：</p>
+
+  <blockquote>
+    <strong>Wi-Fi 和蓝牙一样都跑在 2.4 GHz，为什么 Wi-Fi 能做到几百 Mbps、覆盖几十米，而蓝牙（尤其 BLE）天生就只能跑 1–2 Mbps、十米内？</strong>
+  </blockquote>
+
+  <p>答案不是「Wi-Fi 用了更好的芯片」。答案是一个<strong>架构层面的根本选择</strong> —— 两种技术对「谁来决定什么时候说话」给出了截然相反的回答。理解这个选择，CWNA 后面所有章节（PHY (物理层)、MAC (介质访问控制层)、介质访问、BSS (基本服务集)）都会挂到这一根钉子上。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>一句话答案</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p><strong>蓝牙是「中央调度」模型 —— 一个 master (主设备) 决定每个 slot 谁说话；Wi-Fi 是「分布式竞争」模型 —— 每个设备自己抢介质，靠规矩避免打架。</strong></p>
+    <p>这一个差别，连带决定了 PHY（怎么调制）、拓扑（谁和谁怎么连）、QoS (服务质量)（怎么保证延迟）几乎一切。CWNA 整本书都在讲「分布式竞争」的后果。</p>
+  </div>
+
+  <span class="sidenote">
+    术语：调度式 = <strong>scheduled / centralized</strong>；竞争式 = <strong>contention-based / distributed</strong>。这两个词在 802.11 文档里到处都是。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>两条路线，一张对照表</h2>
+
+  <p>下面这张表是本课也是整个工作区最常回看的一张表。它会随着学习不断变长（之后还会加 PHY、加密、省电、漫游等行）。先把介质访问这一行的<strong>范式差</strong>刻进脑子。</p>
+
+  <div class="compare"
+       data-caption="蓝牙 vs Wi-Fi — 介质访问的根本范式差（其余维度待后续课程补全）">
+    <script type="application/json">
+      [
+        { "aspect": "接入范式 Access",
+          "bt":   "调度式 TDMA（master 分配 slot）",
+          "wifi": "竞争式 CSMA/CA（自己抢介质）" },
+        { "aspect": "决策者 Arbiter",
+          "bt":   "piconet 的 master / BLE 的 central",
+          "wifi": "无中心决策者（分布式），AP 也不调度 STA 的发送时刻" },
+        { "aspect": "PHY 调制",
+          "bt":   "GFSK (高斯频移键控) / FHSS（跳频，抗干扰靠躲）",
+          "wifi": "OFDM（正交子载波，扛干扰靠拆 + 编码）" },
+        { "aspect": "频谱占用",
+          "bt":   "79 个窄信道跳来跳去，瞬时占 1 MHz",
+          "wifi": "长时间占住一个 20 MHz+ 宽信道" },
+        { "aspect": "代价 Trade-off",
+          "bt":   "省电、简单、抗干扰，但峰值速率低",
+          "wifi": "高吞吐、远距离，但耗电、需要复杂的退避/重传" }
+      ]
+    </script>
+  </div>
+
+  <p>注意最后一行 —— 这才是关键。<strong>每条路线都付了代价</strong>。Wi-Fi 不是「更好」，它是把资源押在了「宽信道 + 高速率」上，代价就是必须解决「很多人同时抢一个宽信道」的问题。CWNA 里你接下来要学的 <em class="term">backoff (退避)</em>、<em class="term">CW (Contention Window, 竞争窗口)</em>、<em class="term">hidden node (隐藏节点 / 隐藏终端)</em>、<em class="term">RTS/CTS (请求发送 / 允许发送)</em>，全都是「分布式竞争」这条路线要还的债。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>把蓝牙的脑子翻过来：调度 → 竞争</h2>
+
+  <p>回忆 BLE 的 connection event：central 在每个 anchor point 醒来，peripheral 在 central 之后发，<strong>时刻表是定的</strong>。这就是 TDMA (时分多址) —— Time Division，时间被切成格子分配。master/central 是<strong>仲裁者</strong>，不会有两个设备同时说话，所以<strong>不需要</strong>「碰撞避免」机制。</p>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>你写过 BLE controller 固件，一定记得那个 anchor point 的精确定时 —— 这是 TDMA 的灵魂：所有设备对齐一个时钟，由一个调度者分发时间。</p>
+  </div>
+
+  <p>Wi-Fi 把这个脑子翻过来：<strong>没有人发时刻表</strong>。一个 AP (接入点) 周围可能有几十个 STA (站点)，谁想发就发 —— 但<strong>发之前先听</strong>（Carrier Sense），如果信道忙就<strong>等一个随机时间再试</strong>（Backoff）。这就是 <em class="term">CSMA/CA (载波侦听多址接入 / 碰撞避免)</em> —— Carrier Sense Multiple Access with Collision Avoidance。</p>
+
+  <p>「先听后说」听起来朴素，但它是整个 802.11 MAC 子层的心脏。CWNA 第 8、9 章（MAC + 媒质访问）几乎都在讲这个机制的细节与边角情况。</p>
+
+  <div class="callout firmware">
+    <span class="callout-title">对固件重要 / For Firmware</span>
+    <p>在 BT controller 固件里，<strong>定时精度</strong>是核心 KPI（slot 边界、sleep/wake 时序）。到了 Wi-Fi 固件，KPI 变成了 <strong>退避计时器的实现、CCA (Clear Channel Assessment, 信道空闲评估) 的灵敏度、ACK/SIFS (短帧间间隔) 的响应时序</strong>。换的是从「准时」到「抢得巧 + 反应快」。这一点你之后调 mac80211 / 厂商驱动会反复体会到。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>为什么这个选择决定了 PHY：FHSS → OFDM (正交频分复用)</h2>
+
+  <p>调度式模型里，每个 slot 给一个设备用，瞬时带宽不需要太大 —— 所以蓝牙用 <strong>GFSK</strong>（一种单载波、低阶的调制），再配上 <strong>FHSS</strong> 在 79 个信道间跳，用「躲」来避开干扰。窄带 + 跳频，省电、抗窄带干扰，但<strong>峰值速率天花板低</strong>。</p>
+
+  <p>竞争式模型要的是<strong>把一个宽信道吃满</strong>：谁抢到介质，就尽可能多地塞数据进去，因为下一秒可能就被别人抢走了。这就需要把一个 20 MHz 的信道切成<strong>几十到上千个正交子载波</strong>，并行传 —— 这就是 <em class="term">OFDM</em>。<strong>OFDM 是 CSMA/CA 的天然搭档</strong>：宽信道 + 高吞吐，代价是耗电和实现复杂。</p>
+
+  <div class="callout key">
+    <span class="callout-title">记住这条因果链</span>
+    <p><strong>分布式竞争 → 必须最大化单次抢占的价值 → 必须用宽信道 → 必须把宽带信号拆成正交子载波 → OFDM。</strong></p>
+    <p>反过来看蓝牙：调度式 → 单 slot 带宽够用 → 窄带 GFSK → 用跳频躲干扰 → FHSS。</p>
+  </div>
+
+  <p>这两条路线不是任意选的，是<strong>同一个根选择的两个必然结果</strong>。这一条想通了，CWNA 第 2 章（RF 基础）、第 6 章（PHY）、第 8 章（MAC）就不再是 6 个孤立章节，而是一根线串起来的。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>一句话检验你是否学到了</h2>
+
+  <p>合上课件，能不查资料说出下面这道题的答案 —— 就说明你拿到了本课的支点。</p>
+
+  <div class="quiz" data-type="single"
+       data-question="Wi-Fi 之所以用 OFDM（而非 FHSS）作为核心 PHY，最根本的原因是？"
+       data-explain="CSMA/CA 是分布式竞争：谁抢到介质就要尽快塞尽量多数据，所以必须用宽信道 + 并行子载波 = OFDM。FHSS 的窄带 + 跳频与「最大化单次抢占价值」相矛盾，是调度式/低功耗路线的选择。">
+    <script type="application/json">
+      [
+        { "text": "因为分布式竞争要求最大化单次抢占的吞吐，所以需要宽信道与并行子载波", "correct": true },
+        { "text": "因为 OFDM 比 FHSS 调制更简单、固件更容易实现",            "correct": false },
+        { "text": "因为 Wi-Fi 联盟规定 802.11 必须使用 OFDM，与协议无关",   "correct": false },
+        { "text": "因为 OFDM 比单载波调制更省电，适合移动设备",             "correct": false }
+      ]
+    </script>
+  </div>
+
+  <p>再来一道，确认你分清了「调度」与「竞争」：</p>
+
+  <div class="quiz" data-type="single"
+       data-question="下面哪一个机制是「竞争式」接入范式特有的、而「调度式」不需要的？"
+       data-explain="退避（backoff）只在「多设备自己抢介质」时才需要 —— 没人发时刻表，只能靠随机退避减少碰撞。调度式（TDMA）由 master 分配 slot，天然不会撞，不需要 backoff。">
+    <script type="application/json">
+      [
+        { "text": "随机退避 / Random Backoff（先听 + 随机等待）", "correct": true },
+        { "text": "时间槽分配 / Slot scheduling（master 分配）",  "correct": false },
+        { "text": "跳频序列 / Frequency hopping sequence",        "correct": false },
+        { "text": "连接事件 / Connection event（anchor point）",  "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课给整本书的钉子</h2>
+
+  <p>学完这课，CWNA 的目录在你眼里应该变成一根线：</p>
+
+  <ol>
+    <li><strong>RF 基础 / RF 数学</strong> —— 理解 OFDM 宽带信号怎么传播、衰减、被噪声淹没。</li>
+    <li><strong>802.11 标准族（a/b/g/n/ac/ax）</strong> —— 看 PHY 怎么从单载波 DSSS 演化到 OFDM、再到 OFDMA。</li>
+    <li><strong>MAC + 媒质访问</strong> —— CSMA/CA 的全部细节，backoff、CW、SIFS、ACK、RTS/CTS。</li>
+    <li><strong>PHY</strong> —— OFDM 子载波、preamble、调制编码（MCS）。</li>
+    <li><strong>拓扑 / 部署 / 勘测 / 安全</strong> —— 作为背景快速过，对固件不是核心。</li>
+  </ol>
+
+  <p>之后每节课我都会在开头告诉你「这节挂在哪根钉子上」。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">不必额外读资料</span>
+    <p>本课是整个学习路径的「地图」—— 把「分布式竞争 vs 调度式」这根钉子立住。后续课程会顺着这根钉子，依次把 RF 基础、OFDM、CSMA/CA、MAC、PHY 全部讲完，<strong>全部由课程网页交付，不需要你读任何外部资料</strong>。</p>
+    <p>想了解课程怎么从这根钉子展开，看下方的「下一课预告」。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 2 课 —— OFDM 的「正交」到底是什么（频域正交性专题）。这是 PHY 侧的第一根钉子。<br>
+      <a href="../GLOSSARY.md">术语表</a> · <a href="../RESOURCES.md">资源清单</a> · <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来问问题</strong> —— 例如：「CSMA/CA 既然先听后说，为什么还会碰撞？」、「OFDM 的『正交』到底是什么意思？」、「piconet 和 BSS 有没有一一对应？」<br>
+      你的提问会决定下一课从哪里切入、以及你 BT 背景里哪些点需要特别澄清。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

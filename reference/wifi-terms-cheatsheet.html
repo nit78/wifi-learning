@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wi-Fi 术语速查表 · 缩写 + 基本理解</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  body { font-size: 15px; }
+  main { max-width: 820px; padding-top: 1.8rem; }
+
+  h1 { font-size: 1.7rem; margin-bottom: 0.4rem; }
+  h2 {
+    font-size: 1.02rem;
+    margin: 1.8rem 0 0.5rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .ref-meta {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin-bottom: 1.2rem;
+  }
+  .ref-meta a { color: var(--ink-soft); }
+
+  .term {
+    border-left: 3px solid var(--accent-soft);
+    background: #fff;
+    padding: 0.6rem 0.95rem;
+    margin: 0.6rem 0;
+    border-radius: 0 4px 4px 0;
+    break-inside: avoid;
+  }
+  .term-head {
+    font-family: var(--sans);
+    margin-bottom: 0.3rem;
+  }
+  .term-abbr {
+    font-weight: 700;
+    color: var(--accent);
+    font-size: 1rem;
+  }
+  .term-full {
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    font-style: italic;
+  }
+  .term-cn {
+    color: var(--ink);
+    font-size: 0.9rem;
+  }
+  .term-body {
+    font-size: 0.88rem;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+  .term-body p { margin: 0.3rem 0; }
+  .term-val {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    background: #f5f1e8;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .term-note {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-top: 0.3rem;
+  }
+
+  @media print {
+    body { font-size: 10pt; }
+    .term { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="ref-meta">
+    📋 速查表 / Reference ·
+    Wi-Fi 缩写术语 + 基本理解（含关键值和"为什么"）·
+    <a href="../GLOSSARY.md">术语表（正式定义）</a> ·
+    <a href="rf-math-cheatsheet.html">RF 数学速查表</a>
+  </div>
+
+  <h1>Wi-Fi 术语速查表</h1>
+
+  <p style="color:var(--ink-soft); font-size:0.92rem;">
+    每个 Wi-Fi 缩写的<strong>基本理解</strong> —— 不只是定义，而是"为什么是这个值、关键约束是什么"。
+    和 <a href="../GLOSSARY.md">GLOSSARY.md</a>（正式定义）互补：这里偏"工程直觉"，那里偏"严格定义"。
+  </p>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>介质访问 / 时序参数（MAC）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CSMA/CA</span>
+      <span class="term-full">Carrier Sense Multiple Access with Collision Avoidance</span>
+      <span class="term-cn">· 载波侦听多址接入 / 碰撞避免</span>
+    </div>
+    <div class="term-body">
+      <p>Wi-Fi 的核心介质访问范式：<strong>先听（CCA）→ 等空闲 DIFS → 随机退避 backoff → 发</strong>。分布式、无中央调度，与蓝牙 TDMA 形成根本对照。</p>
+      <p class="term-note">不是"完全不碰撞"，而是"尽量降低碰撞概率"（靠随机退避）。碰撞仍可能因退避撞车或隐藏节点发生。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">DCF</span>
+      <span class="term-full">Distributed Coordination Function</span>
+      <span class="term-cn">· 分布式协调函数</span>
+    </div>
+    <div class="term-body">
+      <p>802.11 的基础 MAC 模式，基于 CSMA/CA。所有 STA 平等竞争介质，无中央调度。Wi-Fi 最常用的接入方式。QoS 版本叫 EDCA。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">SIFS</span>
+      <span class="term-full">Short Interframe Space</span>
+      <span class="term-cn">· 短帧间间隔</span>
+    </div>
+    <div class="term-body">
+      <p>最短 IFS，最高优先级。用于<strong>进行中的一次帧交换内部</strong>（DATA→ACK、RTS→CTS）。</p>
+      <p><span class="term-val">802.11a: 16 μs</span> <span class="term-val">802.11b/g: 10 μs</span></p>
+      <p><strong>SIFS 由四个物理分量决定</strong>（标准公式）：</p>
+      <p><code>aSIFSTime = aRxRFDelay + aRxPLCPDelay + aMACProcessingDelay + aRxTxTurnaroundTime</code></p>
+      <p>802.11a 实测拆解：<strong>PLCP 解码是大头（12.5 μs，78%）</strong>，收发切换只占 2 μs（12%）。</p>
+      <p class="term-note">⚠️ 常见误解："SIFS 就是收发天线切换时间"——不准确。天线切换只是四分量之一，且非主要。真正的大头是 PHY 解码 preamble（PLCP）。</p>
+      <p class="term-note">SIFS 矫正：<strong>ACC（累积纠正）</strong> 不适用于此；SIFS 是物理下限，设太短硬件来不及响应 ACK，设太长浪费信道。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">DIFS</span>
+      <span class="term-full">DCF Interframe Space</span>
+      <span class="term-cn">· DCF 帧间间隔</span>
+    </div>
+    <div class="term-body">
+      <p>普通数据帧<strong>发起接入前</strong>要等的间隔。是"准入门槛"——必须连续空闲 DIFS，才有资格进入 backoff。</p>
+      <p><strong>DIFS = SIFS + 2 × SlotTime</strong></p>
+      <p><span class="term-val">802.11a: 34 μs（16 + 2×9）</span> <span class="term-val">802.11b: 50 μs（10 + 2×20）</span></p>
+      <p class="term-note">比 SIFS 长 → 新对话（用 DIFS）优先级低于进行中的对话（用 SIFS），所以 ACK 一定先抢到信道。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">SlotTime</span>
+      <span class="term-full">Slot Time</span>
+      <span class="term-cn">· 时隙</span>
+    </div>
+    <div class="term-body">
+      <p>backoff 计数器递减的时间单位。多 STA 的退避在时隙边界对齐同步。</p>
+      <p><span class="term-val">802.11a: 9 μs</span> <span class="term-val">802.11b: 20 μs</span></p>
+      <p class="term-note">SlotTime &gt; 传播时延 + CCA 判定时间，保证一个时隙内能侦听到别人是否开始发。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PIFS</span>
+      <span class="term-full">PCF Interframe Space</span>
+      <span class="term-cn">· PCF 帧间间隔</span>
+    </div>
+    <div class="term-body">
+      <p>AP 轮询用（PCF 模式，实际很少用）。<strong>PIFS = SIFS + 1×SlotTime</strong>，介于 SIFS 和 DIFS 之间。</p>
+      <p><span class="term-val">802.11a: 25 μs</span></p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">EIFS</span>
+      <span class="term-full">Extended Interframe Space</span>
+      <span class="term-cn">· 扩展帧间间隔</span>
+    </div>
+    <div class="term-body">
+      <p>收到<strong>错误帧</strong>（CRC 失败，看不懂）后用。比 DIFS 更长，确保不会踩到一个自己解不出的进行中交换。<strong>EIFS = SIFS + ACK 发送时间 + DIFS</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">AIFS</span>
+      <span class="term-full">Arbitration Interframe Space</span>
+      <span class="term-cn">· 仲裁帧间间隔</span>
+    </div>
+    <div class="term-body">
+      <p>QoS（802.11e/EDCA）用，<strong>可变</strong>。不同接入类别（AC：语音/视频/尽力而为/背景）用不同 AIFS。<strong>AIFS[AC] = SIFS + AIFSN[AC] × SlotTime</strong>，AIFSN ≥ 2。语音 AIFS 最短（优先级最高）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CW</span>
+      <span class="term-full">Contention Window</span>
+      <span class="term-cn">· 竞争窗口</span>
+    </div>
+    <div class="term-body">
+      <p>backoff 计数器的取值范围 [0, CW]。随机选一个数，按 slot 递减。</p>
+      <p><span class="term-val">CWmin = 15</span> <span class="term-val">CWmax = 1023</span>（802.11a）</p>
+      <p class="term-note">碰撞后 CW 倍增（BEB），成功后重置回 CWmin。见下条。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BEB</span>
+      <span class="term-full">Binary Exponential Backoff</span>
+      <span class="term-cn">· 二进制指数退避</span>
+    </div>
+    <div class="term-body">
+      <p>每次碰撞后 CW 翻倍：<strong>CW = 2ⁿ · (CWmin + 1) − 1</strong>，n = 重试次数，封顶 CWmax。</p>
+      <p>序列：15 → 31 → 63 → 127 → 255 → 511 → 1023（封顶）</p>
+      <p class="term-note">精妙之处：碰撞多时自动拉长退避（信道拥挤 → 退让），空闲时快速发送。<strong>无中心的自适应拥塞控制</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CCA</span>
+      <span class="term-full">Clear Channel Assessment</span>
+      <span class="term-cn">· 信道空闲评估</span>
+    </div>
+    <div class="term-body">
+      <p>PHY 层判断信道忙/闲的功能，是 CSMA/CA "先听"的物理基础。CCA 阈值决定多弱的信号算"忙"。</p>
+      <p class="term-note">CCA 分两种：能量检测（ED，信号强度超阈值判忙）+ 载波侦听（CS，解到 802.11 preamble 判忙）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">RTS/CTS</span>
+      <span class="term-full">Request To Send / Clear To Send</span>
+      <span class="term-cn">· 请求发送 / 允许发送</span>
+    </div>
+    <div class="term-body">
+      <p>隐藏节点的缓解机制。发送方先发短 RTS，AP 回 CTS 广播"我要收数据，他人别发"，周围 STA 听到 CTS 后退避。</p>
+      <p class="term-note">代价：每次发送多了两个控制帧。<strong>通常只对大数据帧启用</strong>（有 RTS threshold 阈值，默认常关闭）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ACK</span>
+      <span class="term-full">Acknowledgment</span>
+      <span class="term-cn">· 确认帧</span>
+    </div>
+    <div class="term-body">
+      <p>接收方正确收到数据帧后回的确认。用 SIFS（最高优先级）发送。没收到 ACK → 发送方判定碰撞 → BEB 重试。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>网络结构（Topology）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BSS</span>
+      <span class="term-full">Basic Service Set</span>
+      <span class="term-cn">· 基本服务集</span>
+    </div>
+    <div class="term-body">
+      <p>Wi-Fi 的基本网络单元：1 个 AP + N 个关联的 STA。<strong>结构上对应蓝牙 piconet</strong>，但控制范式相反（AP 不调度，STA 竞争）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ESS</span>
+      <span class="term-full">Extended Service Set</span>
+      <span class="term-cn">· 扩展服务集</span>
+    </div>
+    <div class="term-body">
+      <p>多个 BSS 通过分布式系统（DS，通常是有线网）互连，支持漫游。同一个 SSID 下的多 AP 网络。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">IBSS</span>
+      <span class="term-full">Independent BSS</span>
+      <span class="term-cn">· 独立基本服务集</span>
+    </div>
+    <div class="term-body">
+      <p>无 AP 的对等 Wi-Fi 网络，俗称 ad-hoc。Wi-Fi Direct 类拓扑的基础。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">STA</span>
+      <span class="term-full">Station</span>
+      <span class="term-cn">· 站点</span>
+    </div>
+    <div class="term-body">
+      <p>任何具备 802.11 MAC/PHY 能力的设备。手机、笔记本、IoT 节点都是 STA；AP 本质上也是一种特殊 STA。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">AP</span>
+      <span class="term-full">Access Point</span>
+      <span class="term-cn">· 接入点</span>
+    </div>
+    <div class="term-body">
+      <p>提供 STA 关联、桥接有线网络的 Wi-Fi 设备。BSS 的中心节点。<strong>注意：AP 不调度 STA 的发送时刻</strong>（不像蓝牙 master）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BSSID</span>
+      <span class="term-full">Basic Service Set Identifier</span>
+      <span class="term-cn">· 基本服务集标识</span>
+    </div>
+    <div class="term-body">
+      <p>标识一个 BSS 的 6 字节 MAC。infra BSS 里 = AP 的 MAC；IBSS 里 = 随机生成。<strong>不是 SSID</strong>（SSID 是网络名字，字符串）。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>MAC 帧结构（Frame Structure）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MAC Frame</span>
+      <span class="term-full">MAC 帧</span>
+    </div>
+    <div class="term-body">
+      <p>802.11 数据链路层 PDU。固定头 24B（+可选 Addr4 6B）+ Body 0–2312B + FCS 4B。分<strong>三类</strong>：管理/控制/数据。</p>
+      <p>布局：<code>FC(2) | Duration(2) | Addr1(6) | Addr2(6) | Addr3(6) | SeqCtrl(2) | [Addr4(6)] | Body | FCS(4)</code></p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Frame Control</span>
+      <span class="term-full">帧控制字段</span>
+    </div>
+    <div class="term-body">
+      <p>MAC 头前 2 字节。含 Type/Subtype（帧类型）、ToDS/FromDS、Retry、Power Mgmt、Protected Frame 等。<strong>解析帧的第一步</strong>。</p>
+      <p>Type 2bit：00=管理、01=控制、10=数据。Subtype 4bit 细分（Beacon=0080、ACK=0x0D 等）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">三类帧</span>
+    </div>
+    <div class="term-body">
+      <p><strong>管理帧 (Management)</strong>：Beacon、Probe、Authentication、Association。建立/维护连接，<strong>是状态机载体</strong>。ToDS=FromDS=0，用 3 地址。</p>
+      <p><strong>控制帧 (Control)</strong>：ACK、RTS、CTS、PS-Poll、Block ACK。辅助数据传输，<strong>不承载数据</strong>。ACK 仅 14B。</p>
+      <p><strong>数据帧 (Data)</strong>：承载上层。QoS Data 多 2B QoS Ctrl（含 TID，对应 EDCA AC）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Addr1–4</span>
+      <span class="term-full">四个地址字段</span>
+    </div>
+    <div class="term-body">
+      <p>4 个 6B MAC 地址。5 个角色：<strong>DA</strong>(目的)、<strong>SA</strong>(源)、<strong>BSSID</strong>(BSS标识)、<strong>RA</strong>(本跳接收)、<strong>TA</strong>(本跳发送)。</p>
+      <p><strong>铁律：Addr1=RA，Addr2=TA，恒成立</strong>。Addr3/4 由 ToDS/FromDS 决定。</p>
+      <p class="term-note">为什么 4 个？AP 是桥接点，"本跳收发(RA/TA)"和"最终去来(DA/SA)"是两套地址，要分开带。以太网只有 DA/SA，因为端到端直连。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ToDS / FromDS</span>
+      <span class="term-full">To DS / From DS 位</span>
+    </div>
+    <div class="term-body">
+      <p>Frame Control 里 2 bit，决定地址映射（<strong>背下来</strong>）：</p>
+      <p><span class="term-val">00</span> 管理帧：A1=DA, A2=SA, A3=BSSID</p>
+      <p><span class="term-val">01</span> AP→STA 下行：A1=DA, A2=BSSID, A3=SA</p>
+      <p><span class="term-val">10</span> STA→AP 上行：A1=BSSID, A2=SA, A3=DA</p>
+      <p><span class="term-val">11</span> WDS 桥接：A1=RA, A2=TA, A3=DA, A4=SA（用满4个）</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">NAV</span>
+      <span class="term-full">Network Allocation Vector</span>
+      <span class="term-cn">· 网络分配矢量</span>
+    </div>
+    <div class="term-body">
+      <p><strong>虚拟载波侦听</strong>。读帧里 Duration 字段（μs），设本地计时器。NAV 没归零就不发，即使 CCA 说闲。</p>
+      <p class="term-note">STA 能不能发：<strong>物理 CCA 和 NAV 同时检查</strong>，两个都闲才行。NAV 价值：不用真听到数据帧也能知道信道被占（隐藏节点靠 CTS 的 Duration 设 NAV）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Duration/ID</span>
+      <span class="term-full">持续期 / ID</span>
+    </div>
+    <div class="term-body">
+      <p>2 字节。大多数帧存 NAV 值（μs），告诉别人"这组交换还要占多久"。PS-Poll 帧里存 AID（Association ID）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Seq Ctrl</span>
+      <span class="term-full">Sequence Control</span>
+      <span class="term-cn">· 序列控制</span>
+    </div>
+    <div class="term-body">
+      <p>2 字节：Fragment Number(4b) + Sequence Number(12b)。用于<strong>分片重组</strong>和<strong>去重</strong>。配合 Retry bit：同 Seq+Retry=1 是重传，接收方去重。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">FCS</span>
+      <span class="term-full">Frame Check Sequence</span>
+      <span class="term-cn">· 帧校验序列</span>
+    </div>
+    <div class="term-body">
+      <p>4 字节 CRC-32，帧尾。校验失败丢弃帧，且对错误帧用 <strong>EIFS</strong>（而非 DIFS）退避——避免踩到看不懂的交换。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>关联流程与状态机（Association Flow）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">802.11 状态机三态</span>
+      <span class="term-cn">· State 1 / 2 / 3</span>
+    </div>
+    <div class="term-body">
+      <p>STA 的官方三态：<strong>State 1</strong> 未认证 → <strong>State 2</strong> 已认证未关联 → <strong>State 3</strong> 已关联（可发数据）。每态允许发的帧分 Class 1/2/3。</p>
+      <p><span class="term-val">State 1</span> Class 1：Probe/Beacon/Auth</p>
+      <p><span class="term-val">State 2</span> +Class 2：Association Req/Resp</p>
+      <p><span class="term-val">State 3</span> +Class 3：数据帧、Deauth/Disassoc</p>
+      <p class="term-note">⚠️ "已关联" ≠ "能传数据"。WPA 网络还要过 4-Way Handshake 进入"已授权"才能真正上行。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Beacon</span>
+      <span class="term-full">信标帧</span>
+    </div>
+    <div class="term-body">
+      <p>AP 周期广播的管理帧。<span class="term-val">典型周期 102.4 ms</span>。承载 SSID、BSSID、能力、速率、TIM（省电通知）。</p>
+      <p class="term-note">被动扫描靠它；TIM 位图按 AID 标记哪个 STA 有缓存下行帧。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Probe Req/Resp</span>
+      <span class="term-full">探测请求 / 探测响应</span>
+    </div>
+    <div class="term-body">
+      <p><strong>主动扫描</strong>的一对管理帧。STA 发 Probe Req（带想找的 SSID），匹配 AP 回 Probe Resp（内容≈Beacon）。比被动扫描更快发现网络。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">SSID</span>
+      <span class="term-full">Service Set Identifier</span>
+      <span class="term-cn">· 服务集标识</span>
+    </div>
+    <div class="term-body">
+      <p>Wi-Fi 的"网络名"，最长 32 字节字符串。<strong>不是 BSSID</strong>（那是 MAC）。一个 ESS 下所有 AP 共用同一 SSID。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Capability Info</span>
+      <span class="term-full">能力信息字段</span>
+    </div>
+    <div class="term-body">
+      <p>2 字节位域，出现在 Beacon/Probe Resp/(Re)Assoc Req-Resp 里。bit 含义：ESS、IBSS、Privacy（是否加密）、Short Preamble、Short Slot Time 等。关联时 STA 与 AP 协商能力的载体。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Authentication</span>
+      <span class="term-full">802.11 认证帧</span>
+    </div>
+    <div class="term-body">
+      <p>关联<strong>之前</strong>的一对管理帧（<strong>不是安全认证</strong>！）。Open System（algorithm=0）两帧握手：</p>
+      <p><span class="term-val">Seq 1</span> STA→AP 请求 <span class="term-val">Seq 2</span> AP→STA 响应（基本都成功）</p>
+      <p class="term-note">⚠️ 常见误区：把它当"安全认证"。它只是状态机过场，<strong>真正身份认证由后续 WPA 4-Way Handshake / 802.1X 完成</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Association</span>
+      <span class="term-full">关联</span>
+    </div>
+    <div class="term-body">
+      <p>STA 加入 BSS 的一对管理帧。STA 发 Association Req（能力/速率/监听信道），AP 回 Association Resp（Status Code + AID）。</p>
+      <p>状态机视角：<strong>State 2 → State 3</strong> 的迁移。成功后 STA 才能发数据帧。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">AID</span>
+      <span class="term-full">Association ID</span>
+      <span class="term-cn">· 关联标识符</span>
+    </div>
+    <div class="term-body">
+      <p>AP 在 Association Response 里分配的 16-bit ID。<span class="term-val">范围 1–2007</span>。</p>
+      <p>用途：<strong>PS-Poll 帧</strong>的 Duration/ID 字段存 AID 取缓存帧；<strong>TIM</strong> 位图按 AID 标记哪个 STA 有下行缓存。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Reassociation</span>
+      <span class="term-full">重关联</span>
+    </div>
+    <div class="term-body">
+      <p>已关联 STA 在同一 ESS 内<strong>从原 AP 切到新 AP</strong>（漫游）的一对帧。Reassoc Req 比 Assoc Req 多一个"原 AP 的 MAC"字段。漫游（roaming）的核心帧。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Deauth / Disassoc</span>
+      <span class="term-full">取消认证 / 取消关联</span>
+    </div>
+    <div class="term-body">
+      <p>断连帧。<strong>Deauth</strong>：任意状态 → State 1（彻底打回）。<strong>Disassoc</strong>：State 3 → State 2（保留认证）。主动踢人/下线/超时都用它们，带 Reason Code。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>省电机制（Power Save）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Power Save</span>
+      <span class="term-full">省电模式</span>
+    </div>
+    <div class="term-body">
+      <p>STA 在 Frame Control 置 <strong>Power Management bit=1</strong> 告诉 AP"我要睡了"，AP 为它缓存下行帧。STA 周期醒、查 TIM、发 PS-Poll 取帧。</p>
+      <p class="term-note"><strong>核心思路</strong>：把"被动接收"变成"主动预约取"，睡眠期间关闭射频。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TIM</span>
+      <span class="term-full">Traffic Indication Map</span>
+      <span class="term-cn">· 业务指示图</span>
+    </div>
+    <div class="term-body">
+      <p>Beacon 里的<strong>位图</strong>。每一位对应一个 AID——位=1 表示 AP 为该 AID 缓存了单播帧。省电 STA 醒来解析 TIM，看自己的位。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">DTIM</span>
+      <span class="term-full">Delivery TIM</span>
+      <span class="term-cn">· 投递业务指示图</span>
+    </div>
+    <div class="term-body">
+      <p>特殊的 TIM，按 <strong>DTIM Period</strong>（如每 3 个 Beacon 一次）出现。DTIM 不仅指示单播缓存，还<strong>立即发送缓存的广播/组播</strong>。省电 STA 必须在 DTIM 醒来，否则错过广播（如 ARP）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PS-Poll</span>
+      <span class="term-full">Power-Save Poll</span>
+      <span class="term-cn">· 省电轮询帧</span>
+    </div>
+    <div class="term-body">
+      <p>省电 STA 向 AP"取一个缓存帧"的控制帧。<strong>Duration/ID 字段放 AID</strong>（不是 NAV！）。AP 收到后回一个缓存帧。多个帧就发多个 PS-Poll。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Listen Interval</span>
+      <span class="term-full">监听间隔</span>
+    </div>
+    <div class="term-body">
+      <p>STA 在 Association Request 里声明"我每 N 个 Beacon 醒一次"。N=1 每次都醒；N=10 睡更久但 AP 要缓存更多。AP 据此分配缓存缓冲区。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">More Data</span>
+      <span class="term-full">更多数据位</span>
+    </div>
+    <div class="term-body">
+      <p>Frame Control 里 1 bit。AP 发缓存帧时若 STA 还有更多待取，置 More Data=1。STA 据此决定"继续醒着取完"还是"回去睡"。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">U-APSD</span>
+      <span class="term-full">Unscheduled Automatic Power Save Delivery</span>
+      <span class="term-cn">· 非调度自动省电投递</span>
+    </div>
+    <div class="term-body">
+      <p>WMM-PS（802.11e）增强。STA 不用每次发 PS-Poll，而是<strong>用上行数据/触发帧让 AP"送货上门"</strong>。对 VoIP 双向周期业务省电显著。一次唤醒收发双向。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TWT</span>
+      <span class="term-full">Target Wake Time</span>
+      <span class="term-cn">· 目标唤醒时间</span>
+    </div>
+    <div class="term-body">
+      <p>802.11ax (Wi-Fi 6) 省电，源自 802.11ah。STA 和 AP 显式协商"唤醒时刻表"（Service Period），只在约定窗口收发，<strong>脱离 Beacon/DTIM 周期束缚</strong>。</p>
+      <p class="term-note">可睡几十秒到几分钟，是 Wi-Fi 6 IoT（智能门锁、传感器）续航关键。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>安全 / 加密（Security）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">WPA / WPA2 / WPA3</span>
+      <span class="term-full">Wi-Fi Protected Access</span>
+    </div>
+    <div class="term-body">
+      <p>WFA 安全认证品牌。<strong>WPA1</strong>（2003，TKIP 过渡）<strong>WPA2</strong>（2004，802.11i，CCMP，最普及）<strong>WPA3</strong>（2018，SAE + 强制 PMF）。</p>
+      <p class="term-note">WPA 不是 IEEE 标准号，是 WFA 认证品牌；背后对应 802.11i 等修正案。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CCMP</span>
+      <span class="term-full">Counter Mode CBC-MAC Protocol</span>
+      <span class="term-cn">· 基于 AES 的加密+完整性</span>
+    </div>
+    <div class="term-body">
+      <p>WPA2 强制加密协议。同时做<strong>加密</strong>（CTR）+ <strong>完整性</strong>（CBC-MAC），合称 AEAD。每帧一次性 nonce，杜绝 WEP 密钥复用。Wi-Fi 4/5/6 默认。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TKIP</span>
+      <span class="term-full">Temporal Key Integrity Protocol</span>
+    </div>
+    <div class="term-body">
+      <p>WPA1 过渡协议，RC4 + 每包密钥混合 + Michael MIC。<strong>2012 废弃</strong>。新固件不要支持。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PSK</span>
+      <span class="term-full">Pre-Shared Key</span>
+      <span class="term-cn">· 预共享密钥</span>
+    </div>
+    <div class="term-body">
+      <p>WPA2-Personal（家庭）认证。密码 + SSID 经 PBKDF2（4096 轮）派生 PMK。<strong>安全性依赖密码强度</strong>——抓 4-Way Handshake 可离线爆破。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PMK</span>
+      <span class="term-full">Pairwise Master Key</span>
+      <span class="term-cn">· 成对主密钥</span>
+    </div>
+    <div class="term-body">
+      <p>STA↔AP 共享的<strong>根密钥</strong>（32B），<strong>不在空中传</strong>。来源：PSK 派生 或 802.1X/EAP 的 MSK 截取。PMK 本身<strong>不加密数据帧</strong>，是 4-Way Handshake 的输入。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PTK</span>
+      <span class="term-full">Pairwise Transient Key</span>
+      <span class="term-cn">· 成对临时密钥</span>
+    </div>
+    <div class="term-body">
+      <p>4-Way Handshake 派生的<strong>本次会话单播加密密钥</strong>。输入：PMK + ANonce + SNonce + 双方 MAC。每次关联重派生。</p>
+      <p>由三段组成：<strong>KCK</strong>（签 EAPOL MIC）+ <strong>KEK</strong>（加密 GTK）+ <strong>TK</strong>（加密数据帧）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">GTK</span>
+      <span class="term-full">Group Temporal Key</span>
+      <span class="term-cn">· 组临时密钥</span>
+    </div>
+    <div class="term-body">
+      <p>AP 为整个 BSS 生成的<strong>组播/广播加密密钥</strong>，所有 STA 共用。M3 里用 KEK 加密下发。</p>
+      <p class="term-note">为什么单播要独立 PTK：每对密钥独立，一个被破不连累其他 STA；组播必须共用才能让所有人解。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">4-Way Handshake</span>
+      <span class="term-full">四次握手</span>
+    </div>
+    <div class="term-body">
+      <p>RSNA 核心，4 个 EAPOL-Key 帧派生并确认 PTK + 下发 GTK：</p>
+      <p><span class="term-val">M1</span> AP→STA: ANonce</p>
+      <p><span class="term-val">M2</span> STA→AP: SNonce + MIC（证明算出 PTK）</p>
+      <p><span class="term-val">M3</span> AP→STA: 加密 GTK + RSN-IE + MIC</p>
+      <p><span class="term-val">M4</span> STA→AP: MIC 确认</p>
+      <p class="term-note"><strong>关联成功 ≠ 能传数据</strong>，要 4-Way Handshake 完成进"已授权"才行。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ANonce / SNonce</span>
+      <span class="term-full">Authenticator / Supplicant Nonce</span>
+    </div>
+    <div class="term-body">
+      <p>4-Way Handshake 的随机数。ANonce 由 AP 生成（M1），SNonce 由 STA 生成（M2）。两者凑齐后双方都能算 PTK。保证 PTK 每次新鲜。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MIC</span>
+      <span class="term-full">Message Integrity Code</span>
+      <span class="term-cn">· 消息完整性码</span>
+    </div>
+    <div class="term-body">
+      <p>用密钥（KCK）对帧内容算的校验码。<strong>既是完整性也是身份证明</strong>——验证 MIC = 没被篡改 + 发送方持有正确密钥。M2/M3/M4 都带 MIC。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">EAPOL</span>
+      <span class="term-full">EAP over LAN</span>
+    </div>
+    <div class="term-body">
+      <p>802.1X 定义的帧格式，承载在 802.11 数据帧 Body 里。EAPOL-Key 装 nonce/MIC/GTK。<strong>在加密前明文传</strong>（鸡生蛋：密钥还没建立），靠 MIC 保完整性。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">802.1X / EAP</span>
+      <span class="term-full">端口认证 / 可扩展认证协议</span>
+    </div>
+    <div class="term-body">
+      <p>WPA2-Enterprise 身份认证。STA ↔ RADIUS 做 EAP（TLS/PEAP/TTLS），AP 当中间人，成功后 RADIUS 给 AP 发 MSK → 派生 PMK。</p>
+      <p class="term-note">比 PSK 强：每用户独立认证、密钥集中管理、支持证书。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">SAE</span>
+      <span class="term-full">Simultaneous Authentication of Equals</span>
+      <span class="term-cn">· 对等同步认证</span>
+    </div>
+    <div class="term-body">
+      <p>WPA3-Personal 替代 PSK 的协议（Dragonfly / PAKE）。双方用密码派生 Password Element 做 COMMIT/CONFIRM，派生 PMK。</p>
+      <p class="term-note"><strong>关键改进</strong>：抓包无法离线爆破密码（PMK 高熵 + 每会话新鲜），有前向保密。修复了 WPA2-PSK 最大软肋。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PMF / 802.11w</span>
+      <span class="term-full">Protected Management Frames</span>
+      <span class="term-cn">· 受保护管理帧</span>
+    </div>
+    <div class="term-body">
+      <p>给管理帧（Deauth/Disassoc/部分 Action）加加密保护 + 完整性校验。WPA2 可选，<strong>WPA3 强制</strong>。</p>
+      <p class="term-note"><strong>修复 Deauth 攻击</strong>——没 PMF 时伪造一个 Deauth 就能把 STA 踢下线，早年最常见攻击。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">RSN-IE</span>
+      <span class="term-full">Robust Security Network Information Element</span>
+    </div>
+    <div class="term-body">
+      <p>Beacon/Probe Resp/Assoc Req 里的信息元素，宣告 BSS 安全能力：加密套件（CCMP/TKIP）、认证方式（PSK/802.1X/SAE）、是否要 PMF。关联前用它匹配能力。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>PHY / 调制（物理层）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">OFDM</span>
+      <span class="term-full">Orthogonal Frequency Division Multiplexing</span>
+      <span class="term-cn">· 正交频分复用</span>
+    </div>
+    <div class="term-body">
+      <p>把数据分到多个<strong>频域正交</strong>的子载波上并行传输。<strong>Δf = 1/T</strong>（子载波间隔 = 符号周期倒数），sinc 频谱零点对齐，子载波频谱可重叠而互不干扰。</p>
+      <p><span class="term-val">802.11a/g/n/ac: Δf = 312.5 kHz</span> <span class="term-val">802.11ax: Δf = 78.125 kHz</span></p>
+      <p class="term-note">⚠️ OFDM 正交是<strong>频域</strong>（Δf = 1/T），不要和 QAM 的 I/Q 正交（相位差 90°，单载波内）混淆。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">I/Q</span>
+      <span class="term-full">In-phase / Quadrature</span>
+      <span class="term-cn">· 同相 / 正交</span>
+    </div>
+    <div class="term-body">
+      <p>单载波内的两路：I 路 cos(ωt)、Q 路 sin(ωt)，<strong>相位差 90°</strong>。QAM 调制建立在 I/Q 之上。</p>
+      <p class="term-note">这是<strong>单载波内</strong>的正交，和 OFDM 多子载波间的频域正交是两回事。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">QAM</span>
+      <span class="term-full">Quadrature Amplitude Modulation</span>
+      <span class="term-cn">· 正交幅度调制</span>
+    </div>
+    <div class="term-body">
+      <p>同时用 I/Q 两路的幅度和相位承载多个比特。</p>
+      <p><span class="term-val">16-QAM: 4 bit/符号</span> <span class="term-val">64-QAM: 6 bit</span> <span class="term-val">256-QAM: 8 bit</span> <span class="term-val">1024-QAM: 10 bit</span></p>
+      <p class="term-note">阶数越高 → 速率越高 → 需更强 SNR（星座点更密，更难区分）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BPSK</span>
+      <span class="term-full">Binary Phase Shift Keying</span>
+      <span class="term-cn">· 二进制相移键控</span>
+    </div>
+    <div class="term-body">
+      <p>最简单的相位调制，一个符号传 1 bit（0/π 两个相位）。Wi-Fi 最低速率 MCS0 用 BPSK 1/2。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MCS</span>
+      <span class="term-full">Modulation and Coding Scheme</span>
+      <span class="term-cn">· 调制与编码方案</span>
+    </div>
+    <div class="term-body">
+      <p>0–11 的索引（802.11n/ac/ax），标识一组"调制阶数 + 编码率"。MCS 越高 = 速率越高，需更强 SNR。由<strong>自适应速率算法</strong>（rate adaptation）动态选择。</p>
+      <p>MCS0 (BPSK 1/2, ~0 dB SNR) → ... → MCS11 (1024-QAM 3/4, ~36 dB SNR)</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">GI / CP</span>
+      <span class="term-full">Guard Interval / Cyclic Prefix</span>
+      <span class="term-cn">· 保护间隔 / 循环前缀</span>
+    </div>
+    <div class="term-body">
+      <p>每个 OFDM 符号前插入的冗余，吸收多径时延扩展，避免 ISI。<span class="term-val">802.11a: 0.8 μs</span>。CP 形式（符号尾部复制到头部）还能保持子载波正交。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PAPR</span>
+      <span class="term-full">Peak-to-Average Power Ratio</span>
+      <span class="term-cn">· 峰均功率比</span>
+    </div>
+    <div class="term-body">
+      <p>信号峰值功率与平均功率的比值。OFDM 因多子载波叠加，PAPR 高 → 功放易饱和、需功率回退。单载波（如 FSK）PAPR 低。<strong>OFDM 的代价之一</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ICI</span>
+      <span class="term-full">Inter-Carrier Interference</span>
+      <span class="term-cn">· 子载波间干扰</span>
+    </div>
+    <div class="term-body">
+      <p>OFDM 子载波正交性被破坏（频偏、相位噪声、多径超 GI）导致的子载波互相泄漏。<strong>频偏敏感是 OFDM 的代价之一</strong> → WiFi 要 ±20 ppm 晶振。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ISI</span>
+      <span class="term-full">Inter-Symbol Interference</span>
+      <span class="term-cn">· 符号间干扰</span>
+    </div>
+    <div class="term-body">
+      <p>前一个符号的多径时延拖到下一个符号里造成的干扰。OFDM 用 GI/CP 吸收。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">EVM</span>
+      <span class="term-full">Error Vector Magnitude</span>
+      <span class="term-cn">· 误差向量幅度</span>
+    </div>
+    <div class="term-body">
+      <p>实测星座点与理想星座点的偏差，衡量发射/接收质量。EVM 越小越好。高阶 QAM（1024-QAM）对 EVM 要求极严。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">FHSS</span>
+      <span class="term-full">Frequency Hopping Spread Spectrum</span>
+      <span class="term-cn">· 跳频扩频</span>
+    </div>
+    <div class="term-body">
+      <p>在多个载频间按约定序列快速切换。<strong>蓝牙（BR/EDR）的核心 PHY</strong>。Wi-Fi legacy 802.11-1997 用过，已淘汰。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">GFSK</span>
+      <span class="term-full">Gaussian Frequency Shift Keying</span>
+      <span class="term-cn">· 高斯频移键控</span>
+    </div>
+    <div class="term-body">
+      <p>蓝牙（BR/EDR 和 BLE）的 PHY 调制。单载波、恒包络、低阶。与 Wi-Fi 的 OFDM + QAM 形成对照。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>RF / 信号质量</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">RSSI</span>
+      <span class="term-full">Received Signal Strength Indicator</span>
+      <span class="term-cn">· 接收信号强度指示</span>
+    </div>
+    <div class="term-body">
+      <p>接收机测得的信号功率，单位 dBm。链路预算里"接收信号功率"的实测值。<strong>负数，因为接收功率永远 &lt; 1 mW</strong>。</p>
+      <p>读数档：<span class="term-val">−40 极强</span> <span class="term-val">−65 好</span> <span class="term-val">−75 可用</span> <span class="term-val">−85 边缘</span> <span class="term-val">&lt;−95 极限</span></p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">SNR</span>
+      <span class="term-full">Signal-to-Noise Ratio</span>
+      <span class="term-cn">· 信噪比</span>
+    </div>
+    <div class="term-body">
+      <p>信号功率与噪声功率的比值（dB）。<strong>SNR = RSSI − 噪声底</strong>。决定可达 MCS。</p>
+      <p class="term-note">RSSI 本身没意义，SNR 才是"能不能通"的判据。详见 <a href="rf-math-cheatsheet.html">RF 数学速查表</a>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PER</span>
+      <span class="term-full">Packet Error Rate</span>
+      <span class="term-cn">· 包错误率</span>
+    </div>
+    <div class="term-body">
+      <p>数据包错误/丢失的比例。灵敏度定义在 PER = 10% 处（即 90% 包能正确解调的最低信号功率）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">EIRP</span>
+      <span class="term-full">Equivalent Isotropically Radiated Power</span>
+      <span class="term-cn">· 等效全向辐射功率</span>
+    </div>
+    <div class="term-body">
+      <p>发射功率 + 天线增益的合成量 = <strong>EIRP = Tx Power + Ant Gain</strong>。表示向某方向辐射的等效功率。法规对 EIRP 有上限。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">FSPL</span>
+      <span class="term-full">Free Space Path Loss</span>
+      <span class="term-cn">· 自由空间路径损耗</span>
+    </div>
+    <div class="term-body">
+      <p>信号在自由空间传播的衰减。<strong>FSPL = 20·log₁₀(d) + 20·log₁₀(f) + 32.44</strong>（d: km, f: MHz）。频率越高、距离越远，损耗越大。</p>
+      <p class="term-note">详见 <a href="rf-math-cheatsheet.html">RF 数学速查表</a>。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>QoS / 高级特性</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">QoS</span>
+      <span class="term-full">Quality of Service</span>
+      <span class="term-cn">· 服务质量</span>
+    </div>
+    <div class="term-body">
+      <p>区分不同业务优先级的机制。Wi-Fi 用 802.11e / EDCA 实现。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">EDCA</span>
+      <span class="term-full">Enhanced Distributed Channel Access</span>
+      <span class="term-cn">· 增强分布式信道接入</span>
+    </div>
+    <div class="term-body">
+      <p>802.11e 定义的 QoS 版 DCF。用<strong>可变 AIFS + 不同的 CWmin/CWmax</strong> 区分 4 个接入类别（AC）：</p>
+      <p><span class="term-val">语音 (Voice)</span> <span class="term-val">视频 (Video)</span> <span class="term-val">尽力而为 (Best Effort)</span> <span class="term-val">背景 (Background)</span></p>
+      <p class="term-note">语音 AIFS 最短、CWmin 最小 → 优先级最高。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>蓝牙对照术语（桥梁）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TDMA</span>
+      <span class="term-full">Time Division Multiple Access</span>
+      <span class="term-cn">· 时分多址</span>
+    </div>
+    <div class="term-body">
+      <p>把时间切成帧/槽，由中央调度器分配。<strong>蓝牙（BLE connection event）的范式</strong>。与 Wi-Fi CSMA/CA 形成根本对照。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">piconet</span>
+      <span class="term-full">piconet（无缩写，希腊语"小网"）</span>
+      <span class="term-cn">· 微微网</span>
+    </div>
+    <div class="term-body">
+      <p>蓝牙的基本网络单元：1 master + ≤7 active slave。<strong>结构上对应 Wi-Fi BSS</strong>，但 master 是仲裁者（调度），AP 不调度。</p>
+    </div>
+  </div>
+
+  <hr style="margin: 2rem 0 1rem;">
+
+  <p style="font-family: var(--sans); font-size: 0.78rem; color: var(--ink-faint);">
+    📋 本速查表随课程进度持续更新。有新术语讲透后会加入。
+    正式定义见 <a href="../GLOSSARY.md">GLOSSARY.md</a>，RF 公式见 <a href="rf-math-cheatsheet.html">RF 数学速查表</a>。
+  </p>
+
+</main>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📶 Wi-Fi 学习 · 首页</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .home-grid { display: grid; gap: 14px; margin: 20px 0; }
+  .home-card {
+    display: block; padding: 18px 20px; border: 1px solid #e5e7eb;
+    border-radius: 12px; text-decoration: none; color: #1f2937;
+    background: #fff; transition: all .15s;
+  }
+  .home-card:hover { border-color: #2563eb; box-shadow: 0 4px 12px rgba(37,99,235,.12); transform: translateY(-1px); }
+  .home-card h3 { margin: 0 0 4px; font-size: 17px; color: #2563eb; }
+  .home-card p { margin: 0; font-size: 14px; color: #6b7280; }
+  .home-card .tag { font-size: 12px; color: #9ca3af; }
+  .section-title { margin: 28px 0 6px; font-size: 15px; color: #6b7280; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">📶 CWNA 学习骨架 · 手机版</div>
+  <h1>Wi-Fi 学习</h1>
+  <p>从蓝牙固件工程师视角，系统拆解 Wi-Fi。点开任何一课开始。</p>
+
+  <h2 class="section-title">📚 课程</h2>
+  <div class="home-grid" id="lessons-grid">
+    <p style="color:#9ca3af;font-size:14px">加载中…</p>
+  </div>
+
+  <h2 class="section-title">🧰 工具与参考</h2>
+  <div class="home-grid">
+    <a class="home-card" href="reference/wifi-terms-cheatsheet.html">
+      <h3>📖 Wi-Fi 术语速查</h3>
+      <p>中英对照，随时翻</p>
+    </a>
+    <a class="home-card" href="reference/rf-math-cheatsheet.html">
+      <h3>🧮 RF 数学速查</h3>
+      <p>dB 换算、链路预算公式</p>
+    </a>
+    <a class="home-card" href="NOTES-GUIDE.html">
+      <h3>📓 笔记功能说明</h3>
+      <p>如何在课程页里随手记笔记</p>
+    </a>
+    <a class="home-card" href="GLOSSARY.md">
+      <h3>📝 完整术语表</h3>
+      <p>GLOSSARY.md</p>
+    </a>
+  </div>
+
+</main>
+
+<script>
+// 动态加载 lessons 目录的课程列表,新增 html 文件 → 首页自动出现卡片
+(function () {
+  var grid = document.getElementById('lessons-grid');
+  if (!grid) return;
+  fetch('/api/lessons?dir=lessons')
+    .then(function (r) { return r.json(); })
+    .then(function (items) {
+      if (!items || items.length === 0) {
+        grid.innerHTML = '<p style="color:#9ca3af;font-size:14px">暂无课程</p>';
+        return;
+      }
+      grid.innerHTML = items.map(function (it) {
+        // 标题清理:把 "<title>第 N 课 · 标题</title>" 拆成序号 + 副标题
+        var title = it.title || it.name.replace(/\.html$/i, '');
+        // 提取"第 N 课"前缀(如有)
+        var numMatch = title.match(/^第\s*(\d+)\s*课\s*[·\-—:：]?\s*(.*)$/);
+        var h3, p;
+        if (numMatch) {
+          h3 = '第 ' + parseInt(numMatch[1], 10) + ' 课 · ' + (numMatch[2] || '').trim();
+          p = '点击进入学习';
+        } else {
+          h3 = title;
+          p = it.name.replace(/\.html$/i, '');
+        }
+        return '<a class="home-card" href="' + it.href + '">' +
+               '<h3>' + escapeHtml(h3) + '</h3>' +
+               '<p>' + escapeHtml(p) + '</p>' +
+               '</a>';
+      }).join('');
+    })
+    .catch(function () {
+      grid.innerHTML = '<p style="color:#ef4444;font-size:14px">加载失败,请确认服务正常</p>';
+    });
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

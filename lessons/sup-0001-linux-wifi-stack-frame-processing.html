@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课外补充 1 · Linux Wi-Fi 栈 —— 三类帧各在哪一层处理</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* 栈分层图 —— 贯穿 用户态 / 内核态 / 模组 */
+  .stack-diagram {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.1rem;
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .stack-diagram .usr  { color: var(--accent); font-weight: 700; }
+  .stack-diagram .ker  { color: #2f6b42; font-weight: 700; }
+  .stack-diagram .fw   { color: #b8761c; font-weight: 700; }
+  .stack-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .stack-diagram .arr  { color: var(--ink); }
+
+  /* 帧处理映射表 —— 本课核心 */
+  .frame-map {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.83rem;
+    margin: 1.4rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .frame-map th, .frame-map td {
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .frame-map thead th {
+    background: #f3efe6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .frame-map tbody tr:last-child td { border-bottom: none; }
+  .frame-map tbody tr:nth-child(even) { background: #fbf9f4; }
+  .frame-map .ftype { font-weight: 700; color: var(--accent); }
+  .frame-map .fw-cell   { background: #fdf6ea; }
+  .frame-map .ker-cell  { background: #eff5f0; }
+  .frame-map .usr-cell  { background: #fcefe9; }
+  .frame-map .mono { font-family: var(--mono); font-size: 0.82em; }
+  .frame-map .none { color: var(--ink-faint); font-style: italic; }
+
+  /* SoftMAC vs FullMAC 对照 */
+  .arch-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    margin: 1.4rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .arch-table th, .arch-table td {
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .arch-table thead th {
+    background: #f3efe6;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .arch-table tbody tr:last-child td { border-bottom: none; }
+  .arch-table .col-aspect { font-weight: 600; color: var(--ink); width: 22%; }
+  .arch-table .col-soft   { color: #2f6b42; width: 39%; }
+  .arch-table .col-full   { color: var(--accent); width: 39%; }
+  .arch-table .mono { font-family: var(--mono); font-size: 0.86em; }
+
+  /* 数据帧路径小图 */
+  .path-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.6;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem 1.1rem;
+    margin: 1.4rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .path-diagram .usr { color: var(--accent); font-weight: 700; }
+  .path-diagram .ker { color: #2f6b42; font-weight: 700; }
+  .path-diagram .fw  { color: #b8761c; font-weight: 700; }
+  .path-diagram .hl  { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    课外补充 1 / Supplement 0001 · Linux Wi-Fi 栈 ·
+    <span style="color:var(--ink-faint);">（非主线，回答临时提问；主线第 8 课仍为协议内容）</span> ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0007-sta-association-flow.html">← 第 7 课（主线）</a>
+  </div>
+
+  <h1>Linux Wi-Fi 栈 —— 三类帧各在哪一层处理</h1>
+
+  <p><em>这是回答你临时提问的<strong>课外补充</strong>，不打断协议主线。主线第 8 课仍按计划讲协议内容（省电模式）。</em></p>
+
+  <p>这个问题命中你转 Wi-Fi 驱动/协议栈方向<strong>最该先建的一张全景图</strong>。前面七课讲的都是协议本身（帧长什么样、状态机怎么走、CSMA/CA 怎么退避），这篇讲的是<strong>这些协议机制在 Linux 上分别落在哪段代码里</strong> —— 数据帧 (Data frame)、管理帧 (Management frame)、控制帧 (Control frame) 各自由谁收发、谁解析、谁对用户态可见。</p>
+
+  <p>这张图一旦立起来，你后面看任何 Wi-Fi 驱动（ESP32、Realtek、MTK、高通）都能立刻定位："这个 bug 在哪一段"。这是 BT 驱动栈经验最直接的迁移点 —— 你做 BT 时知道 HCI/ACL/SCO 各在哪一层，Wi-Fi 这边只是换了名字和分层方式。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：一个数据帧穿越四层软件栈</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>Linux Wi-Fi 软件栈分<strong>四层</strong>，从下到上：</p>
+    <ol>
+      <li><strong>固件 (Firmware)</strong> —— 跑在 Wi-Fi 芯片（"模组"）内部的小操作系统上，碰硬件寄存器、RF、DMA。对内核是个黑盒，通过驱动定义的命令接口（PCIe/SDIO/USB 上的厂商私有协议）通信。</li>
+      <li><strong>设备驱动 (Device driver)</strong> —— 内核态（<span class="mono">drivers/net/wireless/</span>），把固件接口"翻译"成 Linux 网络栈认得的形式。ath10k / iwlwifi / brcmfmac 等都是这一层。</li>
+      <li><strong>mac80211 + cfg80211</strong> —— 内核态（<span class="mono">net/mac80211/</span> + <span class="mono">net/wireless/</span>），802.11 协议框架。mac80211 实现 MLME (MAC 子层管理实体)、帧封装、加密、聚合；cfg80211 是统一配置入口。</li>
+      <li><strong>用户态 (Userspace)</strong> —— wpa_supplicant（STA 侧）、hostapd（AP 侧），通过 nl80211 (netlink) 与内核通信。</li>
+    </ol>
+    <p><strong>三类帧的处理职责，就分布在这四层里</strong>。数据帧几乎一路上下贯通；管理帧在中间被处理；控制帧绝大多数在固件里就消化了，内核根本看不到。</p>
+  </div>
+
+  <p>先看一张全景图，把四层竖起来：</p>
+
+  <div class="stack-diagram">
+                <span class="usr">用户态 / Userspace</span>
+   ┌─────────────────────────────────────────────────────────┐
+   │  <span class="hl">wpa_supplicant</span> (STA)      <span class="hl">hostapd</span> (AP)      iw / iwd      │
+   │  · 4-Way Handshake / 密钥管理  · 漫游决策  · EAP/802.1X   │
+   └────────────────────────────┬────────────────────────────┘
+                                │ <span class="arr">↑↓ nl80211 (netlink 消息) ↑↓</span>
+   ┌────────────────────────────┴────────────────────────────┐
+   │          <span class="ker">cfg80211</span>  (net/wireless/)  <span class="note">— 配置子系统，所有 Wi-Fi 设备对上的统一入口</span>  │
+   │   · wiphy 设备注册  · scan/connect/key 命令分发  · 监管域   │
+   ├─────────────────────────────────────────────────────────┤
+   │          <span class="ker">mac80211</span>  (net/mac80211/)  <span class="note">— SoftMAC 驱动框架（FullMAC 不经过这层）</span>    │
+   │   · STA 模式 MLME (mlme.c)  · 数据帧 802.3↔802.11 封装       │
+   │   · 加密/分片/A-MPDU 重排/速率控制接口                       │
+   ├─────────────────────────────────────────────────────────┤
+   │          <span class="ker">设备驱动</span>  (drivers/net/wireless/...)                        │
+   │   ath10k · ath11k · iwlwifi · brcmfmac · mwifiex ...       │
+   │   · 把 mac80211/cfg80211 的回调翻译成厂商固件命令            │
+   └────────────────────────────┬────────────────────────────┘
+                                │ <span class="arr">↑↓ 厂商私有命令 (PCIe/SDIO/USB) ↑↓</span>
+   ┌────────────────────────────┴────────────────────────────┐
+   │                <span class="fw">固件 (Firmware)</span>  +  Wi-Fi 芯片 / 模组                  │
+   │   · 碰 RF 寄存器 / DMA / 定时  · ACK/CTS/BlockAck 全在这做   │
+   │   · FullMAC 芯片：连 MLME 都在这做                          │
+   └─────────────────────────────────────────────────────────┘
+  </div>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>BT 的分层你应该熟：<span class="mono">App → Host Stack (L2CAP/ATT/SM) → HCI → Controller 固件 → RF</span>。Wi-Fi 这边<strong>一一对应</strong>：<span class="mono">wpa_supplicant</span> ≈ 上层协议栈；<span class="mono">nl80211</span> ≈ <strong>HCI</strong>（用户态↔内核的控制通道）；<span class="mono">mac80211 + 驱动</span> ≈ <strong>Host Controller Driver</strong>；芯片固件 ≈ <strong>Controller 固件</strong>。最大的区别：<strong>BT 的 MLME 永远在 controller，Wi-Fi 的 MLME 可以在内核（SoftMAC）也可以在固件（FullMAC）</strong> —— 这就是下一节的分水岭。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>分水岭：SoftMAC vs FullMAC —— MLME 跑在哪</h2>
+
+  <p>在回答"三类帧各在哪处理"之前，必须先知道一个根本的架构分叉：<strong>MLME (MLME, MAC 子层管理实体)</strong> —— 也就是管理帧的收发状态机 —— 到底跑在哪里。这决定了后面所有的"谁处理什么"。</p>
+
+  <div class="callout key">
+    <span class="callout-title">SoftMAC vs FullMAC 的定义</span>
+    <p><strong>SoftMAC (Software MAC, 软件 MAC)</strong>：MLME 放在内核软件里做，由 <strong>mac80211</strong> 框架统一实现。驱动只管把芯片收到的 802.11 帧（含管理帧）原样上送，mac80211 在软件里跑状态机、解析管理帧、构造 Auth/Assoc Request。</p>
+    <p><strong>FullMAC (Full MAC, 全 MAC)</strong>：MLME 放在芯片<strong>固件</strong>里做。内核看不到裸管理帧 —— 它只通过 cfg80211 收发"高级命令"（scan / connect / key），固件内部完成整个帧交换，再把结果（"连上了"/"扫描到 3 个 BSS"）上报。</p>
+  </div>
+
+  <table class="arch-table">
+    <thead>
+      <tr><th>维度</th><th>SoftMAC（软件 MAC）</th><th>FullMAC（全 MAC）</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="col-aspect">MLME 跑在哪</td>
+        <td class="col-soft"><strong>内核 mac80211</strong>（<span class="mono">net/mac80211/mlme.c</span>）</td>
+        <td class="col-full"><strong>芯片固件</strong>里</td>
+      </tr>
+      <tr>
+        <td class="col-aspect">驱动注册方式</td>
+        <td class="col-soft">实现 <span class="mono">ieee80211_ops</span> → <span class="mono">ieee80211_register_hw()</span> → mac80211 替它向 cfg80211 注册</td>
+        <td class="col-full">实现自己的 <span class="mono">cfg80211_ops</span> → <span class="mono">wiphy_new_nm()</span> → <span class="mono">cfg80211_register_wiphy()</span>，<strong>绕过 mac80211</strong></td>
+      </tr>
+      <tr>
+        <td class="col-aspect">内核是否看得到裸管理帧</td>
+        <td class="col-soft"><strong>看得到</strong>（Beacon/Auth/Assoc 都进 mac80211 的 RX 处理链）</td>
+        <td class="col-full"><strong>看不到</strong>（固件消化完，只上报事件）</td>
+      </tr>
+      <tr>
+        <td class="col-aspect">典型驱动</td>
+        <td class="col-soft">ath9k · ath10k · ath11k · iwlwifi · brcmsmac · rt2800</td>
+        <td class="col-full">brcmfmac · mwifiex · ath6kl · qtnfmac</td>
+      </tr>
+      <tr>
+        <td class="col-aspect">常见形态</td>
+        <td class="col-soft">PCIe / MiniPCIe（笔记本、AP、路由器主芯片）</td>
+        <td class="col-full">SDIO / USB 模块（IoT、树莓派、外置网卡）</td>
+      </tr>
+      <tr>
+        <td class="col-aspect">占比（上游 Linux）</td>
+        <td class="col-soft">约 35 个驱动（绝大多数主流）</td>
+        <td class="col-full">约 9 个驱动</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <span class="callout-title">⚠️ 最常踩的坑：ath10k / ath11k / iwlwifi 不是 FullMAC</span>
+    <p>很多人因为这些驱动<strong>固件很"重"</strong>（做扫描 offload、连接管理、加密 offload、聚合），就误以为它们是 FullMAC。<strong>架构上它们都是 SoftMAC</strong> —— MLME 仍然走 mac80211。判断依据不是"固件干了多少活"，而是<strong>"MLME 跑在哪、驱动注册走不走 mac80211"</strong>。ath11k 官方文档原文就写"ath11k uses mac80211"。</p>
+  </div>
+
+  <p>理解了这个分水岭，下面这张表就是本课的<strong>核心交付物</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>核心表：三类帧 × 收发 × 各层职责（SoftMAC 路径）</h2>
+
+  <p>下表是 <strong>SoftMAC + mac80211</strong>（绝大多数主流设备）下，三类帧在四层里的处理职责。<strong>控制帧那两行是新人最意外的地方</strong> —— 先看表，下面逐帧拆解。</p>
+
+  <table class="frame-map">
+    <thead>
+      <tr>
+        <th>帧类型</th>
+        <th class="fw-cell">固件 / 硬件</th>
+        <th class="ker-cell">mac80211（内核）</th>
+        <th class="usr-cell">用户态</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="ftype">数据帧<br>Data</td>
+        <td class="fw-cell">RF 收发 · DMA · 硬件加密 (CCMP/GCMP) · A-MPDU/A-MSDU 聚合 · 速率/功率</td>
+        <td class="ker-cell">TX: 802.3→802.11 封装、加密分片、入队 (<span class="mono">ieee80211_tx</span>)<br>RX: 解密、重排、转 802.3、<span class="mono">netif_receive_skb</span> 上送 (<span class="mono">ieee80211_rx_h_data</span>)</td>
+        <td class="usr-cell"><span class="none">通常不可见</span>（数据帧直接走 socket，不经 wpa_supplicant）</td>
+      </tr>
+      <tr>
+        <td class="ftype">管理帧<br>Mgmt</td>
+        <td class="fw-cell">RF 收发 · DMA · （部分扫描 offload 由固件代发 Probe）</td>
+        <td class="ker-cell"><strong>STA 模式 MLME 全在这</strong>：构造/解析 Auth/Assoc/Beacon/Probe，跑 State 1/2/3 状态机 (<span class="mono">mlme.c</span> · <span class="mono">ieee80211_rx_h_mgmt</span>)</td>
+        <td class="usr-cell">wpa_supplicant 经 nl80211 发 scan/connect 命令、收结果；做 4-Way Handshake；AP 模式由 hostapd 接管 MLME</td>
+      </tr>
+      <tr>
+        <td class="ftype">控制帧<br>Control</td>
+        <td class="fw-cell"><strong>几乎全在这做</strong>：ACK / CTS / BlockAck 收发（SIFS 时序要求，主机来不及）</td>
+        <td class="ker-cell"><span class="none">基本不碰</span>。仅维护 BlockAck <em>会话</em>簿记 (<span class="mono">ieee80211_start_tx_ba_session</span>)，读 TX 状态里的 ACK 成功位</td>
+        <td class="usr-cell"><span class="none">完全不可见</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>下面把这三行逐一展开。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 数据帧：贯通四层的流水线</h2>
+
+  <p>数据帧是<strong>唯一一路贯通</strong>所有层的帧类型。发送方向（应用 → 空中）的完整路径：</p>
+
+  <div class="path-diagram">
+   <span class="usr">应用 socket</span>
+        │  <span class="hl">write/send</span>
+        ▼
+   <span class="ker">内核网络栈</span> (TCP/IP → netfilter → 路由)
+        │  到 wlan0 接口的 sk_buff
+        ▼
+   <span class="ker">mac80211</span>  <span class="note">ieee80211_tx → __ieee80211_tx</span>
+        │  ① 802.3 以太网头 → 802.11 MAC 头（加 ToDS/FromDS、地址映射）
+        │  ② 速率控制算法选 MCS（Minstrel HT 或固件 offload）
+        │  ③ 软件加密（若没硬件 offload）/ 分片
+        ▼
+   <span class="ker">设备驱动</span>  <span class="note">ath10k_tx / iwl_tx</span>
+        │  把 sk_buff 塞进驱动队列，翻译成厂商固件命令
+        ▼
+   <span class="fw">固件 / 硬件</span>
+        │  ④ 硬件加密（CCMP/GCMP）  ⑤ A-MPDU 聚合  ⑥ 功率/校准
+        │  ⑦ RF 发射，按 CSMA/CA + IFS + backoff 抢介质
+        ▼
+      📡 空中 (Air)
+  </div>
+
+  <p>接收方向（空中 → 应用）是这条线的镜像，但有几个关键点要记住：</p>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p><strong>数据帧 RX 路径的关键函数链</strong>（都在 <span class="mono">net/mac80211/rx.c</span>）：</p>
+    <ul>
+      <li><span class="mono">ieee80211_rx()</span> → <span class="mono">ieee80211_rx_list()</span>：驱动收到 MPDU 后的入口（注释原文："called by a low level driver when an 802.11 MPDU is received from the hardware"）。</li>
+      <li><span class="mono">ieee80211_rx_handlers()</span>：一条由 <span class="mono">CALL_RXH</span> 宏串起来的处理链，依次执行一系列 <span class="mono">ieee80211_rx_h_*</span> 处理器。</li>
+      <li>典型顺序：<span class="mono">ieee80211_rx_h_check</span>（查 STA）→ <span class="mono">ieee80211_rx_h_decrypt</span>（软/硬解密）→ <span class="mono">ieee80211_rx_h_defragment</span>（分片重组）→ <span class="mono">ieee80211_rx_h_sta_process</span> → <span class="mono">ieee80211_rx_h_ampdu</span>（A-MPDU 重排）→ <span class="mono">ieee80211_rx_h_data</span>（剥 MAC 头转 802.3）。</li>
+      <li>最后 <span class="mono">netif_receive_skb()</span> 把以太网帧送上内核网络栈，和有线网卡<strong>合流</strong>。</li>
+    </ul>
+    <p>这就是为什么 <strong>数据帧不经 wpa_supplicant</strong> —— 数据路径和协议控制路径在内核就分叉了，数据帧走网络栈直接到 socket，wpa_supplicant 只管控制平面（密钥/连接）。</p>
+  </div>
+
+  <div class="sidenote">
+    ⚠️ 版本提示：<span class="mono">ieee80211_rx_h_passive_fill</span> 这类处理器在新内核里已被合并/移除。要看你手上内核版本的确切处理链，打开 <span class="mono">net/mac80211/rx.c</span> 搜 <span class="mono">CALL_RXH</span> 就是当前真相。处理链的<strong>架构</strong>（驱动→mac80211→netif）跨版本稳定，具体函数名会演进。
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 管理帧：内核 mac80211 的主战场</h2>
+
+  <p>管理帧是<strong>你做协议栈移植最直接对口</strong>的部分 —— 这正是 BT 协议栈状态机经验镜像迁移的地方。<strong>SoftMAC 驱动下，STA 模式的管理帧 MLME 在内核 mac80211 里跑</strong>（mac80211 官方文档原文："In mac80211 the MLME is done in the kernel for station mode (STA) and in userspace for AP mode (hostapd)."）。</p>
+
+  <table class="frame-map">
+    <thead>
+      <tr>
+        <th>STA 模式管理帧</th>
+        <th class="fw-cell">固件</th>
+        <th class="ker-cell">mac80211 (mlme.c)</th>
+        <th class="usr-cell">wpa_supplicant</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="ftype">Beacon / Probe<br>(扫描)</td>
+        <td class="fw-cell">RF 收 + DMA（可能代发 Probe Request 做扫描 offload）</td>
+        <td class="ker-cell"><span class="mono">ieee80211_rx_h_mgmt</span> 收到后入队，<span class="mono">mlme.c</span> 解析 BSS 信息上报 cfg80211</td>
+        <td class="usr-cell">发 <span class="mono">NL80211_CMD_TRIGGER_SCAN</span>，收 BSS 列表结果</td>
+      </tr>
+      <tr>
+        <td class="ftype">Authentication<br>(第 7 课 State 1→2)</td>
+        <td class="fw-cell">RF 收发 + DMA</td>
+        <td class="ker-cell">mac80211 构造/解析 Auth Seq 1/2，推进状态机（<strong>不是</strong> wpa_supplicant 做）</td>
+        <td class="usr-cell">发"connect"命令，状态机由内核跑，wpa_supplicant 等结果</td>
+      </tr>
+      <tr>
+        <td class="ftype">Association<br>(State 2→3)</td>
+        <td class="fw-cell">RF 收发 + DMA</td>
+        <td class="ker-cell">mac80211 构造/解析 Assoc Req/Resp，读 AID，进 State 3</td>
+        <td class="usr-cell">同上，等关联结果</td>
+      </tr>
+      <tr>
+        <td class="ftype">EAPOL-Key<br>(4-Way Handshake)</td>
+        <td class="fw-cell">RF 收发 + DMA</td>
+        <td class="ker-cell"><span class="none">当作数据帧上送</span>（EAPOL 走数据帧通道）</td>
+        <td class="usr-cell"><strong>wpa_supplicant 在这里接管</strong>：派生 PTK/GTK，装密钥到内核</td>
+      </tr>
+      <tr>
+        <td class="ftype">Deauth / Disassoc</td>
+        <td class="fw-cell">RF 收发 + DMA</td>
+        <td class="ker-cell">mac80211 处理，把状态机打回 State 1/2，上报事件</td>
+        <td class="usr-cell">收到断连事件，决定重连或换 AP（漫游）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout key">
+    <span class="callout-title">关键边界：mac80211 管 State 1→2→3，wpa_supplicant 管密钥</span>
+    <p>这是你移植时必须尊重的<strong>职责边界</strong>：</p>
+    <ul>
+      <li><strong>认证 + 关联（State 1→2→3）</strong>：在 SoftMAC 驱动上是<strong>内核 mac80211</strong> 跑的（<span class="mono">net/mac80211/mlme.c</span> 里的状态机）。</li>
+      <li><strong>4-Way Handshake / 密钥派生</strong>：在<strong>用户态 wpa_supplicant</strong> 里跑（PSK/802.1X 在这里）。</li>
+      <li><strong>AP 模式 MLME</strong>：在<strong>用户态 hostapd</strong> 里跑（mac80211 不管 AP 的状态机）。</li>
+    </ul>
+    <p>这个分界让 MAC 层和安全层<strong>解耦</strong> —— 同一套 mac80211 状态机能挂 Open / WPA2-PSK / WPA2-Enterprise / WPA3。调试关联问题时，<strong>同时看内核日志（dmesg）和 wpa_supplicant 日志（-ddd）</strong>，按时间戳对齐，问题在哪一段一眼看出。</p>
+  </div>
+
+  <p>FullMAC 驱动下这张表会<strong>大幅简化</strong>：固件自己跑完整个 MLME，内核只通过 cfg80211 收发高级命令（scan / connect），mac80211 整层不参与。这也是为什么 FullMAC 驱动代码量通常比 SoftMAC 小（状态机都在固件里），但<strong>调试更黑盒</strong>（管理帧细节对内核不可见，得靠固件的事件日志）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 控制帧：固件独占，内核几乎看不见</h2>
+
+  <p>这是新人最意外的一行：<strong>ACK、CTS、BlockAck 这些控制帧，内核基本完全看不到</strong>。原因是个硬物理约束：</p>
+
+  <div class="callout key">
+    <span class="callout-title">为什么控制帧必须在固件/硬件做</span>
+    <p>ACK、CTS、BlockAck 都是<strong>控制响应帧</strong>，必须在收到原帧后的 <strong>SIFS（短帧间间隔，~16 μs）</strong>内发出。这个时间预算里，光是把帧从 PCIe/SDIO 传到内核、走中断处理、再让 CPU 决定回个 ACK 然后传回芯片发射 —— <strong>根本来不及</strong>。SIFS 的物理含义（第 5 课）就是"短到只有 RF 收发链路自己来得及响应"。所以这些帧<strong>天生属于芯片 MAC 硅片 + 固件</strong>。</p>
+  </div>
+
+  <p>所以 mac80211 对控制帧的态度是<strong>"我只看后果，不看帧本身"</strong>：</p>
+
+  <table class="frame-map">
+    <thead>
+      <tr>
+        <th>控制帧</th>
+        <th class="fw-cell">固件 / 硬件</th>
+        <th class="ker-cell">mac80211</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="ftype">ACK</td>
+        <td class="fw-cell">硬件在 SIFS 内自动回 ACK；TX 侧把"有没有收到 ACK"记进 TX 状态</td>
+        <td class="ker-cell">读 TX 状态里的 ACK 位 (<span class="mono">IEEE80211_TX_STAT_ACK</span>)，没收到 → 触发重传/速率降阶</td>
+      </tr>
+      <tr>
+        <td class="ftype">RTS / CTS</td>
+        <td class="fw-cell">隐藏节点握手全在固件做（mac80211 只设个"启用 RTS 阈值"的参数）</td>
+        <td class="ker-cell"><span class="none">不参与</span>，只在配置里设 RTS/CTS 阈值</td>
+      </tr>
+      <tr>
+        <td class="ftype">BlockAck<br>(A-MPDU 用)</td>
+        <td class="fw-cell">ADDBA/DelBA 帧、BlockAck 帧的收发都在固件</td>
+        <td class="ker-cell"><strong>会话簿记</strong>：<span class="mono">ieee80211_start_tx_ba_session()</span> / <span class="mono">ieee80211_start_rx_ba_session()</span> 建立重排缓冲区，但<strong>帧本身不上送内核</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>mac80211 RX 处理链里有一句注释印证了这点：到管理帧处理器时，<strong>"数据帧和控制帧已经被处理掉了"</strong>（"Data and control frames are already handled"）—— 意思是控制帧在到达 mac80211 的帧解析逻辑之前，就被固件消化了。</p>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>BT 里也是一样的逻辑：BLE 的 <strong>CRC 校验、接入地址匹配、空包 (empty PDU) 自动应答</strong>都在 controller 硅片做，host 根本不参与。Wi-Fi 的 ACK/CTS 之于 mac80211，就像 BLE 的链路层自动应答之于 HCI host —— <strong>都是时序逼出来的硬件/固件职责</strong>。你做 BT 时从来没在 host 上"手动回 ACK"，Wi-Fi 这边同理。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>FullMAC 视角：管理帧也下沉到固件</h2>
+
+  <p>上面三节讲的是 <strong>SoftMAC（mac80211）路径</strong>。如果你将来做的是 FullMAC 驱动（比如某个 SDIO/USB Wi-Fi 模块移植），管理帧的处理位置会变：</p>
+
+  <table class="frame-map">
+    <thead>
+      <tr>
+        <th>FullMAC 路径</th>
+        <th class="fw-cell">固件</th>
+        <th class="ker-cell">cfg80211（无 mac80211）</th>
+        <th class="usr-cell">用户态</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="ftype">管理帧</td>
+        <td class="fw-cell"><strong>固件自己跑完整 MLME</strong>（Beacon/Auth/Assoc 都在固件里交换）</td>
+        <td class="ker-cell">只通过 <span class="mono">cfg80211_ops</span>（驱动自己实现的）收发高级命令：scan / connect / add_key</td>
+        <td class="usr-cell">wpa_supplicant 同样经 nl80211，但发的是"connect"命令而不是"authenticate + associate"</td>
+      </tr>
+      <tr>
+        <td class="ftype">数据帧</td>
+        <td class="fw-cell">固件做更多封装/加密/聚合（因为 mac80211 不在）</td>
+        <td class="ker-cell">驱动直接把帧上送网络栈（<span class="mono">netif_receive_skb</span>），不经 mac80211</td>
+        <td class="usr-cell">同 SoftMAC，走 socket</td>
+      </tr>
+      <tr>
+        <td class="ftype">控制帧</td>
+        <td class="fw-cell">完全在固件（同 SoftMAC）</td>
+        <td class="ker-cell"><span class="none">不参与</span></td>
+        <td class="usr-cell"><span class="none">不可见</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>判断一个驱动是 SoftMAC 还是 FullMAC，最直接的方法：看它是否在 <span class="mono">drivers/net/wireless/</span> 下调用 <span class="mono">ieee80211_register_hw()</span>（SoftMAC）还是 <span class="mono">cfg80211_register_wiphy()</span>（FullMAC）。前者依赖 mac80211，后者绕开它。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：这套架构落在代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>把本课的分层映射到<strong>内核源码路径</strong>（可在 <a href="https://elixir.bootlin.com/linux/latest/source/net/mac80211" target="_blank">Elixir Bootlin</a> 在线读）：</p>
+    <ul>
+      <li><strong><span class="mono">net/mac80211/</span></strong> —— SoftMAC 框架核心
+        <ul>
+          <li><span class="mono">rx.c</span> —— 数据/管理帧 RX 路径 + <span class="mono">ieee80211_rx_handlers</span> 处理链</li>
+          <li><span class="mono">tx.c</span> —— 数据帧 TX 路径（<span class="mono">ieee80211_tx</span>）</li>
+          <li><span class="mono">mlme.c</span> —— <strong>STA 模式 MLME 状态机</strong>（认证/关联/扫描的核心，你的协议栈经验落点）</li>
+          <li><span class="mono">cfg.c</span> —— mac80211 自己向 cfg80211 注册的那份 <span class="mono">cfg80211_ops</span></li>
+        </ul>
+      </li>
+      <li><strong><span class="mono">net/wireless/</span></strong> —— cfg80211 + nl80211
+        <ul>
+          <li><span class="mono">core.c</span> —— cfg80211 核心、wiphy 注册</li>
+          <li><span class="mono">nl80211.c</span> —— netlink 命令处理器（<span class="mono">NL80211_CMD_*</span>）</li>
+        </ul>
+      </li>
+      <li><strong><span class="mono">include/net/cfg80211.h</span></strong> —— <span class="mono">struct cfg80211_ops</span>、<span class="mono">wiphy</span> 定义（FullMAC 驱动的契约）</li>
+      <li><strong><span class="mono">include/net/mac80211.h</span></strong> —— <span class="mono">struct ieee80211_ops</span>、<span class="mono">ieee80211_rx()</span> 等 SoftMAC 驱动的契约</li>
+      <li><strong><span class="mono">drivers/net/wireless/...</span></strong> —— 各厂商驱动（ath10k/ath11k/iwlwifi/brcmfmac/mwifiex...）</li>
+    </ul>
+    <p><strong>调试黄金组合</strong>（关联/吞吐/掉线问题通用）：</p>
+    <ul>
+      <li><span class="mono">wpa_supplicant -ddd</span> —— 看用户态状态机和密钥流程</li>
+      <li><span class="mono">dmesg / iw event</span> —— 看内核 cfg80211/mac80211/驱动的事件</li>
+      <li>monitor mode 抓包（<span class="mono">tcpdump</span> / Wireshark）—— 看<strong>真实空中帧</strong>（这是 FullMAC 黑盒调试的唯一外部视角）</li>
+      <li><span class="mono">iw dev wlan0 station dump</span> —— 看实时链路状态（MCS、信号、重传率）</li>
+    </ul>
+    <p>三路日志对时间戳，问题落在固件/驱动/mac80211/用户态哪一段，基本一眼定位。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：分层吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="一个 SoftMAC Wi-Fi 驱动下，STA 的 802.11 认证/关联（State 1→2→3）在哪里跑？"
+       data-explain="SoftMAC 驱动下，STA 模式的 MLME（管理帧状态机）在内核 mac80211 里跑（net/mac80211/mlme.c）。wpa_supplicant 只发"connect"命令并等结果，真正的 Auth/Assoc 帧交换由 mac80211 完成。注意：AP 模式的 MLME 才在用户态 hostapd。这是 mac80211 官方文档的明确陈述。">
+    <script type="application/json">
+      [
+        { "text": "内核 mac80211（mlme.c 状态机）",     "correct": true },
+        { "text": "用户态 wpa_supplicant",            "correct": false },
+        { "text": "芯片固件",                         "correct": false },
+        { "text": "用户态 hostapd",                   "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="ACK / CTS / BlockAck 这些控制帧，内核 mac80211 能不能看到它们？"
+       data-explain="控制帧是控制响应帧，必须在 SIFS（~16 μs）内回，主机 CPU 根本来不及介入。所以它们完全在芯片 MAC 硅片 + 固件里收发，内核看不到帧本身。mac80211 只看"后果"：读 TX 状态里的 ACK 成功位来决定重传，维护 BlockAck 的"会话"簿记（重排缓冲区），但帧本身从不上送内核。rx.c 注释印证：到管理帧处理器时"数据帧和控制帧已经被处理掉了"。">
+    <script type="application/json">
+      [
+        { "text": "看不到，全在固件/硬件做",          "correct": true },
+        { "text": "看得到，mac80211 解析它们",       "correct": false },
+        { "text": "只有 BlockAck 能上送到内核",      "correct": false },
+        { "text": "看得到，wpa_supplicant 处理",     "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="一个 Wi-Fi 数据帧从应用发出到空中，经过 mac80211 时主要做什么？"
+       data-explain="mac80211 在 TX 路径（ieee80211_tx）做三件事：① 把内核网络栈给的 802.3 以太网帧头转成 802.11 MAC 头（按 ToDS/FromDS 填地址，见第 6 课）；② 让速率控制算法选 MCS；③ 软件加密/分片（若没硬件 offload）。然后把 sk_buff 交给驱动。A-MPDU 聚合、硬件加密、功率校准、RF 发射都在固件/硬件做。RF 调制是 PHY 层，不在 mac80211 范畴。">
+    <script type="application/json">
+      [
+        { "text": "802.3→802.11 封装 + 选 MCS + 加密", "correct": true },
+        { "text": "RF 调制（OFDM / QAM）",             "correct": false },
+        { "text": "A-MPDU 聚合 + DMA",                  "correct": false },
+        { "text": "4-Way Handshake 派生 PTK",          "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="ath10k / ath11k / iwlwifi 这些固件很重的驱动，是 SoftMAC 还是 FullMAC？"
+       data-explain="它们都是 SoftMAC —— MLME 仍走 mac80211，驱动实现 ieee80211_ops 注册到 mac80211。判断 SoftMAC/FullMAC 的依据不是"固件干了多少活"，而是"MLME 跑在哪、驱动注册走不走 mac80211"。ath11k 官方文档原文写"ath11k uses mac80211"。尽管这些固件做扫描 offload、加密 offload、聚合，但架构上管理帧状态机仍在内核。常见的 FullMAC 是 brcmfmac/mwifiex/ath6kl/qtnfmac 这类 SDIO/USB 模块驱动。">
+    <script type="application/json">
+      [
+        { "text": "SoftMAC，MLME 仍走 mac80211",     "correct": true },
+        { "text": "FullMAC，MLME 在固件里",          "correct": false },
+        { "text": "介于两者之间的混合架构",         "correct": false },
+        { "text": "看芯片是 PCIe 还是 SDIO 决定",    "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="wpa_supplicant 和内核之间的通信走的是什么接口？"
+       data-explain="wpa_supplicant 通过 libnl 库构造 nl80211 netlink 消息发到内核 cfg80211。nl80211 是 cfg80211 对用户态的接口协议，取代了老的 Wireless Extensions (wext)。典型命令：NL80211_CMD_TRIGGER_SCAN（扫描）、NL80211_CMD_AUTHENTICATE/ASSOCIATE（关联）、NL80211_CMD_NEW_KEY（装密钥）。mac80211 不是一个用户态接口，它是内核里的 SoftMAC 框架；HCI 是蓝牙的接口，不用于 Wi-Fi。">
+    <script type="application/json">
+      [
+        { "text": "nl80211（基于 netlink）",  "correct": true },
+        { "text": "mac80211 的系统调用",      "correct": false },
+        { "text": "Wireless Extensions (wext)", "correct": false },
+        { "text": "HCI 命令",                 "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：四层分工图是 Wi-Fi 驱动的地图</h2>
+
+  <p>学完这课，你脑子里应该有一张<strong>贯穿四层的分工图</strong>，并且能对任何一类帧说出"它落在哪一段"：</p>
+
+  <ol>
+    <li><strong>数据帧</strong>：贯通四层 —— 应用→网络栈→<span class="mono">mac80211</span>（封装/加密）→驱动→固件（聚合/功率/RF）。RX 路径在 mac80211 走 <span class="mono">ieee80211_rx_handlers</span> 处理链，最后 <span class="mono">netif_receive_skb</span> 上送网络栈。<strong>不经 wpa_supplicant</strong>。</li>
+    <li><strong>管理帧</strong>：SoftMAC 下 STA 模式 MLME 在<strong>内核 mac80211</strong>（<span class="mono">mlme.c</span>）；AP 模式在<strong>用户态 hostapd</strong>；FullMAC 下在<strong>固件</strong>。wpa_supplicant 只管密钥（4-Way Handshake）和漫游决策。</li>
+    <li><strong>控制帧</strong>：<strong>几乎全在固件/硬件</strong>（SIFS 时序逼出来的），内核只看 ACK 成功位、维护 BlockAck 会话簿记。</li>
+  </ol>
+
+  <p>这张图把前七课的协议知识<strong>锚定到了代码</strong>：</p>
+  <ul>
+    <li>第 5 课的 CSMA/CA/IFS/backoff → 固件 MAC 硅片（SIFS 逼出来的）</li>
+    <li>第 6 课的 MAC 帧结构 → mac80211 的 <span class="mono">rx.c</span>/<span class="mono">tx.c</span> 封装解析</li>
+    <li>第 7 课的 State 1/2/3 状态机 → mac80211 的 <span class="mono">mlme.c</span>（SoftMAC）或固件（FullMAC）</li>
+    <li>4-Way Handshake → wpa_supplicant 用户态</li>
+  </ul>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT —— 分层完全同构</span>
+    <p>把这张图和 BT 对照，你会发现<strong>分层思想完全一致</strong>，只是名字换了：</p>
+    <ul>
+      <li>Wi-Fi <span class="mono">nl80211</span> ≈ BT <span class="mono">HCI</span>（控制平面通道）</li>
+      <li>Wi-Fi <span class="mono">mac80211</span> ≈ BT Host Controller Driver</li>
+      <li>Wi-Fi <span class="mono">wpa_supplicant</span> ≈ BT 上层协议栈（SM 做密钥，对应 wpa_supplicant 做 4-Way）</li>
+      <li>Wi-Fi 芯片固件 ≈ BT Controller 固件</li>
+    </ul>
+    <p>最大的架构差异：<strong>BT 的 MLME 永远在 controller</strong>（LL 状态机跑在硅片），而 <strong>Wi-Fi 的 MLME 可以在内核（SoftMAC）也可以在固件（FullMAC）</strong> —— 这是 Wi-Fi 比 BT 多出来的一个设计自由度，也是你选驱动架构时要做的第一个决定。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">回到主线 / 协议续接</span>
+    <p>这是<strong>课外补充</strong>，到此为止。主线协议课继续推进，推荐续接：</p>
+    <ul>
+      <li><strong>主线第 8 课：省电模式（Power Save）</strong>（第 7 课埋的 AID/TIM/PS-Poll 伏笔）—— IoT 续航主题，和你 sub-GHz 低功耗背景对话。<strong>这是默认下一课。</strong></li>
+    </ul>
+    <p>若你想从本补充延伸，下面几条<strong>补充</strong>线也可以选（仍不占主线编号）：</p>
+    <ul>
+      <li><strong>mac80211 RX 处理链代码精读</strong> —— 打开 <span class="mono">net/mac80211/rx.c</span>，逐个 <span class="mono">ieee80211_rx_h_*</span> 走一遍，把本补充的"处理链"概念落地成真实代码。最能发挥你的协议栈经验。</li>
+      <li><strong>4-Way Handshake / WPA 安全</strong> —— 把第 7 课的伏笔④兑现，看 wpa_supplicant 怎么派生 PTK/GTK 并装进内核。</li>
+      <li><strong>FullMAC 驱动移植实战</strong>（brcmfmac / mwifiex 类）—— 如果你的目标平台是 SDIO/USB Wi-Fi 模块，这条线直接对口。</li>
+    </ul>
+    <p>告诉我回主线还是继续延伸。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>本课核对了来源</strong>：mac80211 / cfg80211 / nl80211 的定义和行为来自 <a href="https://wireless.docs.kernel.org/en/latest/en/developers/documentation/mac80211.html" target="_blank">wireless.docs.kernel.org 官方文档</a> 和 <a href="https://docs.kernel.org/driver-api/80211/mac80211.html" target="_blank">kernel-doc mac80211</a>；SoftMAC/FullMAC 分类及 ath11k "uses mac80211" 来自 <a href="https://wireless.docs.kernel.org/en/latest/en/users/drivers/ath11k.html" target="_blank">ath11k 官方页</a>；RX 处理链来自 <span class="mono">net/mac80211/rx.c</span>（可在 <a href="https://elixir.bootlin.com/linux/latest/source/net/mac80211" target="_blank">Elixir Bootlin</a> 读源码）。<br>
+      <a href="./0007-sta-association-flow.html">← 第 7 课（主线）</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「补充看懂了，回主线进省电模式（第 8 课）」<br>
+      • 「想打开 mac80211 的 rx.c 走一遍真实处理链代码（继续补充）」<br>
+      • 「SoftMAC 和 FullMAC 想多看几个真实驱动对比（继续补充）」<br>
+      • 「4-Way Handshake 想展开讲，把安全这一块吃透（继续补充）」<br>
+      • 「我的目标平台是 [ESP32/Realtek/MTK/某 SDIO 模块]，想看对应的驱动架构」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

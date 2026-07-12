@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RF 数学速查表 · dB / dBm / 链路预算 / SNR</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* 速查表专用：紧凑、好打印、信息密度高 */
+  body { font-size: 15px; }
+  main { max-width: 760px; padding-top: 1.8rem; }
+
+  h1 { font-size: 1.7rem; margin-bottom: 0.4rem; }
+  h2 {
+    font-size: 1.05rem;
+    margin: 1.8rem 0 0.5rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--accent);
+    color: var(--accent);
+  }
+  h3 { font-size: 0.95rem; margin: 1rem 0 0.3rem; }
+
+  .ref-meta {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--ink-faint);
+    margin-bottom: 1.2rem;
+  }
+  .ref-meta a { color: var(--ink-soft); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.86rem;
+    margin: 0.6rem 0 1rem;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 0.4rem 0.7rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  thead th {
+    background: #f3efe6;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:nth-child(even) { background: #fbf9f4; }
+  .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .formula {
+    display: block;
+    font-family: var(--mono);
+    background: #f5f1e8;
+    border-left: 3px solid var(--accent);
+    padding: 0.55rem 0.9rem;
+    margin: 0.7rem 0;
+    font-size: 0.92rem;
+    border-radius: 0 4px 4px 0;
+  }
+  .formula .label {
+    display: block;
+    font-family: var(--sans);
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+  }
+
+  .pipeline {
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 0.7rem 0.9rem;
+    margin: 0.8rem 0 1rem;
+    color: var(--ink);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .pipeline .loss { color: #92302b; }
+  .pipeline .gain { color: #2f6b42; }
+  .pipeline .result { color: var(--accent); font-weight: 700; }
+
+  .legend {
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    background: var(--bg-callout);
+    border-left: 3px solid var(--rule);
+    padding: 0.6rem 0.9rem;
+    margin: 1rem 0;
+    border-radius: 0 4px 4px 0;
+  }
+
+  @media print {
+    body { font-size: 10pt; }
+    table, .formula, .pipeline { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="ref-meta">
+    📋 速查表 / Reference ·
+    对应课程：<a href="../lessons/0003-rf-fundamentals.html">第 3 课 RF 基础</a> +
+    <a href="../lessons/0004-noise-floor-snr.html">第 4 课 噪声底与 SNR</a> ·
+    <a href="../GLOSSARY.md">术语表</a>
+  </div>
+
+  <h1>RF 数学速查表</h1>
+
+  <p style="color:var(--ink-soft); font-size:0.92rem;">
+    这就是课程里说的「<strong>RF 工具箱</strong>」—— 第 3、4 课讲过的所有 dB/dBm/链路预算/SNR 公式和常用值，压缩成一张可回查、可打印的表。需要算 RF 时直接查这里。
+  </p>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>① 核心公式</h2>
+
+  <span class="formula">
+    <span class="label">dB（比值，无单位）/ Ratio</span>
+    dB = 10 · log₁₀(P₁ / P₂)
+  </span>
+
+  <span class="formula">
+    <span class="label">dBm（绝对功率，参考 1 mW）/ Absolute power</span>
+    P(dBm) = 10 · log₁₀( P(mW) )　　← 0 dBm = 1 mW
+  </span>
+
+  <span class="formula">
+    <span class="label">热噪声底（室温 290 K）/ Thermal noise floor</span>
+    N(dBm) = −174 + 10 · log₁₀( B(Hz) )
+  </span>
+
+  <span class="formula">
+    <span class="label">SNR（信噪比）/ Signal-to-noise ratio</span>
+    SNR(dB) = RSSI(dBm) − N_noise(dBm)
+  </span>
+
+  <span class="formula">
+    <span class="label">自由空间路径损耗 FSPL（d 单位 km，f 单位 MHz）</span>
+    FSPL(dB) = 20·log₁₀(d) + 20·log₁₀(f) + 32.44
+  </span>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>② dB 比值速记（背熟这 8 个）</h2>
+
+  <table>
+    <thead><tr><th>功率倍数</th><th>dB</th><th>逆运算</th></tr></thead>
+    <tbody>
+      <tr><td class="num">×1</td>     <td class="num">0 dB</td>   <td>不变</td></tr>
+      <tr><td class="num">×2</td>     <td class="num">+3 dB</td>  <td>−3 dB = ÷2</td></tr>
+      <tr><td class="num">×4</td>     <td class="num">+6 dB</td>  <td>−6 dB = ÷4</td></tr>
+      <tr><td class="num">×10</td>    <td class="num">+10 dB</td> <td>−10 dB = ÷10</td></tr>
+      <tr><td class="num">×100</td>   <td class="num">+20 dB</td> <td>−20 dB = ÷100</td></tr>
+      <tr><td class="num">×1000</td>  <td class="num">+30 dB</td> <td>−30 dB = ÷1000</td></tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    💡 <strong>规律</strong>：×10 = +10 dB；×2 ≈ +3 dB。其它值靠组合：×4 = ×2×2 = +3+3 = +6 dB。dB 之间<strong>加减</strong> = 功率<strong>乘除</strong>。
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>③ dBm ↔ mW 常用对照</h2>
+
+  <table>
+    <thead><tr><th>dBm</th><th>mW</th><th>典型场景</th></tr></thead>
+    <tbody>
+      <tr><td class="num">+30 dBm</td>  <td class="num">1 W</td>       <td>5 GHz 室外 AP 上限</td></tr>
+      <tr><td class="num">+23 dBm</td>  <td class="num">200 mW</td>    <td>2.4 GHz 法规上限附近</td></tr>
+      <tr><td class="num">+20 dBm</td>  <td class="num">100 mW</td>    <td>典型 Wi-Fi AP / 手机最大</td></tr>
+      <tr><td class="num">+15 dBm</td>  <td class="num">32 mW</td>     <td>手机 Wi-Fi 发射</td></tr>
+      <tr><td class="num">+10 dBm</td>  <td class="num">10 mW</td>     <td>低功耗 IoT Wi-Fi</td></tr>
+      <tr><td class="num">0 dBm</td>    <td class="num">1 mW</td>      <td>BLE 典型发射（基准）</td></tr>
+      <tr><td class="num">−10 dBm</td>  <td class="num">0.1 mW</td>    <td>近距离强信号</td></tr>
+      <tr><td class="num">−40 dBm</td>  <td class="num">0.0001 mW</td> <td>极强（贴 AP）</td></tr>
+      <tr><td class="num">−65 dBm</td>  <td class="num">~3·10⁻⁷ mW</td><td>好信号</td></tr>
+      <tr><td class="num">−75 dBm</td>  <td class="num">~3·10⁻⁸ mW</td><td>可用</td></tr>
+      <tr><td class="num">−85 dBm</td>  <td class="num">~3·10⁻⁹ mW</td><td>边缘</td></tr>
+      <tr><td class="num">−95 dBm</td>  <td class="num">~3·10⁻¹⁰ mW</td><td>近灵敏度极限</td></tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    💡 <strong>RSSI 为什么是负数</strong>：接收功率永远 &lt; 1 mW，所以 log 为负。−65 dBm = 比 1 mW 弱 65 dB。
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>④ 热噪声底（按带宽）</h2>
+
+  <p style="font-size:0.88rem; color:var(--ink-soft);">
+    记住 <strong>−174 dBm/Hz</strong> 这个基准，加上 <code>10·log₁₀(B)</code>。
+  </p>
+
+  <table>
+    <thead><tr><th>带宽</th><th>10·log₁₀(B)</th><th>噪声底</th><th>系统</th></tr></thead>
+    <tbody>
+      <tr><td class="num">125 kHz</td>  <td class="num">+51 dB</td> <td class="num">−123 dBm</td> <td>LoRa 125 kHz</td></tr>
+      <tr><td class="num">1 MHz</td>     <td class="num">+60 dB</td> <td class="num">−114 dBm</td> <td>蓝牙</td></tr>
+      <tr><td class="num">20 MHz</td>    <td class="num">+73 dB</td> <td class="num">−101 dBm</td> <td>Wi-Fi 20 MHz</td></tr>
+      <tr><td class="num">40 MHz</td>    <td class="num">+76 dB</td> <td class="num">−98 dBm</td>  <td>Wi-Fi 40 MHz</td></tr>
+      <tr><td class="num">80 MHz</td>    <td class="num">+79 dB</td> <td class="num">−95 dBm</td>  <td>Wi-Fi 80 MHz</td></tr>
+      <tr><td class="num">160 MHz</td>   <td class="num">+82 dB</td> <td class="num">−92 dBm</td>  <td>Wi-Fi 160 MHz</td></tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    💡 <strong>带宽 ×10 = 噪声底 +10 dB</strong>。这是 Wi-Fi 灵敏度比蓝牙/sub-GHz 差的物理根因，不是接收机技术差。
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>⑤ SNR → MCS 对照（Wi-Fi）</h2>
+
+  <table>
+    <thead><tr><th>MCS</th><th>调制</th><th>所需 SNR</th><th>灵敏度（约）</th></tr></thead>
+    <tbody>
+      <tr><td class="num">MCS0</td>  <td>BPSK 1/2</td>   <td class="num">~0 dB</td>   <td class="num">−93 dBm</td></tr>
+      <tr><td class="num">MCS3</td>  <td>16-QAM 1/2</td> <td class="num">~9 dB</td>   <td class="num">−78 dBm</td></tr>
+      <tr><td class="num">MCS7</td>  <td>64-QAM 3/4</td> <td class="num">~21 dB</td>  <td class="num">−64 dBm</td></tr>
+      <tr><td class="num">MCS9</td>  <td>256-QAM 5/6</td><td class="num">~29 dB</td>  <td class="num">−47 dBm</td></tr>
+      <tr><td class="num">MCS11</td> <td>1024-QAM 3/4</td><td class="num">~36 dB</td> <td class="num">~−35 dBm</td></tr>
+    </tbody>
+  </table>
+
+  <div class="legend">
+    💡 算出 SNR 后查这张表选 MCS。MCS 越高，速率越高，但需更强 SNR。这是<strong>自适应速率算法</strong>（rate adaptation）的物理依据。
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>⑥ 完整链路预算流水线（一图记住）</h2>
+
+  <div class="pipeline">
+    发射功率 <span class="loss">− 路径损耗</span> <span class="loss">− 障碍衰减</span> <span class="gain">+ 天线增益</span><br>
+    &nbsp;=&nbsp; <span class="result">RSSI</span> &nbsp;<span class="loss">− 噪声底</span>&nbsp; =&nbsp; <span class="result">SNR</span> &nbsp;→&nbsp; <span class="result">MCS</span>
+  </div>
+
+  <div class="legend">
+    💡 <strong>所有 RF 计算都是 dB 域加减法</strong>。发射、损耗、增益、噪声全用 dB/dBm，像账本一样加减。这就是「链路预算（link budget）」名字的由来。
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>⑦ 工作算例（参考用）</h2>
+
+  <h3>算例 A：近距离 5 GHz，20 m</h3>
+  <div class="pipeline">
+    +15 (Tx) <span class="loss">−66 (FSPL)</span> <span class="gain">+3 (天线)</span> = <span class="result">−48 dBm RSSI</span><br>
+    −48 − (−101) = <span class="result">+53 dB SNR</span> → MCS11（1024-QAM）
+  </div>
+
+  <h3>算例 B：隔墙，30 m</h3>
+  <div class="pipeline">
+    +15 (Tx) <span class="loss">−70 (FSPL)</span> <span class="loss">−12 (墙)</span> <span class="gain">+3 (天线)</span> = <span class="result">−64 dBm RSSI</span><br>
+    −64 − (−101) = <span class="result">+37 dB SNR</span> → MCS9（256-QAM）
+  </div>
+
+  <h3>算例 C：边缘场景，弱信号</h3>
+  <div class="pipeline">
+    RSSI = <span class="result">−80 dBm</span>，噪声底 −101 dBm<br>
+    SNR = −80 − (−101) = <span class="result">+21 dB</span> → MCS7（64-QAM，刚好够）
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+
+  <h2>⑧ 实战读数档位（看 RSSI 日志用）</h2>
+
+  <table>
+    <thead><tr><th>RSSI</th><th>信号质量</th><th>体感</th></tr></thead>
+    <tbody>
+      <tr><td class="num">−30 ~ −40 dBm</td>  <td>极强</td>  <td>贴着 AP，饱和</td></tr>
+      <tr><td class="num">−40 ~ −55 dBm</td>  <td>很强</td>  <td>同一房间，MCS 满档</td></tr>
+      <tr><td class="num">−55 ~ −70 dBm</td>  <td>好</td>    <td>正常使用，高速</td></tr>
+      <tr><td class="num">−70 ~ −80 dBm</td>  <td>可用</td>  <td>中等速率</td></tr>
+      <tr><td class="num">−80 ~ −90 dBm</td>  <td>边缘</td>  <td>低速，可能掉线</td></tr>
+      <tr><td class="num">&lt; −90 dBm</td>    <td>极弱</td>  <td>近灵敏度极限</td></tr>
+    </tbody>
+  </table>
+
+  <hr style="margin: 2rem 0 1rem;">
+
+  <p style="font-family: var(--sans); font-size: 0.78rem; color: var(--ink-faint);">
+    📋 本速查表由 <a href="../lessons/0003-rf-fundamentals.html">第 3 课</a> + <a href="../lessons/0004-noise-floor-snr.html">第 4 课</a> 压缩而成。
+    有补充或修正请告诉教学方。打印这一页放在手边，算 RF 时直接查。
+  </p>
+
+</main>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>
