@@ -54,45 +54,70 @@
 </main>
 
 <script>
-// 动态加载 lessons 目录的课程列表,新增 html 文件 → 首页自动出现卡片
+// 课程列表加载策略:
+//   1. 优先请求本地 serve.js 的动态接口 /api/lessons(本地新增 html → 首页自动出现卡片)
+//   2. 接口不可用(如 GitHub Pages 是纯静态服务器) → 降级到下方 FALLBACK_LESSONS 静态清单
+// 新增课程时:除往 lessons/ 放 html 外,记得在 FALLBACK_LESSONS 末尾补一条
+var FALLBACK_LESSONS = [
+  { href: 'lessons/0001-why-wifi-isnt-faster-bluetooth.html', title: '第 1 课 · 为什么 Wi-Fi 不是「更快的蓝牙」' },
+  { href: 'lessons/0002-ofdm-orthogonality.html', title: '第 2 课 · OFDM 的「正交」到底是什么' },
+  { href: 'lessons/0003-rf-fundamentals.html', title: '第 3 课 · dB 与 dBm —— 从你见过的数字说起' },
+  { href: 'lessons/0004-noise-floor-snr.html', title: '第 4 课 · 噪声底与 SNR —— 为什么 Wi-Fi 灵敏度比蓝牙差' },
+  { href: 'lessons/0005-csma-ca-backoff.html', title: '第 5 课 · CSMA/CA 退避 —— 分布式竞争怎么不打架' },
+  { href: 'lessons/0006-mac-frame-structure.html', title: '第 6 课 · 802.11 MAC 帧结构 —— 协议栈工程师的主场' },
+  { href: 'lessons/0007-sta-association-flow.html', title: '第 7 课 · STA 关联流程 —— 协议栈移植的主战场' },
+  { href: 'lessons/0008-power-save-mode.html', title: '第 8 课 · Power Save 省电模式 —— IoT 续航的协议层设计' },
+  { href: 'lessons/0009-wpa-security-4way-handshake.html', title: '第 9 课 · WPA 安全 / 4-Way Handshake —— 兑现第 7 课的伏笔④' },
+  { href: 'lessons/sup-0001-linux-wifi-stack-frame-processing.html', title: '课外补充 1 · Linux Wi-Fi 栈 —— 三类帧各在哪一层处理' },
+  { href: 'lessons/sup-0002-fact-audit-where-the-course-is-wrong.html', title: '补充课 sup-0002 · 事实核查 —— 课件哪里写错了（对照权威资料）' }
+];
+
 (function () {
   var grid = document.getElementById('lessons-grid');
   if (!grid) return;
-  fetch('/api/lessons?dir=lessons')
-    .then(function (r) { return r.json(); })
-    .then(function (items) {
-      if (!items || items.length === 0) {
-        grid.innerHTML = '<p style="color:#9ca3af;font-size:14px">暂无课程</p>';
-        return;
-      }
-      grid.innerHTML = items.map(function (it) {
-        // 标题清理:把 "<title>第 N 课 · 标题</title>" 拆成序号 + 副标题
-        var title = it.title || it.name.replace(/\.html$/i, '');
-        // 提取"第 N 课"前缀(如有)
-        var numMatch = title.match(/^第\s*(\d+)\s*课\s*[·\-—:：]?\s*(.*)$/);
-        var h3, p;
-        if (numMatch) {
-          h3 = '第 ' + parseInt(numMatch[1], 10) + ' 课 · ' + (numMatch[2] || '').trim();
-          p = '点击进入学习';
-        } else {
-          h3 = title;
-          p = it.name.replace(/\.html$/i, '');
-        }
-        return '<a class="home-card" href="' + it.href + '">' +
-               '<h3>' + escapeHtml(h3) + '</h3>' +
-               '<p>' + escapeHtml(p) + '</p>' +
-               '</a>';
-      }).join('');
-    })
-    .catch(function () {
-      grid.innerHTML = '<p style="color:#ef4444;font-size:14px">加载失败,请确认服务正常</p>';
-    });
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
   }
+
+  // 把单个课程项渲染成卡片(动态接口与静态清单共用同一套样式)
+  function renderItem(item) {
+    var title = item.title || item.name.replace(/\.html$/i, '');
+    var numMatch = title.match(/^第\s*(\d+)\s*课\s*[·\-—:：]?\s*(.*)$/);
+    var h3, p;
+    if (numMatch) {
+      h3 = '第 ' + parseInt(numMatch[1], 10) + ' 课 · ' + (numMatch[2] || '').trim();
+      p = '点击进入学习';
+    } else {
+      h3 = title;
+      p = (item.name || item.href).replace(/\.html$/i, '').replace(/^.*\//, '');
+    }
+    return '<a class="home-card" href="' + item.href + '">' +
+           '<h3>' + escapeHtml(h3) + '</h3>' +
+           '<p>' + escapeHtml(p) + '</p>' +
+           '</a>';
+  }
+
+  function renderAll(items) {
+    if (!items || items.length === 0) {
+      grid.innerHTML = '<p style="color:#9ca3af;font-size:14px">暂无课程</p>';
+      return;
+    }
+    grid.innerHTML = items.map(renderItem).join('');
+  }
+
+  // 优先尝试动态接口;失败(如 GitHub Pages 无后端)则降级到静态清单
+  fetch('api/lessons?dir=lessons')
+    .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error(r.status)); })
+    .then(function (items) {
+      if (items && items.length) renderAll(items);
+      else renderAll(FALLBACK_LESSONS);
+    })
+    .catch(function () {
+      renderAll(FALLBACK_LESSONS);
+    });
 })();
 </script>
 
