@@ -15,7 +15,25 @@
 | `restart-server.bat` | 只重启 **server 窗口**,tunnel 窗口不动 |
 | `restart-tunnel.bat` | 只重启 **tunnel 窗口**,server 窗口不动 |
 | `kill-port.bat` | 只清理端口占用,不启动服务 |
-| `kill-port.bat` | 只清理端口占用,不启动服务 |
+
+---
+
+## 🌐 在线访问 (GitHub Pages)
+
+课件已通过 GitHub Pages 发布,无需启动本地服务即可在任意设备浏览:
+
+- **首页**: https://nit78.github.io/wifi-learning/
+- **课程目录**: https://nit78.github.io/wifi-learning/lessons/
+- **速查表**: https://nit78.github.io/wifi-learning/reference/wifi-terms-cheatsheet.html
+- **RF 数学速查**: https://nit78.github.io/wifi-learning/reference/rf-math-cheatsheet.html
+
+> ⚠️ 仓库根路径若无 `index.html` 会返回 404,本项目已提供首页,可直接访问。
+> 每次推送到 `main` 分支后,Pages 约 1 分钟自动更新。
+
+---
+
+> 📦 **关于 `cloudflared.exe`**:本工具(13MB,Cloudflare 隧道客户端)未纳入版本库,
+> 需要时从官方下载:https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
 
 ---
 
