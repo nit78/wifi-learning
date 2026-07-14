@@ -176,6 +176,7 @@
       │  <span class="label">M2</span>                                            │
       │ ────────── <span class="frame">EAPOL-Key M2</span> ──────────▶ │  <span class="note">AP 收到 SNonce, 现在也能算 PTK</span>
       │           (<span class="key">SNonce</span>, <span class="key">MIC</span>)              │  <span class="note">AP 验证 MIC = STA 算对了 PTK ✓</span>
+      │ <span class="note">STA用KCK计算MIC)</span> 						│
       │                                              │
       │  <span class="label">M3</span>                                            │
       │ ◀──────── <span class="frame">EAPOL-Key M3</span> ──────────── │  <span class="note">AP install PTK</span>

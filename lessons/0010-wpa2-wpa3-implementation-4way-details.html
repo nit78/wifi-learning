@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 10 课 · WPA2/WPA3 具体实现 + 四帧握手逐帧拆解</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .seq-diagram {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.9rem 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .seq-diagram .sta { color: var(--accent); font-weight: 700; }
+  .seq-diagram .ap { color: #b8761c; font-weight: 700; }
+  .seq-diagram .radius { color: #8a5410; font-weight: 700; }
+  .seq-diagram .frame { color: var(--ink); font-weight: 600; }
+  .seq-diagram .label { color: #2f6b42; font-weight: 700; }
+  .seq-diagram .key { color: #6a3aa0; font-weight: 600; }
+  .seq-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .seq-diagram .diff { color: #9a2a16; font-weight: 600; }
+  .seq-diagram .phase { color: #2f6b42; font-weight: 700; }
+
+  .eapol-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .eapol-tbl th, .eapol-tbl td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .eapol-tbl thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .eapol-tbl tbody tr:last-child td { border-bottom: none; }
+  .eapol-tbl tbody tr:nth-child(even) { background: #fbf9f4; }
+  .eapol-tbl .m { font-family: var(--mono); color: var(--accent); font-weight: 700; }
+  .eapol-tbl .mono { font-family: var(--mono); font-size: 0.78rem; }
+  .eapol-tbl .yes { color: #2f6b42; font-weight: 700; }
+  .eapol-tbl .no { color: var(--ink-faint); }
+  .eapol-tbl .diff { color: #9a2a16; font-weight: 600; }
+
+  .code-block {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.55;
+    background: #f7f4ec;
+    border-left: 3px solid #6a3aa0;
+    padding: 0.7rem 1rem;
+    margin: 1.2rem 0;
+    border-radius: 0 4px 4px 0;
+    color: var(--ink);
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 10 课 / Lesson 0010 · WPA2/WPA3 实现 · 第 9 课深入 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0009-wpa-security-4way-handshake.html">← 第 9 课</a>
+  </div>
+
+  <h1>WPA2/WPA3 具体实现 + 四帧握手逐帧拆解</h1>
+
+  <p>第 9 课讲了 4-Way Handshake 的<strong>设计框架</strong>——四个 EAPOL-Key 帧派生 PTK、下发 GTK。这课是它的<strong>实现层深入</strong>：WPA2 和 WPA3 各自怎么把 PMK 拿到手，然后把四个握手帧<strong>逐帧</strong>摊开，看每个帧里到底装了什么字段、谁在什么时候算什么、Wireshark 怎么读。</p>
+
+  <p>这是抓包级、代码级的细节课。学完你应该能在 Wireshark 里一眼读懂 M1-M4，并在代码里定位"PMK 派生在哪、PTK 安装在哪、MIC 校验失败报什么错"。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：WPA2 vs WPA3，差异全在"PMK 怎么来"</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>第 9 课讲过：<strong>4-Way Handshake 本身是固定的</strong>，无论 WPA2 还是 WPA3 都要走 M1-M4。两代的全部差异都在<strong>握手之前怎么把 PMK 准备好</strong>：</p>
+    <ul>
+      <li><strong>WPA2-PSK</strong>：PMK = PBKDF2(密码, SSID) —— 双方各自离线算，无网络交互</li>
+      <li><strong>WPA3-SAE</strong>：PMK 由 Dragonfly 握手（Commit/Confirm 两对帧）在线协商，与密码非线性关联</li>
+    </ul>
+    <p>PMK 准备好之后，<strong>两条路汇合</strong>，走完全相同的 4-Way Handshake。所以这课分两大块：先讲两种 PMK 派生，再统一讲四帧握手。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① WPA2-PSK 的 PMK：PBKDF2 一步派生</h2>
+
+  <p>WPA2-Personal（家用）最简单。密码（passphrase）和 SSID 在本地就能算出 PMK，<strong>不需要任何网络交互</strong>：</p>
+
+  <div class="code-block">PMK = PBKDF2-HMAC-SHA1(passphrase, SSID, 4096, 32)
+     │              │           │      │     │
+     │              │           │      │     └─ 输出 32 字节 (256 bit)
+     │              │           │      └─ 4096 轮迭代
+     │              │           └─ SSID 作盐
+     │              └─ HMAC-SHA1 作伪随机函数
+     └─ 密码 (8-63 字符 ASCII)
+  </div>
+
+  <p>四个关键参数，每个都有设计意图：</p>
+  <ul>
+    <li><strong>密码 8–63 字符</strong>：WFA 认证要求 ≥8 字符。短密码是 WPA2 的最大软肋。</li>
+    <li><strong>SSID 当盐</strong>：这是反预计算的关键。同一密码"TP-LINK_1234"和"Netgear_5678"派生出<strong>完全不同的 PMK</strong>。所以早期有人用常见 SSID（"linksys"、"netgear"）做预计算彩虹表，但 SSID 一变就失效。</li>
+    <li><strong>4096 轮</strong>：故意慢。单次 PBKDF2 在 CPU 上要几十毫秒，抬高离线爆破成本。但 GPU/ASIC 并行后仍可每秒试几万到几十万个密码——这就是为什么弱密码的 WPA2 网络几小时就能被 aircrack-ng 破。</li>
+    <li><strong>32 字节输出</strong>：正好是 PMK 的长度。HMAC-SHA1 单次输出 20 字节，要 32 字节需要 PBKDF2 内部跑两个块拼接。</li>
+  </ul>
+
+  <p>派生完后，<strong>STA 和 AP 都持有同一个 PMK，但 PMK 从不在空中传</strong>。接下来直接进 4-Way Handshake。</p>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>BLE 的 IRK（Identity Resolving Key）也是从长期密钥派生，思路类似：根密钥本地持有，派生过程不联网。但 BLE 的 TK（Temporary Key）派生用的是 AES-CMAC，不是 PBKDF2。功能对应，算法不同。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② WPA3-SAE 的 PMK：Dragonfly 两阶段在线协商</h2>
+
+  <p>WPA3-Personal 用 <strong>SAE (Simultaneous Authentication of Equals)</strong> 替代 PSK。SAE 基于 <strong>Dragonfly 握手</strong>（RFC 7664，PAKE 协议家族），核心改动：PMK 不再等于 f(密码)，而是经过<strong>椭圆曲线上的随机运算</strong>派生，抓包无法离线爆破。</p>
+
+  <p>SAE 分两个阶段，<strong>都发生在关联之前</strong>（取代了 WPA2 里 PSK 那个"无网络交互"的环节）：</p>
+
+  <div class="seq-diagram">
+<span class="phase">阶段 A: 双方各自派生 PWE (Password Element)</span>
+  <span class="sta">STA</span>: 密码 + MAC ──<span class="key">H2E 映射</span>──▶ <span class="key">PWE</span> (曲线上一个秘密点)
+  <span class="ap">AP</span>:  密码 + MAC ──<span class="key">H2E 映射</span>──▶ <span class="key">PWE</span>
+  <span class="note">PWE 派生方法: H2E (新, 推荐) 或 HNP (老, 有侧信道漏洞)</span>
+  <span class="note">PWE 是后续所有运算的基础, 不在空中传</span>
+
+<span class="phase">阶段 B: Commit / Confirm 两对帧在线协商 PMK</span>
+
+  <span class="sta">STA (手机)</span>                           <span class="ap">AP (路由器)</span>
+      │                                       │
+      │  <span class="label">SAE Commit</span>                              │
+      │ ──────── <span class="frame">Commit (scalar-i, element-i)</span> ─▶│  <span class="note">STA 发它的标量和元素</span>
+      │ ◀──────── <span class="frame">Commit (scalar-r, element-r)</span> ── │  <span class="note">AP 回它的标量和元素</span>
+      │                                       │
+      │ <span class="note">双方各自用 PWE + 对方的 element + 自己的</span>    │
+      │ <span class="note">随机私钥, 算出共享秘密 → 派生 <span class="key">PMK</span></span>    │
+      │                                       │
+      │  <span class="label">SAE Confirm</span>                              │
+      │ ──────── <span class="frame">Confirm (token-i)</span> ────────────▶│  <span class="note">STA 发确认 token (用 PMK 签的)</span>
+      │ ◀──────── <span class="frame">Confirm (token-r)</span> ──────────── │  <span class="note">AP 回确认 token</span>
+      │                                       │
+      │ <span class="note">双方验证对方 token = 确实算出了同一个 PMK ✓</span> │
+      │                                       │
+      │ <span class="note">═══ 现在双方都有 PMK, 进关联+4-Way Handshake ═══</span>
+</div>
+
+  <p>四个要点解释为什么 SAE 抗爆破：</p>
+  <ul>
+    <li><strong>PWE 派生不泄漏密码</strong>：H2E（Hash-to-Element）把密码确定性映射到曲线上一点，<strong>输出看不出密码信息</strong>。老方法 HNP（Hunting-and-Pecking）迭代试值，迭代次数泄漏密码信息——Dragonblood 侧信道攻击的基础。新固件应支持 H2E。</li>
+    <li><strong>Commit 交换不泄漏 PMK</strong>：双方发的 scalar/element 是 PWE + 随机私钥的运算结果。攻击者抓到 Commit 也推不出 PMK——因为这等价于解椭圆曲线离散对数（ECDLP，目前不可行）。</li>
+    <li><strong>Confirm 防中间人</strong>：双方互发用 PMK 签的 token，验证对方确实算出了同一个 PMK。攻击者不知道密码 → 算不出 PWE → 算不出正确 PMK → token 校验失败。</li>
+    <li><strong>在线才能验证猜测</strong>：要试一个密码，必须和 AP 真做一次 SAE 交换（在线）。AP 可以限速/锁定，<strong>离线爆破不可行</strong>。这是 SAE 相对 PSK 的根本优势。</li>
+  </ul>
+
+  <div class="callout key">
+    <span class="callout-title">SAE 的代价</span>
+    <p>椭圆曲线运算（标量乘、点加）比 PBKDF2 的 HMAC 重得多，<strong>SAE 对 STA 和 AP 的 CPU 都有要求</strong>。低端 IoT 芯片做 SAE 可能要几百毫秒。这也是为什么 WPA3 强制 PMF 但允许 WPA3 Transition Mode（WPA2/WPA3 混合）——给老设备留过渡。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 4-Way Handshake：WPA2 和 WPA3 的汇合点</h2>
+
+  <p>无论 PMK 来自 PBKDF2（WPA2）还是 SAE（WPA3），<strong>从这一步开始两条路完全一样</strong>。四帧握手用同一个 PMK 派生 PTK。下面把四帧逐个拆到字段级：</p>
+
+  <div class="seq-diagram">
+  <span class="sta">STA</span>                                       <span class="ap">AP</span>
+      │                                          │
+      │ <span class="note">PMK 已就绪 (WPA2: PBKDF2 算出; WPA3: SAE 算出)</span>  │
+      │                                          │
+      │  <span class="label">M1  (AP→STA, 发 ANonce)</span>                   │
+      │ ◀─────── <span class="frame">EAPOL-Key</span> ──────────────│
+      │           Key Info: <span class="key">ACK=1</span> (要 STA 回复)     │
+      │           <span class="key">ANonce</span> (AP 的随机数)              │
+      │           Replay Counter = N             │
+      │                                          │
+      │ <span class="note">STA 生成 SNonce, 现在能算 PTK:</span>           │
+      │ <span class="note">  PTK = PRF(PMK, ANonce, SNonce, MAC_AP, MAC_STA)</span>
+      │                                          │
+      │  <span class="label">M2  (STA→AP, 发 SNonce + MIC)</span>           │
+      │ ──────── <span class="frame">EAPOL-Key</span> ──────────────▶│
+      │           Key Info: <span class="key">MIC=1</span>              │
+      │           <span class="key">SNonce</span> (STA 的随机数)             │
+      │           <span class="key">MIC</span> (用 KCK 算, 证明 PTK 正确)    │
+      │           RSN-IE (STA 的安全能力)         │
+      │           Replay Counter = N (回显)       │
+      │                                          │
+      │                                  <span class="note">AP 算出 PTK</span>│
+      │                          <span class="note">AP 验 MIC = STA 算对了 ✓</span>│
+      │                          <span class="note">AP 检查 RSN-IE 防降级</span>│
+      │                                          │
+      │  <span class="label">M3  (AP→STA, 发 GTK + RSN-IE + MIC)</span>     │
+      │ ◀─────── <span class="frame">EAPOL-Key</span> ──────────────│
+      │           Key Info: <span class="key">ACK=1, MIC=1, Install=1, Encrypted=1, Secure=1</span>
+      │           <span class="key">MIC</span> (AP 也证明算对了)            │
+      │           Key Data: <span class="key">GTK</span> (用 KEK 加密) + AP 的 RSN-IE
+      │           Replay Counter = N+1           │
+      │                                  <span class="note">AP install PTK</span>│
+      │                                          │
+      │ <span class="note">STA 验 MIC, install PTK + GTK</span>           │
+      │                                          │
+      │  <span class="label">M4  (STA→AP, 纯确认)</span>                   │
+      │ ──────── <span class="frame">EAPOL-Key</span> ──────────────▶│
+      │           Key Info: <span class="key">MIC=1, Secure=1</span>     │
+      │           <span class="key">MIC</span> (确认安装完毕)               │
+      │           Replay Counter = N+1 (回显)    │
+      │                                          │
+      │ <span class="note">═══ 双方已授权, 开始加密数据帧 ═══</span>      │
+</div>
+
+  <p>关键：M4 之后 Key Information 里的 <strong>Secure bit 置 1</strong>，表示握手完成、后续进入"安全态"。这是状态机的分水岭。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>逐帧字段表：抓包解码钥匙</h2>
+
+  <p>这张表是<strong>在 Wireshark 里读 EAPOL-Key 帧的解码表</strong>。每帧带哪些字段、为什么带：</p>
+
+  <table class="eapol-tbl">
+    <thead>
+      <tr>
+        <th>字段</th>
+        <th>M1<br>AP→STA</th>
+        <th>M2<br>STA→AP</th>
+        <th>M3<br>AP→STA</th>
+        <th>M4<br>STA→AP</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="m">ANonce</td>
+        <td class="yes">有</td>
+        <td class="no">—</td>
+        <td class="no">—</td>
+        <td class="no">—</td>
+        <td>AP 的随机数，只在 M1 出现一次。STA 收到才能算 PTK。</td>
+      </tr>
+      <tr>
+        <td class="m">SNonce</td>
+        <td class="no">—</td>
+        <td class="yes">有</td>
+        <td class="no">—</td>
+        <td class="no">—</td>
+        <td>STA 的随机数，只在 M2 出现一次。AP 收到才能算 PTK。</td>
+      </tr>
+      <tr>
+        <td class="m">MIC</td>
+        <td class="no">无</td>
+        <td class="yes">有</td>
+        <td class="yes">有</td>
+        <td class="yes">有</td>
+        <td>M1 无 MIC（PTK 还没算出来）。M2-M4 都用 KCK 签，证明算对了 PTK。</td>
+      </tr>
+      <tr>
+        <td class="m">RSN-IE</td>
+        <td class="no">—</td>
+        <td class="yes">STA 的</td>
+        <td class="yes">AP 的</td>
+        <td class="no">—</td>
+        <td>M2 带 STA 的 RSN-IE，M3 带 AP 的。<strong>双方互验防降级攻击</strong>（如攻击者诱骗降级到 TKIP）。</td>
+      </tr>
+      <tr>
+        <td class="m">GTK (加密)</td>
+        <td class="no">—</td>
+        <td class="no">—</td>
+        <td class="yes diff">有</td>
+        <td class="no">—</td>
+        <td>组播密钥，<strong>只在 M3</strong>。用 KEK 加密装在 Key Data 里（KDE 封装）。</td>
+      </tr>
+      <tr>
+        <td class="m">Replay Counter</td>
+        <td class="yes">N</td>
+        <td class="yes">N</td>
+        <td class="yes">N+1</td>
+        <td class="yes">N+1</td>
+        <td>反重放。STA 回显 AP 的值；M3/M4 递增。<strong>KRACK 攻击的重放目标</strong>。</td>
+      </tr>
+      <tr>
+        <td class="m">Key Info: ACK</td>
+        <td class="yes">1</td>
+        <td class="no">0</td>
+        <td class="yes">1</td>
+        <td class="no">0</td>
+        <td>AP 发的帧置 ACK=1（要求对方回复）。STA 发的不置。</td>
+      </tr>
+      <tr>
+        <td class="m">Key Info: Install</td>
+        <td class="no">0</td>
+        <td class="no">0</td>
+        <td class="yes diff">1</td>
+        <td class="no">0</td>
+        <td>告诉 STA 在 M3 时把 PTK install 到硬件。<strong>KRACK 攻击的关键位</strong>。</td>
+      </tr>
+      <tr>
+        <td class="m">Key Info: Secure</td>
+        <td class="no">0</td>
+        <td class="no">0</td>
+        <td class="yes">1</td>
+        <td class="yes">1</td>
+        <td>M3 起置 1，表示握手进入"安全态"。M1/M2 还是"协商态"。</td>
+      </tr>
+      <tr>
+        <td class="m">Key Info: Encrypted</td>
+        <td class="no">0</td>
+        <td class="no">0</td>
+        <td class="yes">1</td>
+        <td class="no">0</td>
+        <td>M3 的 Key Data 已加密（因为里面有 GTK）。其他帧不加密。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout key">
+    <span class="callout-title">怎么记这张表</span>
+    <p>三条规律：</p>
+    <ol>
+      <li><strong>Nonce 各发一次</strong>：ANonce 只在 M1，SNonce 只在 M2。凑齐了双方都能算 PTK。</li>
+      <li><strong>MIC 从 M2 开始</strong>：M1 还没 PTK 签不出 MIC；M2-M4 都有。</li>
+      <li><strong>M3 是"大包"</strong>：GTK、Install、Secure、Encrypted 都在 M3 出现——M3 是信息量最大的一帧。</li>
+    </ol>
+    <p>记不住细节没关系，<strong>抓包时对照这张表读一遍就熟了</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>WPA2 vs WPA3 完整流程对比</h2>
+
+  <p>把两种实现的<strong>完整时间线</strong>放一起对比，差异和共性一目了然：</p>
+
+  <table class="eapol-tbl">
+    <thead>
+      <tr>
+        <th>阶段</th>
+        <th>WPA2-Personal (PSK)</th>
+        <th>WPA3-Personal (SAE)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="m">PMK 准备</td>
+        <td>双方各自 <span class="mono">PBKDF2(密码, SSID, 4096)</span>，<strong>无网络交互</strong></td>
+        <td>SAE Commit/Confirm 两对帧<strong>在线协商</strong>（关联之前）</td>
+      </tr>
+      <tr>
+        <td class="m">扫描/认证/关联</td>
+        <td>Beacon/Probe → Auth → Assoc（第 7 课）</td>
+        <td>Beacon/Probe → <strong>SAE Commit/Confirm</strong> → Auth → Assoc</td>
+      </tr>
+      <tr>
+        <td class="m">4-Way Handshake</td>
+        <td>M1-M4（用 PSK 派生的 PMK）</td>
+        <td>M1-M4（用 SAE 派生的 PMK）<strong>—— 完全相同</strong></td>
+      </tr>
+      <tr>
+        <td class="m">PMF (管理帧保护)</td>
+        <td class="diff">可选（通常关）</td>
+        <td><strong>强制</strong></td>
+      </tr>
+      <tr>
+        <td class="m">加密算法</td>
+        <td>CCMP（AES）</td>
+        <td>CCMP（AES）+ 可选 GCMP（WPA3 进阶）</td>
+      </tr>
+      <tr>
+        <td class="m">密码要求</td>
+        <td>≥8 字符</td>
+        <td><strong>≥12 字符</strong>（WFA 认证要求）</td>
+      </tr>
+      <tr>
+        <td class="m">抗离线爆破</td>
+        <td class="diff">❌ 抓 4-Way 可爆破</td>
+        <td><strong>✅ 抗爆破</strong></td>
+      </tr>
+      <tr>
+        <td class="m">前向保密</td>
+        <td class="diff">❌ 无</td>
+        <td><strong>✅ 有</strong>（每会话 PMK 新鲜）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout key">
+    <span class="callout-title">关键认知</span>
+    <p>WPA3 <strong>没有</strong>重新发明 4-Way Handshake，也没有换加密算法（仍用 AES-CCMP）。它做的只有两件事：<strong>①</strong>把 PMK 的来源从"离线 PBKDF2"换成"在线 SAE"，根治离线爆破；<strong>②</strong>强制 PMF，根治 Deauth 攻击。<strong>4-Way Handshake 和 CCMP 是 WPA2/WPA3 共享的基石</strong>，你做固件时这两块的代码 WPA2/WPA3 通用。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对企业版（802.1X）的一句话补充</h2>
+
+  <p>WPA2/WPA3-Enterprise 走 802.1X/EAP：STA 和 RADIUS 服务器做 EAP 认证（EAP-TLS/PEAP/TTLS），AP 当中间人，认证成功后 RADIUS 把 MSK 给 AP，AP 和 STA 各自从 MSK 截取出 PMK。<strong>之后同样走标准的 4-Way Handshake</strong>。所以对企业版，PMK 来自 EAP/MSK；对 Personal 版，PMK 来自 PSK 或 SAE——<strong>4-Way Handshake 是三条路的共同汇合点</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：代码里这些在哪</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>WPA2/WPA3 实现在 Linux 栈里的代码分布：</p>
+    <ul>
+      <li><strong>PMK 派生</strong>（PBKDF2 / SAE）：<strong>全在 wpa_supplicant 用户态</strong>。内核和驱动看不到 PMK 的派生过程，只收到 install 命令。SAE 的椭圆曲线运算（PWE/Commit/Confirm）也在 wpa_supplicant，靠 <span class="mono">crypto.h</span> 抽象的 ECC 库实现。</li>
+      <li><strong>4-Way Handshake 状态机</strong>：wpa_supplicant 的 <span class="mono">wpa.c</span>（<span class="mono">wpa_sm</span> 结构）维护 M1-M4 状态，处理收到的 EAPOL-Key 帧、派生 PTK、校验 MIC、生成回复。</li>
+      <li><strong>密钥 install 到硬件</strong>：wpa_supplicant 算出 PTK/GTK 后，通过 nl80211 的 <span class="mono">NL80211_CMD_NEW_KEY</span> 把密钥下发到内核 cfg80211 → mac80211 → 驱动 → 芯片 key table。芯片硬件做 CCMP 加解密。</li>
+      <li><strong>SAE 新特性</strong>：内核侧要支持 <span class="mono">NL80211_CMD_EXTERNAL_AUTH</span>（SAE 在用户态做，内核触发）。驱动需在 Assoc Request 里正确设置 SAE 认证类型。<strong>老的只支持 WPA2 的固件不能直接上 WPA3</strong>，要确认芯片固件和 wpa_supplicant 版本。</li>
+      <li><strong>调试</strong>：<span class="mono">wpa_supplicant -ddd</span> 日志能看到完整的 M1-M4 交换、PTK 派生、MIC 校验。MIC 校验失败（<span class="mono">MIC check failed</span>）通常是 PMK 派生错误（密码/SSID 拼接错）或 KCK 截取错误。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：实现细节吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="WPA2-PSK 里 SSID 在 PMK 派生中起什么作用？为什么这么设计？"
+       data-explain="SSID 作为 PBKDF2 的盐：PMK = PBKDF2(密码, SSID, 4096, 32)。同一密码在不同 SSID 下派生出完全不同的 PMK。这是为了防预计算彩虹表——攻击者不能用一套通用字典攻击所有网络，必须针对每个 SSID 重新计算。历史上有人对常见 SSID（linksys/netgear 等出厂默认名）做预计算，所以建议改默认 SSID。">
+    <script type="application/json">
+      [
+        { "text": "作盐，同一密码在不同 SSID 派生出不同 PMK，防彩虹表", "correct": true },
+        { "text": "加密 PMK，防止被窃听",                              "correct": false },
+        { "text": "决定使用哪个加密算法",                              "correct": false },
+        { "text": "没有作用，只是凑长度",                              "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="4-Way Handshake 的 M1 为什么没有 MIC，而 M2/M3/M4 都有？"
+       data-explain="MIC 用 PTK 里的 KCK 计算。M1 是 AP 发 ANonce——此刻 STA 还没生成 SNonce，PTK 还没派生出来，AP 自然没法用 KCK 签 MIC。STA 收到 M1 后生成 SNonce 才能算 PTK，所以从 M2 起才能签 MIC。M2 的 MIC 是 STA 第一次证明"我算出了正确 PTK"。">
+    <script type="application/json">
+      [
+        { "text": "M1 时 PTK 还没派生出来，没法用 KCK 签 MIC", "correct": true },
+        { "text": "M1 是明文帧，不允许带加密字段",              "correct": false },
+        { "text": "AP 不支持计算 MIC，只有 STA 会",            "correct": false },
+        { "text": "M1 的内容太短，不需要 MIC",                 "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="WPA3 的 SAE 握手在哪一步完成，相对于关联和 4-Way Handshake？"
+       data-explain="SAE 的 Commit/Confirm 在关联之前完成（它取代了 WPA2 里 PSK 那个无网络交互的 PMK 派生环节）。顺序：Beacon/Probe → SAE Commit/Confirm → Auth → Assoc → 4-Way Handshake。SAE 产出 PMK 后，4-Way Handshake 完全照 WPA2 的 M1-M4 走——4-Way Handshake 是 WPA2/WPA3 的共同汇合点。">
+    <script type="application/json">
+      [
+        { "text": "关联之前，SAE Commit/Confirm 产出 PMK，然后正常走 4-Way", "correct": true },
+        { "text": "4-Way Handshake 之后，作为额外认证",                      "correct": false },
+        { "text": "取代 4-Way Handshake，不需要再做",                        "correct": false },
+        { "text": "和数据传输并行进行",                                      "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Replay Counter 在 4-Way Handshake 里防什么攻击？"
+       data-explain="Replay Counter 防重放攻击。STA 收到 EAPOL-Key 帧时检查 Replay Counter，比上次记录的小就丢弃。著名的 KRACK 攻击（Vanhoef 2017）就是绕过这个——通过阻塞 M3、伪造重放多个 M3 给 STA，强制 STA 重置 nonce（重装密钥），导致同一个 nonce 加密多个帧，破坏 CCMP 的安全性。所以 Replay Counter 是 KRACK 的防御前线，但实现 bug 仍可能被绕过。">
+    <script type="application/json">
+      [
+        { "text": "重放攻击（如 KRACK 强制 nonce 重用）", "correct": true },
+        { "text": "中间人攻击",                          "correct": false },
+        { "text": "离线字典攻击",                        "correct": false },
+        { "text": "Deauth 攻击",                         "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：差异在 PMK 来源，汇合在 4-Way</h2>
+
+  <p>学完这课，你脑子里应该有两条清晰的路：</p>
+  <ol>
+    <li><strong>WPA2-PSK</strong>：密码 + SSID → PBKDF2(4096轮) → PMK（离线，可爆破）→ 4-Way</li>
+    <li><strong>WPA3-SAE</strong>：密码 → PWE(H2E) → Commit/Confirm 在线协商 → PMK（抗爆破）→ 4-Way</li>
+  </ol>
+
+  <p>两条路在 <strong>4-Way Handshake 汇合</strong>，M1-M4 完全相同。4-Way 的四帧各有分工：M1 发 ANonce、M2 发 SNonce+MIC、M3 发 GTK+Install、M4 确认。Key Information 字段是读 EAPOL-Key 帧的入口。</p>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>在 Wireshark 里逐字段读懂 EAPOL-Key M1-M4</li>
+    <li>说清 WPA2 和 WPA3 在哪一步开始相同、哪一步不同</li>
+    <li>理解 PBKDF2 的 SSID 盐、4096 轮、SAE 的 PWE/Commit/Confirm 各自的设计意图</li>
+    <li>定位 MIC 校验失败、4-Way 超时该查 wpa_supplicant 的哪段代码</li>
+    <li>知道为什么做新固件该上 WPA3 + H2E + PMF</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">下一课：回到 MAC 主线</span>
+    <p>安全分支（第 9 + 10 课）讲完了。接下来回到 MAC 主线，按固件优先级：</p>
+    <ul>
+      <li><strong>第 11 课 · QoS / EDCA 细节</strong>：四个 AC（语音/视频/尽力/背景）的 AIFS/CWmin/CWmax/TXOP 怎么分级调度。兑现第 5 课伏笔，是你做驱动 tx 队列按 TID 分流的理论基础。</li>
+      <li><strong>第 12 课 · 聚合 / Block ACK</strong>：A-MPDU/A-MSDU 怎么打包提吞吐。兑现第 6 课伏笔。</li>
+      <li><strong>第 13 课起 · PHY 深水区</strong>：MIMO/OFDMA/BSS Color（Wi-Fi 6 PHY 核心，最大的洞）。</li>
+    </ul>
+    <p>或者你想继续深挖安全（SAE 的 Dragonfly 数学、GCMP vs CCMP、802.1X/EAP-TLS 实战），告诉我。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 11 课 — QoS / EDCA 细节（四个 AC 分级调度）。<br>
+      <a href="./0009-wpa-security-4way-handshake.html">← 第 9 课</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进 QoS」<br>
+      • 「SAE 的 Dragonfly 数学（椭圆曲线运算）想深入」<br>
+      • 「GCMP 和 CCMP 有什么区别？WPA3 为什么引入」<br>
+      • 「想看 wpa_supplicant 里 4-Way Handshake 的实际代码」<br>
+      • 「KRACK 攻击的完整机制想单独讲一课」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

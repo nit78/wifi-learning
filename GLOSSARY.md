@@ -389,6 +389,29 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 **RSN-IE (Robust Security Network Information Element)**：
 [已学] Beacon / Probe Resp / Assoc Req 里携带的信息元素，宣告这个 BSS 的安全能力：支持的加密套件（CCMP/TKIP）、认证方式（PSK/802.1X/SAE）、是否要 PMF。STA 和 AP 在关联前用它匹配能力。抓包看 RSN-IE 是判断"这个网络用什么加密"的入口。
 
+## 安全实现细节（Security Implementation）
+
+**PBKDF2 (Password-Based Key Derivation Function 2)**：
+[已学] WPA2-PSK 派生 PMK 的算法（RFC 2898/8018）。WPA2 的具体参数：<strong>PMK = PBKDF2-HMAC-SHA1(passphrase, SSID, 4096, 32)</strong> —— 密码作输入、SSID 作盐、4096 轮 HMAC-SHA1、输出 32 字节。<strong>SSID 当盐</strong>是关键：同一密码在不同 SSID 下派生出不同 PMK，防预计算彩虹表。4096 轮故意慢，抬高离线爆破成本（但仍可被 GPU/ASIC 加速）。
+
+**PWE (Password Element, 密码元素)**：
+[已学] WPA3 SAE (Dragonfly) 协议中，双方在椭圆曲线上从密码派生出的一个秘密点。派生方法两代：<strong>Hunting-and-Pecking (HNP)</strong>（迭代哈希试值，但有侧信道漏洞）和 <strong>Hash-to-Element (H2E)</strong>（一次性确定性映射，修了 HNP 的侧信道，WPA3 新固件用这个）。PWE 是 SAE 的核心——所有后续标量/元素运算建立在它之上。
+
+**Commit / Confirm (SAE 两阶段)**：
+[已学] WPA3 SAE 握手的两个阶段。<strong>Commit Exchange</strong>：双方互发 (scalar, element)，各自用私钥随机数 + PWE 算出共享秘密 → 派生 PMK。<strong>Confirm Exchange</strong>：双方互发一个 token（用刚算出的秘密签的 MAC），验证对方确实算出了同一个 PMK。Commit/Confirm 完成后<strong>双方都有 PMK</strong>，再走标准的 4-Way Handshake。
+
+**Key Information field (密钥信息字段)**：
+[已学] EAPOL-Key 帧里的 2 字节位域。关键 bit：Pairwise/Group（这帧是 PTK 还是 GTK 相关）、Install（要不要 install 到硬件）、Key ACK（AP 请求 STA 确认）、Key MIC（带不带 MIC）、Secure（握手进入"已加密"态）、Encrypted Key Data（Key Data 已加密）。<strong>Wireshark 解 EAPOL-Key 帧第一眼看这个字段</strong>。
+
+**Replay Counter (重放计数器)**：
+[已学] EAPOL-Key 帧里的 8 字节计数器，每对请求-响应递增。STA 收到 EAPOL-Key 帧时校验 Replay Counter——<strong>比上次小就丢弃</strong>，防攻击者重放旧握手帧（KRACK 攻击就是诱骗重放 M3 强制 nonce 重用）。是 4-Way Handshake 的反重放核心。
+
+**KDE (Key Data Encapsulation, 密钥数据封装)**：
+[已学] 4-Way Handshake M3 里 GTK 的封装格式。GTK 不是裸传的，而是装在 EAPOL-Key 帧的 Key Data 字段里，用 PTK 的 KEK 加密。接收方解密 Key Data 拆出 GTK。RSN-IE 也通过 Key Data 字段传（M2/M3），用于协商加密套件和防降级。
+
+**H2E vs HNP (Hash-to-Element vs Hunting-and-Pecking)**：
+[已学] SAE 派生 PWE 的两种方法。HNP（老）：循环哈希试值找到曲线上一点，<strong>迭代次数泄漏密码信息</strong>（Dragonblood 侧信道攻击的基础）。H2E（新）：确定性映射算法，不泄漏。<strong>WPA3 新固件应支持 H2E</strong>，老 HNP 保留向后兼容但建议迁移。
+
 ---
 
 _后续课程每堂都会扩充本表。定义冲突或修正时，标注旧定义被哪条覆盖。_
