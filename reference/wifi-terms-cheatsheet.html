@@ -1025,7 +1025,7 @@
       <span class="term-cn">· 服务质量</span>
     </div>
     <div class="term-body">
-      <p>区分不同业务优先级的机制。Wi-Fi 用 802.11e / EDCA 实现。</p>
+      <p>区分不同业务优先级的机制。Wi-Fi 用 802.11e / EDCA 实现，把数据分成 4 个优先级队列。</p>
     </div>
   </div>
 
@@ -1036,9 +1036,91 @@
       <span class="term-cn">· 增强分布式信道接入</span>
     </div>
     <div class="term-body">
-      <p>802.11e 定义的 QoS 版 DCF。用<strong>可变 AIFS + 不同的 CWmin/CWmax</strong> 区分 4 个接入类别（AC）：</p>
-      <p><span class="term-val">语音 (Voice)</span> <span class="term-val">视频 (Video)</span> <span class="term-val">尽力而为 (Best Effort)</span> <span class="term-val">背景 (Background)</span></p>
-      <p class="term-note">语音 AIFS 最短、CWmin 最小 → 优先级最高。</p>
+      <p>802.11e 的 QoS 版 DCF（HCF 的分布式子集）。用<strong>可变 AIFS + 不同的 CWmin/CWmax + TXOP</strong> 区分 4 个 AC。<strong>日常说的 Wi-Fi QoS 几乎都指 EDCA</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">4 个 AC</span>
+      <span class="term-full">Access Categories · 接入类别</span>
+    </div>
+    <div class="term-body">
+      <p>802.11e 的 4 个优先级队列，从高到低：</p>
+      <p><span class="term-val">AC_VO</span> 语音（VoIP） <span class="term-val">AC_VI</span> 视频（流媒体）</p>
+      <p><span class="term-val">AC_BE</span> 尽力而为（上网） <span class="term-val">AC_BK</span> 后台（下载/备份）</p>
+      <p class="term-note">每个 AC 有独立 CWmin/CWmax/AIFSN/TXOP。高优先级 AC 用更短 AIFS + 更小 CW + 更大 TXOP。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">AIFSN / AIFS</span>
+      <span class="term-full">Arbitrary IFS</span>
+      <span class="term-cn">· 任意帧间间隔</span>
+    </div>
+    <div class="term-body">
+      <p>802.11e 可变 IFS：<strong>AIFS[AC] = SIFS + AIFSN[AC] × SlotTime</strong>，AIFSN ≥ 2。802.11a/g 默认：VO/VI=2、BE=3、BK=7。</p>
+      <p class="term-note"><strong>EDCA 优先级第一道闸门</strong>（比 CW 更重要，AIFS 是必等时间）。AIFSN 小 → 等短 → 优先级高。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CWmin/CWmax（按 AC）</span>
+      <span class="term-full">竞争窗口（按 AC 区分）</span>
+    </div>
+    <div class="term-body">
+      <p>EDCA 第二道闸门。802.11a/g 默认：</p>
+      <p><span class="term-val">AC_VO</span> CWmin=3, CWmax=7</p>
+      <p><span class="term-val">AC_VI</span> CWmin=7, CWmax=15</p>
+      <p><span class="term-val">AC_BE</span> CWmin=15, CWmax=1023</p>
+      <p><span class="term-val">AC_BK</span> CWmin=15, CWmax=1023</p>
+      <p class="term-note">高优先级 CW 小 → 退避短 → 抢到信道概率大。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TXOP</span>
+      <span class="term-full">Transmission Opportunity</span>
+      <span class="term-cn">· 传输机会</span>
+    </div>
+    <div class="term-body">
+      <p>"抢到信道后能连续发多久"。802.11a/g 默认：<span class="term-val">AC_VO=1.504ms</span> <span class="term-val">AC_VI=3.008ms</span> <span class="term-val">AC_BE/BK=0</span>。</p>
+      <p class="term-note">TXOP=0 只能发一帧。TXOP&gt;0 可连续发多帧（burst）不必重新竞争。语音/视频的连续小包尤其受益。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TID</span>
+      <span class="term-full">Traffic Identifier</span>
+      <span class="term-cn">· 业务标识符</span>
+    </div>
+    <div class="term-body">
+      <p>QoS Data 帧的 QoS Control 字段里 4 bit（0-7）。映射到 4 个 AC（每两个 TID 共享一个 AC）。<strong>IP 层 DSCP → TID → AC 的桥梁</strong>。</p>
+      <p class="term-note">做驱动 tx 按队列发 = EDCA 的实现。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">WMM</span>
+      <span class="term-full">Wi-Fi Multimedia</span>
+    </div>
+    <div class="term-body">
+      <p>Wi-Fi 联盟对 802.11e EDCA 子集的认证品牌。WMM 认证保证 4 个 AC 基本优先级。U-APSD 属于 WMM-PS。<strong>是 EDCA 的产品化名称</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">内部碰撞</span>
+      <span class="term-full">Internal Collision</span>
+    </div>
+    <div class="term-body">
+      <p>EDCA 特有：同一 STA 内多个 AC 同时退避到 0。<strong>高优先级 AC 胜出</strong>（AIFS 短/CW 小），低优先级 AC 当成碰撞 CW 倍增。这是 EDCA 在单设备内部实现优先级的方式。</p>
     </div>
   </div>
 

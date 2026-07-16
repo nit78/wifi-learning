@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 11 课 · QoS / EDCA —— 四个优先级怎么排出来</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .timeline {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.5;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.9rem 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .timeline .vo { color: #9a2a16; font-weight: 700; }
+  .timeline .vi { color: #b8761c; font-weight: 700; }
+  .timeline .be { color: var(--accent); font-weight: 700; }
+  .timeline .bk { color: var(--ink-faint); font-weight: 700; }
+  .timeline .axis { color: var(--ink-faint); }
+  .timeline .frame { color: var(--ink); font-weight: 600; }
+  .timeline .note { color: var(--ink-faint); font-style: italic; }
+
+  .edca-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .edca-table th, .edca-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .edca-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .edca-table tbody tr:last-child td { border-bottom: none; }
+  .edca-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .edca-table .ac { font-family: var(--mono); color: var(--accent); font-weight: 700; }
+  .edca-table .mono { font-family: var(--mono); }
+  .edca-table .prio-high { color: #9a2a16; font-weight: 600; }
+  .edca-table .prio-low { color: var(--ink-faint); }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 11 课 / Lesson 0011 · QoS / EDCA · 协议主线 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0010-wpa2-wpa3-implementation-4way-details.html">← 第 10 课</a>
+  </div>
+
+  <h1>QoS / EDCA —— 四个优先级怎么排出来</h1>
+
+  <p>第 5 课讲了 CSMA/CA 的<strong>基础版 DCF</strong>——所有 STA 平等竞争，CWmin=15/CWmax=1023，没有优先级。问题是：<strong>Voice 帧和 Background 下载帧排一队竞争，语音可能被挤得卡顿</strong>。802.11e（2005）就是来修这个的：把数据分成 4 个优先级，让语音/视频优先抢信道。</p>
+
+  <p>这课对你做驱动的落点很直接——<strong>tx 队列按 TID 分流</strong>就是 EDCA 的实现。你做 BT 协议栈时按 ACL 链路类型分流的经验直接迁移，只是 Wi-Fi 多了 AIFS/CW/TXOP 三套旋钮。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：EDCA 用三道旋钮排出优先级</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>EDCA (Enhanced Distributed Channel Access) 是 802.11e 的 QoS 版 DCF。它<strong>没有引入中央调度</strong>（还是分布式竞争），而是给每个 AC（接入类别）配三套参数，让高优先级 AC 抢到信道的概率更大：</p>
+    <ol>
+      <li><strong>AIFS</strong>（第一道闸门）：发之前要等的时间。语音等最短，背景等最长。</li>
+      <li><strong>CWmin/CWmax</strong>（第二道闸门）：退避窗口范围。语音最小，背景最大。</li>
+      <li><strong>TXOP</strong>（第三道闸门）：抢到信道后能连续发多久。语音/视频有配额，普通数据只发一帧。</li>
+    </ol>
+    <p>三道闸门协同：高优先级 AC <strong>等得短、退避少、发了能多发</strong>。低优先级相反。<strong>这是概率上的"优先"，不是绝对优先</strong>——语音仍可能被背景帧碰撞，只是概率小得多。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>四个 AC：优先级从高到低</h2>
+
+  <p>802.11e 定义 4 个 AC (Access Category)，对应 4 种业务类型：</p>
+
+  <table class="edca-table">
+    <thead>
+      <tr><th>AC</th><th>全名</th><th>典型业务</th><th>特点</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="ac prio-high">AC_VO</td>
+        <td>Voice</td>
+        <td>VoIP、视频通话语音</td>
+        <td class="prio-high">小包、低延迟、双向周期，对延迟/抖动最敏感</td>
+      </tr>
+      <tr>
+        <td class="ac">AC_VI</td>
+        <td>Video</td>
+        <td>流媒体视频、IPTV</td>
+        <td>中大包、连续流，延迟敏感但容忍少量丢包</td>
+      </tr>
+      <tr>
+        <td class="ac">AC_BE</td>
+        <td>Best Effort</td>
+        <td>网页、邮件、聊天</td>
+        <td>普通上网，尽力而为，不保证延迟</td>
+      </tr>
+      <tr>
+        <td class="ac prio-low">AC_BK</td>
+        <td>Background</td>
+        <td>下载、备份、同步</td>
+        <td class="prio-low">后台流量，最低优先级，延迟无所谓</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout bridge">
+    <span class="callout-title">桥梁 / From BT</span>
+    <p>BLE 没有完全对应的优先级机制（BLE 是 master 调度的，slave 按分配的 slot 发，不存在竞争）。但 BT 经典的 ACL 链路有类似思路：<strong>DH/DM 链路类型、flush timeout、QoS setup</strong> 请求，都是在区分业务优先级。Wi-Fi 的 AC 是更彻底的版本——把优先级刻进介质访问本身（AIFS/CW），而不是靠上层调度。你做 sub-GHz 协议栈时如果做过"应急报文优先于周期上报"，那是上层优先级，和 EDCA 的 MAC 层优先级不冲突，可以叠加。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>第一道闸门：AIFS</h2>
+
+  <p>第 5 课讲 DCF 里所有 STA 都等 <strong>DIFS = SIFS + 2×SlotTime</strong>。EDCA 把这个固定值换成<strong>按 AC 变化的 AIFS</strong>：</p>
+
+  <div class="timeline">
+AIFS[AC] = SIFS + AIFSN[AC] × SlotTime
+                       ↑
+              AIFSN ≥ 2 (AC 自己决定要等几个 slot)
+
+802.11a/g (SlotTime=9μs, SIFS=16μs) 默认值:
+  <span class="vo">AC_VO</span>: AIFSN=2  →  AIFS = 16 + 2×9  = <span class="frame">34 μs</span>
+  <span class="vi">AC_VI</span>: AIFSN=2  →  AIFS = 16 + 2×9  = <span class="frame">34 μs</span>
+  <span class="be">AC_BE</span>: AIFSN=3  →  AIFS = 16 + 3×9  = <span class="frame">43 μs</span>
+  <span class="bk">AC_BK</span>: AIFSN=7  →  AIFS = 16 + 7×9  = <span class="frame">79 μs</span>
+
+对比 DCF 的 DIFS = 16 + 2×9 = 34 μs
+<span class="note">→ AC_VO/VI 的 AIFS = DIFS，AC_BE/BK 比 DIFS 更长</span>
+</div>
+
+  <p>关键：<strong>AIFS 是必等时间</strong>，是 EDCA 优先级的<strong>第一道闸门</strong>，比 CW 更重要。原因——退避计数器在 AIFS 结束后才开始递减，AIFS 长的 AC <strong>根本来不及开始退避</strong>，信道可能已经被 AIFS 短的 AC 抢走。所以 AC_VO（等 34μs）几乎总是在 AC_BK（等 79μs）之前有机会开始竞争。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>第二道闸门：CWmin/CWmax</h2>
+
+  <p>AIFS 决定"什么时候开始竞争"，CW 决定"竞争时退避多久"。第 5 课讲 DCF 的 CW 是 [15, 1023]。EDCA 给不同 AC 不同的 CW 范围：</p>
+
+  <table class="edca-table">
+    <thead>
+      <tr><th>AC</th><th>CWmin</th><th>CWmax</th><th>对比 DCF (15/1023)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="ac prio-high">AC_VO</td><td class="mono">3</td><td class="mono">7</td><td>窗口最小，退避最短，最容易抢到</td></tr>
+      <tr><td class="ac">AC_VI</td><td class="mono">7</td><td class="mono">15</td><td>较小</td></tr>
+      <tr><td class="ac">AC_BE</td><td class="mono">15</td><td class="mono">1023</td><td>和 DCF 一样</td></tr>
+      <tr><td class="ac prio-low">AC_BK</td><td class="mono">15</td><td class="mono">1023</td><td>和 DCF 一样（但 AIFS 更长，所以仍更低优先）</td></tr>
+    </tbody>
+  </table>
+
+  <p>注意 AC_BE 和 AC_BK 的 CWmin/CWmax <strong>数值相同</strong>（都是 15/1023）——它们的优先级差异<strong>完全靠 AIFS 区分</strong>（AC_BK 的 AIFSN=7 比 AC_BE 的 3 长很多）。这正好说明 AIFS 是更基础的闸门。</p>
+
+  <div class="callout key">
+    <span class="callout-title">内部碰撞 (Internal Collision)</span>
+    <p>EDCA 特有的现象：同一个 STA 内部，多个 AC 同时退避计数到 0，因为它们独立计数。<strong>怎么决定谁先发？</strong></p>
+    <p>规则：高优先级 AC（AIFS 短/CW 小）胜出发送，低优先级 AC 当成发生碰撞一样 <strong>CW 倍增</strong>。这是 EDCA 在<strong>单设备内部</strong>实现优先级的方式——4 个 AC 像同一个 STA 里的 4 个虚拟竞争者，内部先比一轮。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>第三道闸门：TXOP</h2>
+
+  <p>前两道闸门管"谁先抢到信道"，TXOP 管"<strong>抢到之后能发多久</strong>"。DCF 里抢到信道只发一个帧（DATA→ACK 就结束），下次还要重新竞争。EDCA 给高优先级 AC 一个 <strong>TXOP (Transmission Opportunity, 传输机会)</strong> 配额，在这个窗口内可以连续发多个帧不必重新竞争：</p>
+
+  <table class="edca-table">
+    <thead>
+      <tr><th>AC</th><th>TXOP (802.11a/g)</th><th>含义</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="ac prio-high">AC_VO</td><td class="mono">1.504 ms</td><td>连续发约多个语音帧（语音每帧 20ms 周期，一次发不完）</td></tr>
+      <tr><td class="ac">AC_VI</td><td class="mono">3.008 ms</td><td>连续发视频数据块</td></tr>
+      <tr><td class="ac">AC_BE</td><td class="mono">0</td><td><strong>只能发一帧</strong>（和 DCF 一样）</td></tr>
+      <tr><td class="ac prio-low">AC_BK</td><td class="mono">0</td><td><strong>只能发一帧</strong></td></tr>
+    </tbody>
+  </table>
+
+  <p>TXOP=0 意味着 Contention-Free Bursting 关闭，每发一帧都要重新竞争。TXOP&gt;0 时可以在窗口内连发（burst），对语音/视频这种连续小包尤其重要——<strong>省掉了每个帧之间的重复竞争开销</strong>。</p>
+
+  <span class="sidenote">
+    TXOP 值的单位是 32μs 的整数倍（历史原因）。AC_VO 的 1.504ms = 47 × 32μs，AC_VI 的 3.008ms = 94 × 32μs。抓包看 EDCA Parameter Set 元素时会看到这些倍数。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>四道闸门协同：一张图看清</h2>
+
+  <div class="timeline">
+时间 ─▶
+        │ ←─ SIFS (16μs) ─→│←─ SlotTime ─→│
+        │                   │  1    2    3    4    5    6    7
+  <span class="vo">AC_VO</span> <span class="frame">发!</span>         <span class="frame">发!</span>  <span class="frame">发!</span>  <span class="frame">发!</span>  <span class="frame">发!</span>   ← AIFSN=2, 2 slot 后就能竞争
+  <span class="vi">AC_VI</span> <span class="frame">发!</span>         <span class="frame">发!</span>  <span class="frame">发!</span>  <span class="frame">发!</span>  <span class="frame">发!</span>   ← AIFSN=2, 同 AC_VO
+  <span class="be">AC_BE</span> <span class="axis">.</span>          <span class="frame">发</span>   <span class="frame">发</span>   <span class="frame">发</span>    ← AIFSN=3, 3 slot 才开始（晚一个 slot）
+  <span class="bk">AC_BK</span> <span class="axis">. . . . . . . .</span>  <span class="frame">发</span>      ← AIFSN=7, 7 slot 才开始（晚很多）
+        │
+        │  <span class="note">信道一旦在某 slot 被抢，后面的 AC 都退避重来</span>
+        │  <span class="note">→ AC_VO/VI 几乎总能在 AC_BE/BK 之前抢到</span>
+</div>
+
+  <p>读图：所有 AC 都在等 AIFS，AIFS 结束后开始退避计数（每个 SlotTime 减 1）。AIFSN 越小越早开始计数，越早有机会计数到 0 抢到信道。AC_VO/VI 在第 2 个 slot 就能抢，AC_BK 要等到第 7 个 slot——<strong>大多数情况下信道早就被高优先级抢走了</strong>。这就是 EDCA"概率优先"的本质。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>完整参数表（802.11a/g 默认值）</h2>
+
+  <table class="edca-table">
+    <thead>
+      <tr>
+        <th>AC</th><th>AIFSN</th><th>AIFS</th><th>CWmin</th><th>CWmax</th><th>TXOP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td class="ac prio-high">AC_VO</td><td class="mono">2</td><td class="mono">34 μs</td><td class="mono">3</td><td class="mono">7</td><td class="mono">1.504 ms</td></tr>
+      <tr><td class="ac">AC_VI</td><td class="mono">2</td><td class="mono">34 μs</td><td class="mono">7</td><td class="mono">15</td><td class="mono">3.008 ms</td></tr>
+      <tr><td class="ac">AC_BE</td><td class="mono">3</td><td class="mono">43 μs</td><td class="mono">15</td><td class="mono">1023</td><td class="mono">0</td></tr>
+      <tr><td class="ac prio-low">AC_BK</td><td class="mono">7</td><td class="mono">79 μs</td><td class="mono">15</td><td class="mono">1023</td><td class="mono">0</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>这张表不用背</strong>，但要建立直觉：<strong>从 VO 到 BK，AIFS 递增、CW 递增、TXOP 递减</strong>——三道闸门同向收紧，优先级就排出来了。</p>
+
+  <div class="callout key">
+    <span class="callout-title">参数谁决定</span>
+    <p>这些默认值是标准建议，<strong>实际值由 AP 在 Beacon 的 EDCA Parameter Set 元素里广播</strong>。AP 可以调整（比如企业网给 VoIP 专门的优化参数）。STA 关联后从 Beacon 读这些参数应用到自己的 4 个 AC 队列。你做固件时，<strong>解析 Beacon 的 EDCA Parameter Set 并更新本地 AC 参数</strong>是必备功能。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>TID：上层到 AC 的桥梁</h2>
+
+  <p>上层（IP 层）怎么告诉 MAC 层"这个帧是语音"？靠 <strong>TID (Traffic Identifier, 业务标识符)</strong>。链路：</p>
+
+  <div class="timeline">
+IP 层 DSCP (6 bit, 区分服务码点)
+    ↓ <span class="note">(操作系统/驱动映射)</span>
+802.11 QoS Data 帧的 QoS Control 字段: TID (4 bit, 0-7)
+    ↓ <span class="note">(固定映射)</span>
+4 个 AC
+
+映射关系 (典型, 标准 HCF 映射):
+  TID 6, 7  →  <span class="vo">AC_VO</span>  (语音)
+  TID 4, 5  →  <span class="vi">AC_VI</span>  (视频)
+  TID 0, 3  →  <span class="be">AC_BE</span>  (尽力, 每两个 TID 一个 AC)
+  TID 1, 2  →  <span class="bk">AC_BK</span>  (背景)
+</div>
+
+  <p>第 6 课讲过 QoS Data 帧比普通 Data 帧多 2 字节 QoS Control 字段，里面就装 TID。<strong>这就是 EDCA 在帧结构上的入口</strong>——普通 Data 帧走 DCF（不分 AC），QoS Data 帧走 EDCA（按 TID 分流）。你做驱动 tx 路径时，从 socket 拿到包，按 DSCP/TID 分到 4 个硬件队列，每个队列按对应 AC 的参数竞争——这就是 EDCA 的完整实现。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>HCF、EDCA、HCCA、WMM 的关系</h2>
+
+  <p>这几个名词容易混，理一下：</p>
+
+  <table class="edca-table">
+    <thead>
+      <tr><th>名词</th><th>是什么</th><th>用得多吗</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="ac">HCF</td>
+        <td>802.11e 的 QoS MAC 总框架（Hybrid Coordination Function）</td>
+        <td>是 EDCA + HCCA 的总称</td>
+      </tr>
+      <tr>
+        <td class="ac">EDCA</td>
+        <td>HCF 的<strong>分布式</strong>子集（竞争式）</td>
+        <td class="prio-high"><strong>几乎都在用</strong></td>
+      </tr>
+      <tr>
+        <td class="ac">HCCA</td>
+        <td>HCF 的<strong>集中式</strong>子集（AP 轮询调度，类似 TDMA）</td>
+        <td class="prio-low">极少用（AP/STA 实现复杂，没普及）</td>
+      </tr>
+      <tr>
+        <td class="ac">WMM</td>
+        <td>Wi-Fi 联盟对 EDCA 子集的<strong>认证品牌</strong></td>
+        <td class="prio-high">所有现代设备都过 WMM 认证</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>记住一条就够：日常说的 "802.11e QoS" = EDCA = WMM</strong>。HCCA 当背景知识了解，做固件几乎不会碰到（没设备真正用）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：EDCA 落在代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>EDCA 在驱动栈里的落点：</p>
+    <ul>
+      <li><strong>4 个硬件队列</strong>：绝大多数 Wi-Fi 芯片有 4 个 tx 驱动队列，对应 AC_VO/VI/BE/BK。驱动把 QoS Data 帧按 TID 映射到对应队列，每个队列的硬件寄存器配 AIFSN/CWmin/CWmax/TXOP。<strong>这是 EDCA 的硬件实现路径</strong>。</li>
+      <li><strong>Beacon 解析</strong>：rx 路径要解析 Beacon 的 EDCA Parameter Set 元素，更新 4 个 AC 的参数。AP 改参数时 STA 要跟着改。SoftMAC 在 mac80211 的 <span class="mono">ieee80211_rx_mgmt_beacon</span> 里做；FullMAC 在固件里做。</li>
+      <li><strong>TID 映射</strong>：tx 路径从上层（socket/网络栈）拿到帧，按 DSCP → TID → AC 映射分队列。映射规则在 <span class="mono">cfg80211</span> 配置，驱动可覆盖。</li>
+      <li><strong>QoS Data 帧构造</strong>：发 QoS Data 帧时，Frame Control 的 Type/Subtype 要标成 QoS Data，并在头里加 2 字节 QoS Control 字段（装 TID）。第 6 课的帧结构细节在这里落地。</li>
+      <li><strong>调试</strong>：tx 卡顿/延迟高时，用 <span class="mono">iw dev wlan0 station dump</span> 看 tx retries、用 <span class="mono">ethtool -S</span> 看按 AC 的统计。<strong>语音卡顿常见原因</strong>：①TID 映射错（语音进了 AC_BE）；②EDCA 参数没正确从 Beacon 更新；③硬件队列优先级没配；④TXOP=0 导致每次发一帧。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：EDCA 吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="EDCA 区分 4 个 AC 优先级的三道闸门里，哪一道最基础（决定性强）？"
+       data-explain="AIFS 最基础。因为退避计数器在 AIFS 结束后才开始递减，AIFS 长的 AC 根本来不及开始退避竞争。AC_BK（AIFSN=7）要等 7 个 slot 才能开始计数，而 AC_VO（AIFSN=2）2 个 slot 就能抢——大多数情况下信道早被高优先级抢走了。CW 和 TXOP 是在'已经能竞争'之后的第二层区分，AIFS 是'能不能赶上竞争'的第一层。注意 AC_BE 和 AC_BK 的 CWmin/CWmax 数值相同，它们优先级差异完全靠 AIFS。">
+    <script type="application/json">
+      [
+        { "text": "AIFS（决定能不能赶上竞争）",  "correct": true },
+        { "text": "CWmin/CWmax（退避窗口）",      "correct": false },
+        { "text": "TXOP（抢到后发多久）",          "correct": false },
+        { "text": "三道完全等价，不分主次",        "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="AC_BE 和 AC_BK 的 CWmin/CWmax 数值相同（都是 15/1023），它们的优先级差异靠什么实现？"
+       data-explain="完全靠 AIFS 区分。AC_BE 的 AIFSN=3（等 43μs），AC_BK 的 AIFSN=7（等 79μs）。AIFSN=7 意味着 AC_BK 要多等 4 个 slot 才能开始退避计数，这段时间信道大概率已被 AC_BE 抢走。这正好印证'AIFS 是最基础的闸门'——CW 相同时，AIFS 单独就能排出优先级。">
+    <script type="application/json">
+      [
+        { "text": "AIFS（AC_BK 的 AIFSN=7 比 AC_BE 的 3 长）", "correct": true },
+        { "text": "TXOP（AC_BK 的 TXOP 更小）",                 "correct": false },
+        { "text": "帧大小（AC_BK 的帧更大）",                   "correct": false },
+        { "text": "物理层调制（AC_BK 用低速率）",               "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="TXOP=0 和 TXOP>0 对一个 AC 的发送行为有什么实质区别？"
+       data-explain="TXOP=0（AC_BE/AC_BK 默认）：抢到信道后只能发一个帧（DATA→ACK 就结束），下次还要重新竞争 DIFS+AIFS+退避，开销大。TXOP>0（AC_VO/AC_VI 默认）：抢到信道后有一个时间窗口（如 AC_VI 的 3.008ms），窗口内可连续发多个帧不必重新竞争——这叫 burst。对语音/视频这种连续小包尤其重要，省掉了重复竞争的开销，降低延迟和抖动。">
+    <script type="application/json">
+      [
+        { "text": "TXOP=0 每次发一帧要重新竞争；TXOP>0 窗口内可连发", "correct": true },
+        { "text": "TXOP=0 不加密；TXOP>0 加密",                       "correct": false },
+        { "text": "TXOP=0 走 DCF；TXOP>0 走 EDCA",                    "correct": false },
+        { "text": "TXOP=0 用 ACK；TXOP>0 用 Block ACK",               "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="上层怎么把一个 VoIP 语音包标记成高优先级送到 MAC 层？"
+       data-explain="链路是：IP 层 DSCP（区分服务码点）→ 802.11 QoS Data 帧的 QoS Control 字段的 TID → 4 个 AC 之一。VoIP 通常 DSCP=EF（加速转发），映射到 TID 6/7 → AC_VO。驱动 tx 路径按 TID 分到 AC_VO 硬件队列，该队列用 AIFSN=2/CWmin=3/TXOP=1.504ms 抢信道。这就是 EDCA 的完整实现链路——第 6 课讲的 QoS Data 帧 QoS Control 字段就是这条链路的承载点。">
+    <script type="application/json">
+      [
+        { "text": "IP 层 DSCP → QoS Data 帧的 TID → 映射到 AC_VO", "correct": true },
+        { "text": "TCP 端口号 → AP 识别 → 分配 AC",                 "correct": false },
+        { "text": "帧大小 → 小帧自动进 AC_VO",                     "correct": false },
+        { "text": "应用层直接调用专门的语音 socket",               "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：三道闸门排出概率优先</h2>
+
+  <p>学完这课，你脑子里应该有 EDCA 的<strong>三道闸门</strong>骨架：</p>
+  <ol>
+    <li><strong>AIFS</strong>（第一道，最基础）：AIFSN=2/2/3/7，等的时间从短到长</li>
+    <li><strong>CWmin/CWmax</strong>（第二道）：3-7 / 7-15 / 15-1023 / 15-1023</li>
+    <li><strong>TXOP</strong>（第三道）：1.504ms / 3.008ms / 0 / 0</li>
+  </ol>
+
+  <p>还有一条映射链：<strong>IP DSCP → TID → AC → 硬件队列</strong>，这是 EDCA 从上层到驱动的完整路径。</p>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>看到 Beacon 的 EDCA Parameter Set，知道 4 个 AC 各自参数</li>
+    <li>解释为什么 AIFS 比 CW 更基础（必等时间 vs 退避范围）</li>
+    <li>理解 TID 是上层到 MAC AC 的桥梁</li>
+    <li>定位语音卡顿：TID 映射错 / EDCA 参数没更新 / 硬件队列没配</li>
+    <li>区分 EDCA（分布式，用）和 HCCA（集中式，不用）</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">下一课：聚合 / Block ACK</span>
+    <p>第 12 课计划讲 <strong>帧聚合 / Block ACK</strong>（兑现第 6 课伏笔）：A-MPDU / A-MSDU 怎么把多个帧打包成一个发出去提升吞吐、Block ACK 怎么一次确认多个帧、为什么这是高吞吐 Wi-Fi 的命脉。和这课 TXOP 的"连续发"机制会连起来。</p>
+    <p>或者换路线：<strong>MIMO/OFDMA</strong>（PHY 深水区，Wi-Fi 6 核心，最大的洞）、<strong>漫游/802.11r</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 12 课 — 帧聚合 / Block ACK（A-MPDU/A-MSDU，吞吐命脉）。<br>
+      <a href="./0010-wpa2-wpa3-implementation-4way-details.html">← 第 10 课</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进聚合」<br>
+      • 「EDCA 参数表想看真实抓包里的 EDCA Parameter Set 元素」<br>
+      • 「内部碰撞的具体退避规则想深入（多个 AC 同时到 0 怎么选）」<br>
+      • 「mac80211 里 4 个 AC 队列的代码想看」<br>
+      • 「HCCA 为什么没普及？和蜂窝调度差在哪」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

@@ -187,6 +187,60 @@
 
   <!-- ─────────────────────────────────────────────── -->
 
+  <h2>⚠️ 常见误区：既然都走四次握手，PMK 不是还能算出来？</h2>
+
+  <p>这是学完前两节后最自然的疑问：<strong>"4-Way Handshake 在 WPA2 和 WPA3 里完全一样，那 PMK 不还是能算出来？这次会话的数据不还是能被解密？"</strong></p>
+
+  <p>结论先给：<strong>WPA2 里能，WPA3 里不能</strong>。差别在 PMK 的派生方式，不在四次握手。</p>
+
+  <div class="callout key">
+    <span class="callout-title">误区根源：PMK 是不是"可被旁观者复算"</span>
+    <p>两种 PMK 派生公式对比：</p>
+    <div class="code-block">WPA2-PSK:   PMK = PBKDF2(密码, SSID, 4096)
+                     ↑ 完全确定, 抓包者能离线复算
+
+WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥 )
+                                 ↑          ↑              ↑
+                            可复算     一次性随机      一次性随机
+                                      用完即弃        用完即弃
+                                      不在空中传      不在空中传
+</div>
+    <p>WPA3 的 PMK 依赖两个<strong>一次性随机私钥</strong>，它们用完即弃、从不在空中明文传。攻击者抓到的 SAE Commit 帧里只有它们的"运算结果"（scalar/element），从结果反推随机私钥等价于解<strong>椭圆曲线离散对数问题（ECDLP）</strong>——目前公认不可行的数学难题。</p>
+  </div>
+
+  <table class="eapol-tbl">
+    <thead>
+      <tr><th>攻击者能力</th><th>能解密这次会话吗</th><th>原因</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="m">只抓包（被动监听）</td>
+        <td><strong>❌ 不能</strong></td>
+        <td>算不出 PMK → 算不出 PTK → 解不了 CCMP</td>
+      </tr>
+      <tr>
+        <td class="m">抓包 + 事后知道密码</td>
+        <td><strong>❌ 不能</strong>（前向保密）</td>
+        <td>当时的一次性随机私钥已销毁，事后知道密码也复算不出当时的 PMK</td>
+      </tr>
+      <tr>
+        <td class="m">抓包 + 当场攻破设备内存</td>
+        <td>✅ 能</td>
+        <td>实时入侵，门槛远高于被动抓包</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>中间那一行就是<strong>前向保密 (Forward Secrecy)</strong>：密码今天泄露，<strong>解密不了昨天抓的包</strong>。WPA2-PSK 没有这个性质（密码泄露 → 所有历史抓包全解）。</p>
+
+  <p>攻击者要验证一个密码猜测，唯一办法是<strong>和 AP 真做一次在线 SAE 交换</strong>（AP 生成新的随机私钥参与运算）。在线 = 可被限速、锁定、检测。<strong>这就是 SAE 根治离线爆破的原因</strong>——不是改了四次握手，而是让 PMK 从"密码的确定性函数"变成了"一次性随机协商的产物"。</p>
+
+  <span class="sidenote">
+    类比你熟悉的：这就是 Diffie-Hellman 密钥交换的思路——双方用各自的随机私钥在公开信道协商共享秘密，旁观者算不出来。SAE = PAKE（密码认证的 DH），BLE 配对里用的 ECDH 也是同源思想。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
   <h2>③ 4-Way Handshake：WPA2 和 WPA3 的汇合点</h2>
 
   <p>无论 PMK 来自 PBKDF2（WPA2）还是 SAE（WPA3），<strong>从这一步开始两条路完全一样</strong>。四帧握手用同一个 PMK 派生 PTK。下面把四帧逐个拆到字段级：</p>
