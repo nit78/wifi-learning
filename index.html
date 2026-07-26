@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📶 Wi-Fi 学习 · 首页</title>
+<title>📶 Wi-Fi 学习 · 路线图</title>
 <link rel="stylesheet" href="assets/style.css">
 <style>
   .home-grid { display: grid; gap: 14px; margin: 20px 0; }
@@ -17,16 +17,203 @@
   .home-card p { margin: 0; font-size: 14px; color: #6b7280; }
   .home-card .tag { font-size: 12px; color: #9ca3af; }
   .section-title { margin: 28px 0 6px; font-size: 15px; color: #6b7280; font-weight: 600; }
+
+  /* ── 进度路线图 ── */
+  .roadmap-intro {
+    background: #faf6ef; border-left: 3px solid var(--accent);
+    padding: 0.8rem 1.1rem; margin: 1.2rem 0; border-radius: 0 5px 5px 0;
+    font-size: 0.92rem; color: var(--ink); line-height: 1.65;
+  }
+  .roadmap {
+    display: grid; grid-template-columns: 1fr; gap: 10px;
+    margin: 1.2rem 0 0.5rem;
+  }
+  .stage {
+    display: grid; grid-template-columns: 44px 1fr auto; gap: 12px;
+    align-items: center; padding: 12px 14px;
+    border: 1px solid var(--rule); border-radius: 8px;
+    background: #fff; transition: all .15s;
+  }
+  .stage:hover { border-color: var(--accent); }
+  .stage.done { background: #f4f9f4; border-color: #5fa872; }
+  .stage.partial { background: #fff8ec; border-color: #d4a04a; }
+  .stage.todo { background: #fafafa; opacity: 0.78; }
+  .stage.next { background: #fdf0ed; border-color: var(--accent); border-width: 2px; }
+  .stage-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.95rem; font-family: var(--mono);
+    background: #ece7dc; color: var(--ink-soft);
+  }
+  .stage.done .stage-num { background: #5fa872; color: #fff; }
+  .stage.partial .stage-num { background: #d4a04a; color: #fff; }
+  .stage.next .stage-num { background: var(--accent); color: #fff; }
+  .stage-body { min-width: 0; }
+  .stage-title { font-weight: 600; font-size: 0.95rem; color: var(--ink); margin-bottom: 2px; }
+  .stage-desc { font-size: 0.78rem; color: var(--ink-soft); line-height: 1.4; }
+  .stage-lessons { font-size: 0.74rem; color: var(--ink-faint); margin-top: 3px; font-family: var(--mono); }
+  .stage-status {
+    font-size: 0.72rem; font-weight: 600; padding: 3px 9px;
+    border-radius: 10px; white-space: nowrap;
+  }
+  .stage.done .stage-status { background: #5fa872; color: #fff; }
+  .stage.partial .stage-status { background: #d4a04a; color: #fff; }
+  .stage.todo .stage-status { background: #ece7dc; color: var(--ink-soft); }
+  .stage.next .stage-status { background: var(--accent); color: #fff; }
+
+  .roadmap-legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 0.76rem; color: var(--ink-soft); margin-top: 0.8rem;
+  }
+  .legend-dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 50%; margin-right: 5px; vertical-align: middle;
+  }
+
+  .progress-bar-wrap {
+    background: #ece7dc; border-radius: 8px; height: 10px;
+    overflow: hidden; margin: 0.6rem 0 0.2rem;
+  }
+  .progress-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #5fa872, var(--accent));
+    transition: width .4s;
+  }
+  .progress-text {
+    font-size: 0.78rem; color: var(--ink-soft); margin-bottom: 0.4rem;
+  }
+
+  @media (max-width: 600px) {
+    .stage { grid-template-columns: 36px 1fr; }
+    .stage-status { grid-column: 2; justify-self: start; margin-top: 4px; }
+  }
 </style>
 </head>
 <body>
 <main>
 
-  <div class="lesson-meta">📶 CWNA 学习骨架 · 手机版</div>
-  <h1>Wi-Fi 学习</h1>
-  <p>从蓝牙固件工程师视角，系统拆解 Wi-Fi。点开任何一课开始。</p>
+  <div class="lesson-meta">📶 CWNA 学习骨架 · 路线图 · <a href="MISSION.md">使命</a></div>
+  <h1>Wi-Fi 学习路线图</h1>
+  <p>从蓝牙固件工程师视角，按「一次 Wi-Fi 连接从生到死」拆解。下面是 10 个阶段的全景图——你随时能回来对照「我在哪、下一站去哪」。</p>
 
-  <h2 class="section-title">📚 课程</h2>
+  <div class="progress-text">主线进度：<strong>8 / 10 阶段（含 2 阶段部分完成）</strong> · 已交付 12 课</div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: 72%"></div></div>
+
+  <div class="roadmap-intro">
+    <strong>怎么看这张图</strong>：Wi-Fi 一次连接走 10 步——<strong>① 射频（信号是什么）→ ② PHY（信号↔比特）→ ③ MAC 抢信道 → ④ 帧长啥样 → ⑤ 怎么连上 → ⑥ 连上后维护 → ⑦ 加密 → ⑧ 提速 → ⑨ PHY 深水（Wi-Fi 6）→ ⑩ 驱动实战</strong>。每阶段对应若干课，绿色=完成、橙色=部分、灰色=待开。<strong>红框「下一站」</strong>是接下来的课。
+  </div>
+
+  <div class="roadmap">
+
+    <a class="stage done" href="lessons/0003-rf-fundamentals.html">
+      <div class="stage-num">1</div>
+      <div class="stage-body">
+        <div class="stage-title">射频基础 · 信号是什么</div>
+        <div class="stage-desc">dB/dBm、噪声底、SNR、链路预算——Wi-Fi 工程师的 RF 地基</div>
+        <div class="stage-lessons">第 3、4 课</div>
+      </div>
+      <div class="stage-status">✓ 完成</div>
+    </a>
+
+    <a class="stage partial" href="lessons/0002-ofdm-orthogonality.html">
+      <div class="stage-num">2</div>
+      <div class="stage-body">
+        <div class="stage-title">PHY · 信号↔比特</div>
+        <div class="stage-desc">OFDM 正交性已立（Δf=1/T）。<strong>MIMO / OFDMA / BSS Color 未讲——这是 Wi-Fi 6 PHY 核心，最大缺口</strong></div>
+        <div class="stage-lessons">第 2 课（一半）· 缺 MIMO/OFDMA 课</div>
+      </div>
+      <div class="stage-status">◐ 部分</div>
+    </a>
+
+    <a class="stage done" href="lessons/0005-csma-ca-backoff.html">
+      <div class="stage-num">3</div>
+      <div class="stage-body">
+        <div class="stage-title">MAC 介质访问 · 抢信道</div>
+        <div class="stage-desc">CSMA/CA + DIFS/SIFS + BEB 退避（Wi-Fi 第二条钉子）</div>
+        <div class="stage-lessons">第 1、5 课</div>
+      </div>
+      <div class="stage-status">✓ 完成</div>
+    </a>
+
+    <a class="stage done" href="lessons/0006-mac-frame-structure.html">
+      <div class="stage-num">4</div>
+      <div class="stage-body">
+        <div class="stage-title">MAC 帧结构 · 帧长啥样</div>
+        <div class="stage-desc">三类帧、四地址、ToDS/FromDS、NAV 虚拟侦听——协议栈工程师的主场</div>
+        <div class="stage-lessons">第 6 课</div>
+      </div>
+      <div class="stage-status">✓ 完成</div>
+    </a>
+
+    <a class="stage done" href="lessons/0007-sta-association-flow.html">
+      <div class="stage-num">5</div>
+      <div class="stage-body">
+        <div class="stage-title">MAC 状态机 · 怎么连上</div>
+        <div class="stage-desc">扫描→认证→关联→授权 三态状态机——协议栈移植主战场</div>
+        <div class="stage-lessons">第 7 课</div>
+      </div>
+      <div class="stage-status">✓ 完成</div>
+    </a>
+
+    <a class="stage partial" href="lessons/0008-power-save-mode.html">
+      <div class="stage-num">6</div>
+      <div class="stage-body">
+        <div class="stage-title">MAC 维护 · 连上之后</div>
+        <div class="stage-desc">省电（PS-Poll/TIM/TWT）、QoS（EDCA 四优先级）已讲。<strong>漫游（802.11r）未讲</strong></div>
+        <div class="stage-lessons">第 8、11 课 · 缺漫游课</div>
+      </div>
+      <div class="stage-status">◐ 部分</div>
+    </a>
+
+    <a class="stage done" href="lessons/0009-wpa-security-4way-handshake.html">
+      <div class="stage-num">7</div>
+      <div class="stage-body">
+        <div class="stage-title">安全 · 怎么加密</div>
+        <div class="stage-desc">WPA2/WPA3、PMK/PTK/GTK 密钥层级、4-Way Handshake 逐帧、PSK vs SAE</div>
+        <div class="stage-lessons">第 9、10 课</div>
+      </div>
+      <div class="stage-status">✓ 完成</div>
+    </a>
+
+    <a class="stage done" href="lessons/0012-aggregation-block-ack.html">
+      <div class="stage-num">8</div>
+      <div class="stage-body">
+        <div class="stage-title">高吞吐 · 怎么提速</div>
+        <div class="stage-desc">A-MPDU 帧聚合、Block ACK 批量确认、TXOP 协同——吞吐命脉</div>
+        <div class="stage-lessons">第 12 课</div>
+      </div>
+      <div class="stage-status">✓ 完成</div>
+    </a>
+
+    <a class="stage next" href="lessons/0012-aggregation-block-ack.html">
+      <div class="stage-num">9</div>
+      <div class="stage-body">
+        <div class="stage-title">PHY 深水区 · Wi-Fi 6 核心（下一站）</div>
+        <div class="stage-desc">MIMO 空间流、MU-MIMO、<strong>OFDMA 子载波分组</strong>、BSS Color 空间复用——Wi-Fi 5→6 分水岭，<strong>最大缺口</strong></div>
+        <div class="stage-lessons">→ 第 13-15 课</div>
+      </div>
+      <div class="stage-status">→ 下一站</div>
+    </a>
+
+    <a class="stage todo">
+      <div class="stage-num">10</div>
+      <div class="stage-body">
+        <div class="stage-title">驱动实战 · 代码与调试</div>
+        <div class="stage-desc">mac80211 / cfg80211 / nl80211 代码导读、抓包调试、常见 bug 库、综合复盘</div>
+        <div class="stage-lessons">⬜ 第 16-18 课（收尾）</div>
+      </div>
+      <div class="stage-status">待开</div>
+    </a>
+
+  </div>
+
+  <div class="roadmap-legend">
+    <span><span class="legend-dot" style="background:#5fa872"></span>✓ 完成</span>
+    <span><span class="legend-dot" style="background:#d4a04a"></span>◐ 部分（有缺口）</span>
+    <span><span class="legend-dot" style="background:var(--accent)"></span>→ 下一站</span>
+    <span><span class="legend-dot" style="background:#ece7dc"></span>⬜ 待开</span>
+  </div>
+
+  <h2 class="section-title">📚 全部课程（按编号）</h2>
   <div class="home-grid" id="lessons-grid">
     <p style="color:#9ca3af;font-size:14px">加载中…</p>
   </div>
@@ -43,11 +230,11 @@
     </a>
     <a class="home-card" href="NOTES-GUIDE.html">
       <h3>📓 笔记功能说明</h3>
-      <p>如何在课程页里随手记笔记</p>
+      <p>如何在课程页里随手记笔记（含编辑功能）</p>
     </a>
     <a class="home-card" href="GLOSSARY.md">
       <h3>📝 完整术语表</h3>
-      <p>GLOSSARY.md</p>
+      <p>GLOSSARY.md · 中英对照单一真相源</p>
     </a>
   </div>
 
@@ -70,6 +257,7 @@ var FALLBACK_LESSONS = [
   { href: 'lessons/0009-wpa-security-4way-handshake.html', title: '第 9 课 · WPA 安全 / 4-Way Handshake —— 兑现第 7 课的伏笔④' },
   { href: 'lessons/0010-wpa2-wpa3-implementation-4way-details.html', title: '第 10 课 · WPA2/WPA3 具体实现 + 四帧握手逐帧拆解' },
   { href: 'lessons/0011-qos-edca.html', title: '第 11 课 · QoS / EDCA —— 四个优先级怎么排出来' },
+  { href: 'lessons/0012-aggregation-block-ack.html', title: '第 12 课 · 帧聚合 / Block ACK —— 吞吐的命脉' },
   { href: 'lessons/sup-0001-linux-wifi-stack-frame-processing.html', title: '课外补充 1 · Linux Wi-Fi 栈 —— 三类帧各在哪一层处理' },
   { href: 'lessons/sup-0002-fact-audit-where-the-course-is-wrong.html', title: '补充课 sup-0002 · 事实核查 —— 课件哪里写错了（对照权威资料）' }
 ];

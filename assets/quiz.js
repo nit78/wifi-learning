@@ -13,6 +13,17 @@
 (function () {
   "use strict";
 
+  // Fisher-Yates 洗牌 —— 等概率打乱数组，原地修改
+  function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+    return arr;
+  }
+
   // 自动增强所有 .quiz[data-...] 容器
   function enhanceAll(root) {
     root.querySelectorAll(".quiz:not([data-enhanced])").forEach(enhance);
@@ -35,6 +46,10 @@
       return;
     }
 
+    // Fisher-Yates 洗牌：每次渲染随机打乱选项顺序
+    // （防止正确答案恒在某一位置、避免"背位置"作弊）
+    options = shuffle(options.slice());
+  
     container.setAttribute("data-enhanced", "1");
     container.classList.add("quiz-box");
 

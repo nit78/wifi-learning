@@ -814,6 +814,97 @@
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
+  <h2>高吞吐：聚合 / Block ACK</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MSDU / MPDU</span>
+      <span class="term-full">MAC Service/Protocol Data Unit</span>
+    </div>
+    <div class="term-body">
+      <p><strong>MSDU</strong>：MAC 载荷（还没加 MAC 头，≈ 一个 IP 包）。<strong>MPDU</strong>：完整 802.11 帧（MSDU + MAC 头 + FCS）。</p>
+      <p class="term-note">聚合的层次区别：在加 MAC 头之前（A-MSDU）还是之后（A-MPDU）拼。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">A-MSDU</span>
+      <span class="term-full">Aggregate MSDU</span>
+      <span class="term-cn">· 聚合 MSDU</span>
+    </div>
+    <div class="term-body">
+      <p>多个 MSDU 拼成大载荷，<strong>共享一个 MAC 头</strong>。<span class="term-val">最大 3839 或 7935 字节</span>。</p>
+      <p class="term-note">优势：开销小。劣势：一个 bit 错整个重传。802.11ac 起在 VHT PHY 弃用，主流只用 A-MPDU。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">A-MPDU</span>
+      <span class="term-full">Aggregate MPDU</span>
+      <span class="term-cn">· 聚合 MPDU</span>
+    </div>
+    <div class="term-body">
+      <p>多个已封装 MPDU 拼成大帧，<strong>每个保留自己的 MAC 头 + FCS</strong>，前面加 4B MPDU Delimiter。</p>
+      <p><span class="term-val">802.11n: ≤65535B</span> <span class="term-val">802.11ac: 超 1MB</span> <span class="term-val">≤64 个 MPDU（位图限制）</span></p>
+      <p class="term-note">优势：单 MPDU 错可 Block ACK 选择重传。<strong>现代 Wi-Fi 主流聚合方式</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MPDU Delimiter</span>
+      <span class="term-full">MPDU 定界符</span>
+    </div>
+    <div class="term-body">
+      <p>A-MPDU 里每个 MPDU 前 4 字节，标记长度/位置。某 MPDU CRC 错时靠它找到下一个边界 → 不至于整个 A-MPDU 丢。是<strong>选择重传</strong>的物理基础。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Block ACK</span>
+      <span class="term-full">块确认</span>
+    </div>
+    <div class="term-body">
+      <p>一次确认一批帧。普通 ACK 一个帧一个 ACK，Block ACK 用<strong>位图</strong>记录一批帧各自收没收到，发送方只重传丢失的。</p>
+      <p class="term-note"><strong>A-MPDU 的天然搭档</strong>：聚合发一批 → Block ACK 一次确认。位图大小限制 A-MPDU ≤64 个 MPDU。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BA Session</span>
+      <span class="term-full">Block ACK 会话</span>
+    </div>
+    <div class="term-body">
+      <p>Block ACK 有状态，要先建会话：<strong>ADDBA Request → ADDBA Response</strong>（带 TID、buffer 大小、Immediate/Delayed）。会话期间用 Block ACK，结束发 <strong>DELBA</strong> 拆除。<strong>按 TID 建</strong>——每个 AC 一个独立会话。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BAR</span>
+      <span class="term-full">Block ACK Request</span>
+      <span class="term-cn">· 块确认请求</span>
+    </div>
+    <div class="term-body">
+      <p>发完一批 A-MPDU 后发的控制帧，要求接收方回 Block Ack。带<strong>起始序列号</strong>告诉对方"从第几号开始确认"。Block ACK 流程的触发器。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Immediate / Delayed BA</span>
+      <span class="term-full">立即 / 延迟块确认</span>
+    </div>
+    <div class="term-body">
+      <p><strong>Immediate</strong>（常用）：收到 BAR 后 SIFS 内立即回 Block Ack。<strong>Delayed</strong>（少见）：先 ACK BAR，过段时间再回 Block Ack。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
   <h2>PHY / 调制（物理层）</h2>
 
   <div class="term">

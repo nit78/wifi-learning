@@ -368,6 +368,39 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 **WEP (Wired Equivalent Privacy)**：
 [桥梁] 802.11-1997 的初代加密，RC4 + 静态密钥。致命缺陷：IV 24bit 太短会复用 → 几分钟可破。<strong>2004 年正式废弃</strong>。是"加密协议设计反面教材"和 802.11 Authentication 名字陷阱的历史源头。
 
+**DSSS (Direct Sequence Spread Spectrum, 直接序列扩频)**：
+[桥梁] 802.11-1997/802.11b 用过的扩频方式：用伪随机码把信号"摊薄"到更宽的频带，抗干扰强但速率低（1/2/5.5/11 Mbps）。和 FHSS 是 802.11 初代两种扩频路线，现都被 OFDM 淘汰。BT 工程师可类比：DSSS 思路接近 GPS/CDMA 的扩频。
+
+**OFDMA (Orthogonal Frequency Division Multiple Access, 正交频分多址)**：
+[待学] 802.11ax (Wi-Fi 6) 引入的多址机制：把 OFDM 的子载波分组（RU，Resource Unit）分配给不同 STA，AP 一次下行能同时发给多个 STA、上行多 STA 同时发。是 Wi-Fi 6 PHY 的核心特性之一（和 MU-MIMO 互补）。
+
+**FDM (Frequency Division Multiplexing, 频分复用)**：
+[已学] 传统多载波技术，用保护频带隔离子载波，频谱不重叠。与 OFDM（重叠 + 正交）对比，FDM 频谱效率低。早期 802.11a 之前的无线宽带技术多用 FDM。
+
+**FSPL (Free Space Path Loss, 自由空间路径损耗)**：
+[已学] 信号在真空/自由空间传播的损耗公式：FSPL(dB) = 20·log₁₀(d) + 20·log₁₀(f) + 常数。是链路预算的核心公式，频率越高/距离越远 → 损耗越大。
+
+**PER (Packet Error Rate, 包错误率/误包率)**：
+[已学] 数据包错误/丢失的比例。接收灵敏度按指定 PER（通常 10%）定义——「在这个信号强度下，PER 不超过 10%」。是衡量链路质量的指标。
+
+**NF (Noise Figure, 噪声系数)**：
+[已学] 接收机自身电路引入的额外噪声，单位 dB。NF 越小越好（理想 0 dB，实际 2-10 dB）。噪声底 = 热噪声 + NF。
+
+**BER (Bit Error Rate, 误码率)**：
+[待学] 接收错误的比特比例。比 PER 更底层。Wi-Fi 链路质量常用 PER（包层）而非 BER（比特层）衡量。
+
+**LNA (Low-Noise Amplifier, 低噪声放大器)**：
+[待学] 接收链路第一级放大器，决定系统 NF 的关键器件。Wi-Fi 模块的接收灵敏度很大程度由 LNA 决定。
+
+**WDS (Wireless Distribution System, 无线分布式系统)**：
+[待学] AP 之间无线互联的拓扑（无线桥接/中继）。这是唯一用满 MAC 帧四个地址字段（Addr1-4）的场景（见第 6 课 ToDS=FromDS=1 行）。
+
+**DA / SA / RA / TA (目的/源/接收/发送地址)**：
+[已学] MAC 帧四个地址字段的 5 个角色里的 4 个（第 5 个是 BSSID）：<strong>DA</strong> (Destination Address, 目的地址)、<strong>SA</strong> (Source Address, 源地址)、<strong>RA</strong> (Receiver Address, 本跳接收方)、<strong>TA</strong> (Transmitter Address, 本跳发送方)。Addr1 永远是 RA，Addr2 永远是 TA。
+
+**GCMP (Galois/Counter Mode Protocol)**：
+[待学] WPA3 进阶可选的加密协议，基于 AES-GCM（比 CCMP 更高效的 AEAD）。802.11ad/ay (60 GHz) 强制用 GCMP，主流 Wi-Fi 6 也支持。是 CCMP 的后继候选。
+
 **WPA / WPA2 / WPA3 (Wi-Fi Protected Access)**：
 [已学] Wi-Fi 联盟（WFA）的安全认证体系。<strong>WPA1</strong>（2003，过渡，用 TKIP）、<strong>WPA2</strong>（2004，802.11i，用 CCMP，最普及）、<strong>WPA3</strong>（2018，用 SAE 替代 PSK + 强制 PMF）。WPA 不是 IEEE 标准号，是 WFA 的认证品牌；背后对应 802.11i (WPA2) 等修正案。
 
@@ -435,6 +468,38 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 
 **Forward Secrecy (前向保密 / 完美前向保密 PFS)**：
 [已学] 一种安全性质：<strong>长期密钥（密码）泄露，不能解密过去抓到的会话</strong>。实现前提：每次会话的密钥用一次性随机数派生，随机数用完即弃。WPA3-SAE 有前向保密（PMK 依赖一次性随机私钥）；WPA2-PSK <strong>没有</strong>（PMK = f(密码)，密码泄露 → 所有历史抓包全解）。是 SAE 相对 PSK 的根本优势之一，不是改四次握手，而是改 PMK 的派生方式。
+
+## 高吞吐：聚合与批量确认（Aggregation / Block ACK）
+
+**MSDU (MAC Service Data Unit, MAC 业务数据单元)**：
+[已学] MAC 层的"载荷"——上层（LLC/IP 包）交给 MAC 发送的数据单元。<strong>还没加 MAC 头</strong>。一个 MSDU = 一个 IP 包（简化理解）。
+
+**MPDU (MAC Protocol Data Unit, MAC 协议数据单元)**：
+[已学] MAC 层的"完整帧"——MSDU + MAC 头 + FCS。<strong>已经封装好的 802.11 帧</strong>。一个 MPDU = 一个可发送的帧。聚合的层次区别就在于：在加 MAC 头之前还是之后聚合。
+
+**A-MSDU (Aggregate MSDU, 聚合 MSDU)**：
+[已学] 把多个 MSDU 拼成一个大载荷，<strong>共享一个 MAC 头</strong>。优势：开销小（一个 MAC 头管多个包，效率高）。劣势：一个 bit 错整个 A-MSDU 重传（无 Block ACK 选择重传）。最大 3839 或 7935 字节。802.11ac 起在 VHT PHY 弃用 A-MSDU，主流只用 A-MPDU。
+
+**A-MPDU (Aggregate MPDU, 聚合 MPDU)**：
+[已学] 把多个已封装的 MPDU 拼成一个大帧，<strong>每个 MPDU 保留自己的 MAC 头 + FCS</strong>，前面加 4 字节 MPDU Delimiter。优势：①单个 MPDU 错可 Block ACK 选择重传（不必整帧重发）；②尺寸大（802.11n 65535 字节，802.11ac 超 1MB）。劣势：开销略大（每 MPDU 一个 MAC 头）。<strong>现代 Wi-Fi（802.11n/ac/ax）的主流聚合方式</strong>。
+
+**MPDU Delimiter (MPDU 定界符)**：
+[已学] A-MPDU 里每个 MPDU 前的 4 字节，标记这个 MPDU 的长度和位置，帮助接收方在错误时重新同步——某个 MPDU CRC 错了，能靠 Delimiter 找到下一个 MPDU 边界，不至于整个 A-MPDU 丢掉。是 A-MPDU 选择重传能力的物理基础。
+
+**Two-level Aggregation (两级聚合)**：
+[已学] A-MSDU 套在 A-MPDU 里——先做 A-MSDU（多个 MSDU 共享 MAC 头），再把多个这样的 MPDU 聚合成 A-MPDU。理论上效率最高（结合 A-MSDU 的低开销 + A-MPDU 的鲁棒性），但实现复杂，实际产品很少用。
+
+**Block ACK (块确认)**：
+[已学] 一次确认一批帧的机制。普通 ACK 一个帧一个 ACK（DATA→ACK），Block ACK 一个 Block Ack 帧用<strong>位图</strong>记录一批帧各自收没收到，发送方按位图只重传丢失的。<strong>A-MPDU 的天然搭档</strong>——聚合发出去一批，Block ACK 一次性确认。位图大小限制 A-MPDU 最多 64 个 MPDU（802.11n）。
+
+**BA Session (Block ACK 会话)**：
+[已学] Block ACK 不是无状态的，要先建立会话：发起方发 <strong>ADDBA Request</strong>（带 TID、buffer 大小、Immediate/Delayed 策略），接收方回 <strong>ADDBA Response</strong> 同意。会话期间持续用 Block ACK，结束后发 <strong>DELBA</strong> 拆除。会话按 TID 建立——每个 AC 一个独立 BA 会话。
+
+**Immediate BA vs Delayed BA (立即块确认 vs 延迟块确认)**：
+[已学> Block ACK 两种响应时机。<strong>Immediate</strong>：收到 BAR 后 SIFS 内立即回 Block Ack（常用）。<strong>Delayed</strong>：先 ACK BAR，过段时间再回 Block Ack（接收方需要时间处理时用，少见）。日常说的 Block ACK 几乎都是 Immediate。
+
+**BAR (Block ACK Request, 块确认请求帧)**：
+[已学] 发送方发完一批 A-MPDU 后发的控制帧，要求接收方回 Block Ack。BAR 里带起始序列号，告诉接收方"从第几号开始确认"。是 Block ACK 流程的触发器。
 
 ---
 

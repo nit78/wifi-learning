@@ -91,26 +91,26 @@
 
   <h1>WPA 安全 / 4-Way Handshake —— 兑现第 7 课的伏笔④</h1>
 
-  <p>第 7 课那张连接序列图里画了 5 步，第 4 步 <strong>4-Way Handshake</strong> 我向你承诺了三次，现在兑现。这是 STA 从"关联成功但不能传数据"走到"真正能加密通信"的最后一公里，也是你做协议栈移植里和密钥管理打交道最多的代码路径。</p>
+  <p>第 7 课那张连接序列图里画了 5 步，第 4 步 <strong>4-Way Handshake</strong> 我向你承诺了三次，现在兑现。这是 STA (站点) 从"关联成功但不能传数据"走到"真正能加密通信"的最后一公里，也是你做协议栈移植里和密钥管理打交道最多的代码路径。</p>
 
-  <p>这课的难点不在"四个帧的顺序"——那背一遍就记住了。难点在<strong>为什么要这么设计</strong>：为什么密钥不直接传？为什么要搞这么多层密钥？为什么 WPA2 能被破解、WPA3 又怎么修？理解了设计动机，整套机制就活了。</p>
+  <p>这课的难点不在"四个帧的顺序"——那背一遍就记住了。难点在<strong>为什么要这么设计</strong>：为什么密钥不直接传？为什么要搞这么多层密钥？为什么 WPA2 (Wi-Fi 保护访问) 能被破解、WPA3 (Wi-Fi 保护访问) 又怎么修？理解了设计动机，整套机制就活了。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>支点：WPA 安全解决三个问题</h2>
+  <h2>支点：WPA (Wi-Fi 保护访问) 安全解决三个问题</h2>
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
     <p>Wi-Fi 是<strong>开放广播介质</strong>——任何人都能听、都能发。WPA 安全要同时解决三个问题：</p>
     <ol>
       <li><strong>加密 (Confidentiality)</strong>：别人抓到空中帧也看不懂内容</li>
-      <li><strong>完整性 (Integrity)</strong>：别人篡改帧能被发现（MIC）</li>
+      <li><strong>完整性 (Integrity)</strong>：别人篡改帧能被发现（MIC (消息完整性码)）</li>
       <li><strong>身份认证 (Authentication)</strong>：确认对方确实知道密码</li>
     </ol>
-    <p>整个 WPA 体系（PSK、4-Way Handshake、PTK/GTK、CCMP）都是围绕这三个目标设计的。每个机制都能对应到"防什么攻击"。</p>
+    <p>整个 WPA 体系（PSK (预共享密钥)、4-Way Handshake、PTK (成对临时密钥)/GTK (组临时密钥)、CCMP (基于 AES 的加密+完整性协议)）都是围绕这三个目标设计的。每个机制都能对应到"防什么攻击"。</p>
   </div>
 
-  <p>先把<span class="mono">802.11 Authentication ≠ 安全认证</span>这个第 7 课的点再钉一遍：<strong>真正的安全认证发生在关联之后</strong>。家庭网络靠 PSK（双方预先从密码派生出 PMK），企业网络靠 802.1X/EAP（RADIUS 服务器认证），无论哪种，最后都要走 4-Way Handshake 把会话密钥派生出来。这课就讲这条主线。</p>
+  <p>先把<span class="mono">802.11 Authentication ≠ 安全认证</span>这个第 7 课的点再钉一遍：<strong>真正的安全认证发生在关联之后</strong>。家庭网络靠 PSK（双方预先从密码派生出 PMK (成对主密钥)），企业网络靠 802.1X/EAP (可扩展认证协议)（RADIUS 服务器认证），无论哪种，最后都要走 4-Way Handshake 把会话密钥派生出来。这课就讲这条主线。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -145,8 +145,8 @@
   <ul>
     <li><strong>PMK 不在空中传</strong>。它是根密钥，PSK 模式下双方从密码各自算出来，802.1X 模式下由 RADIUS 安全下发。空中传的是它的派生输入（nonce），不是 PMK 本身——这是防抓包破解的核心。</li>
     <li><strong>PTK 每次会话新鲜</strong>。同一个 PMK，每次关联用不同的随机 nonce 派生出不同的 PTK。<strong>这叫前向保密的弱化版</strong>——某次 PTK 泄露不等于 PMK 泄露，其他会话不受影响。</li>
-    <li><strong>PTK 拆三段各司其职</strong>。KCK 管认证（签握手帧）、KEK 管密钥分发（加密 GTK）、TK 管数据加密。一把钥匙开一把锁，防止某段被破连累全部。</li>
-    <li><strong>单播用 PTK、组播用 GTK</strong>。为什么组播要单独一把？因为组播帧要让 BSS 内<strong>所有</strong> STA 解密，必须用大家共用的钥匙。但单播必须每对独立，一个 STA 的密钥被破不能连累别人。</li>
+    <li><strong>PTK 拆三段各司其职</strong>。KCK (密钥确认密钥) 管认证（签握手帧）、KEK (密钥加密密钥) 管密钥分发（加密 GTK）、TK (临时密钥) 管数据加密。一把钥匙开一把锁，防止某段被破连累全部。</li>
+    <li><strong>单播用 PTK、组播用 GTK</strong>。为什么组播要单独一把？因为组播帧要让 BSS (基本服务集) 内<strong>所有</strong> STA 解密，必须用大家共用的钥匙。但单播必须每对独立，一个 STA 的密钥被破不能连累别人。</li>
   </ul>
 
   <div class="callout bridge">
@@ -158,7 +158,7 @@
 
   <h2>4-Way Handshake：四个 EAPOL-Key 帧的完整序列</h2>
 
-  <p>密钥层级讲清了，现在看<strong>PTK 到底怎么派生出来</strong>。这就是 4-Way Handshake——四个 EAPOL-Key 帧的来回，把"双方各自有 PMK"变成"双方算出同一个 PTK 并互相确认"。逐帧拆：</p>
+  <p>密钥层级讲清了，现在看<strong>PTK 到底怎么派生出来</strong>。这就是 4-Way Handshake——四个 EAPOL-Key (局域网上的 EAP) 帧的来回，把"双方各自有 PMK"变成"双方算出同一个 PTK 并互相确认"。逐帧拆：</p>
 
   <div class="seq-diagram">
   <span class="sta">STA (手机)</span>                              <span class="ap">AP (路由器)</span>
@@ -195,7 +195,7 @@
   <p>每一步的关键点：</p>
 
   <ul>
-    <li><strong>M1（AP→STA，发 ANonce）</strong>：AP 生成随机数 ANonce 发过去。注意此刻 AP 还算不出 PTK（缺 SNonce），只有 STA 收到后<strong>双方凑齐了输入</strong>。为什么要 AP 先发？因为 AP 是认证方（authenticator），由它发起握手。</li>
+    <li><strong>M1（AP (接入点)→STA，发 ANonce）</strong>：AP 生成随机数 ANonce 发过去。注意此刻 AP 还算不出 PTK（缺 SNonce），只有 STA 收到后<strong>双方凑齐了输入</strong>。为什么要 AP 先发？因为 AP 是认证方（authenticator），由它发起握手。</li>
     <li><strong>M2（STA→AP，发 SNonce + MIC）</strong>：STA 生成 SNonce，<strong>此时 STA 第一个算出 PTK</strong>。M2 里带上 SNonce 和用 KCK 算的 MIC。AP 收到后也能算 PTK 了，<strong>验证 MIC = STA 算对了</strong>。这一步是"我证明我算出来了"。</li>
     <li><strong>M3（AP→STA，发加密 GTK + MIC）</strong>：AP 确认 STA OK，把<strong>组播密钥 GTK 用 KEK 加密</strong>下发，再带个 MIC 证明 AP 这边也算对了。STA 收到后 install PTK 和 GTK。</li>
     <li><strong>M4（STA→AP，纯 MIC 确认）</strong>：STA 确认收到并安装了密钥，没有新信息。AP 收到 M4 就知道一切就绪，双方进入"已授权"状态。</li>
@@ -269,7 +269,7 @@
 
   <h2>WPA2 vs WPA3：WPA2 软在哪，WPA3 怎么修</h2>
 
-  <p>WPA2-PSK 有两个著名软肋，WPA3 针对性修了。理解这个对比，你才知道为什么新固件该支持 WPA3：</p>
+  <p>WPA2-PSK 有两个著名软肋，WPA3-Personal 针对性修了。理解这个对比，你才知道为什么新固件该支持 WPA3：</p>
 
   <table class="evol-table">
     <thead>
@@ -301,9 +301,9 @@
 
   <div class="callout key">
     <span class="callout-title">SAE (Dragonfly) 的核心改动</span>
-    <p>WPA3-Personal 用 <strong>SAE (Simultaneous Authentication of Equals)</strong> 替代 PSK 的密码派生。SAE 基于 <strong>Dragonfly 握手</strong>（PAKE 协议类），核心思路：</p>
+    <p>WPA3-Personal 用 <strong>SAE (对等同步认证)</strong> 替代 PSK 的密码派生。SAE 基于 <strong>Dragonfly 握手</strong>（PAKE 协议类），核心思路：</p>
     <ul>
-      <li>双方用密码在椭圆曲线上派生一个 Password Element (PWE)</li>
+      <li>双方用密码在椭圆曲线上派生一个 Password Element (PWE (密码元素))</li>
       <li>做 COMMIT/CONFIRM 交换，派生出 PMK</li>
       <li><strong>关键</strong>：PMK 不再直接等于 f(密码)，而是加入了随机椭圆曲线运算，高熵且每会话新鲜</li>
     </ul>
@@ -344,7 +344,7 @@
     </tbody>
   </table>
 
-  <p><strong>CCMP 是 WPA2/3 的核心</strong>：用 AES 同时做加密（CTR 模式）和完整性校验（CBC-MAC），合称 AEAD（Authenticated Encryption with Associated Data）。每帧用一次性 nonce，杜绝了 WEP 的密钥复用漏洞。Wi-Fi 4/5/6 的数据帧加密都用 CCMP。做新固件<strong>只支持 CCMP</strong>，TKIP/WEP 当历史了解就行。</p>
+  <p><strong>CCMP 是 WPA2/3 的核心</strong>：用 AES 同时做加密（CTR 模式）和完整性校验（CBC-MAC），合称 AEAD（Authenticated Encryption with Associated Data）。每帧用一次性 nonce，杜绝了 WEP (有线等效加密) 的密钥复用漏洞。Wi-Fi 4/5/6 的数据帧加密都用 CCMP。做新固件<strong>只支持 CCMP</strong>，TKIP (临时密钥完整性协议)/WEP 当历史了解就行。</p>
 
   <span class="sidenote">
     WEP 是"加密协议设计反面教材"，也是第 7 课那个"802.11 Authentication ≠ 安全认证"名字陷阱的历史源头：WEP 时代 802.11 Auth 帧原本要做 Shared Key 认证（带挑战-应答），WEP 被废后这步就空壳了，但名字和帧格式留了下来。
@@ -356,7 +356,7 @@
 
   <p>CCMP 保护的是<strong>数据帧</strong>。但<strong>管理帧</strong>（Deauth、Disassociate、部分 Action 帧）在 WPA2 默认是<strong>不加密</strong>的——这有个大问题：攻击者伪造一个 Deauth 帧就能把 STA 踢下线，这是早年 Wi-Fi 最常见的攻击（咖啡店里"WiFi 突然断开"很多是这个）。</p>
 
-  <p><strong>PMF (Protected Management Frames, 802.11w)</strong> 给管理帧加加密保护和完整性校验：WPA2 可选（多数关着），<strong>WPA3 强制开启</strong>。做新固件上 WPA3，PMF 必须支持。</p>
+  <p><strong>PMF (受保护管理帧, 802.11w)</strong> 给管理帧加加密保护和完整性校验：WPA2 可选（多数关着），<strong>WPA3 强制开启</strong>。做新固件上 WPA3，PMF 必须支持。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -366,12 +366,12 @@
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>安全在 Wi-Fi 协议栈里的代码分布：</p>
     <ul>
-      <li><strong>职责边界</strong>：<span class="mono">wpa_supplicant</span>（用户态）做 4-Way Handshake、密钥派生、PMK/PTK 管理；<strong>mac80211 + 驱动</strong>负责把密钥 install 到硬件（硬件加密加速）。两者通过 nl80211 的 <span class="mono">NL80211_CMD_NEW_KEY</span> 通信。</li>
-      <li><strong>硬件加密 offload</strong>：绝大多数 Wi-Fi 芯片的加密/解密在<strong>硬件</strong>里做（CCMP 计算量大，软件做费 CPU）。驱动要把 PTK/GTK 写进芯片的 key table，芯片在 tx/rx 时自动加解密。这是性能关键路径。</li>
+      <li><strong>职责边界</strong>：<span class="mono">wpa_supplicant</span>（用户态）做 4-Way Handshake、密钥派生、PMK (成对主密钥)/PTK (成对临时密钥) 管理；<strong>mac80211 + 驱动</strong>负责把密钥 install 到硬件（硬件加密加速）。两者通过 nl80211 的 <span class="mono">NL80211_CMD_NEW_KEY</span> 通信。</li>
+      <li><strong>硬件加密 offload</strong>：绝大多数 Wi-Fi 芯片的加密/解密在<strong>硬件</strong>里做（CCMP (基于 AES 的加密+完整性协议) 计算量大，软件做费 CPU）。驱动要把 PTK/GTK 写进芯片的 key table，芯片在 tx/rx 时自动加解密。这是性能关键路径。</li>
       <li><strong>Protected Frame bit</strong>：第 6 课讲的 Frame Control 里这一位，置 1 表示帧体已加密。驱动 rx 路径看这一位决定要不要解密。填错会导致"收到加密帧当明文解析 → 全是乱码"。</li>
-      <li><strong>4-Way Handshake bug</strong>：最常见的是<strong>握手超时</strong>——Reason Code 15。原因：nonce 生成错误、PMK 派生错误（密码/SSID 拼接错）、MIC 计算错误、密钥 install 时机错。调试看 <span class="mono">wpa_supplicant -ddd</span> 日志的 M1-M4 来回。</li>
+      <li><strong>4-Way Handshake bug</strong>：最常见的是<strong>握手超时</strong>——Reason Code 15。原因：nonce 生成错误、PMK 派生错误（密码/SSID (服务集标识) 拼接错）、MIC (消息完整性码) 计算错误、密钥 install 时机错。调试看 <span class="mono">wpa_supplicant -ddd</span> 日志的 M1-M4 来回。</li>
       <li><strong>抓包验证</strong>：抓包能看到 EAPOL-Key M1-M4，但<strong>看不到 PMK/PTK 本身</strong>。验证密钥正确性要靠 Wireshark 配置 PMK（仅 PSK 且已知密码时）来解密数据帧。</li>
-      <li><strong>SAE/TWT 等新特性</strong>：WPA3 的 SAE、802.11w 的 PMF，新固件要确认芯片固件版本支持。老的只支持 WPA2 的芯片不能直接上 WPA3。</li>
+      <li><strong>SAE/TWT (目标唤醒时间) 等新特性</strong>：WPA3 的 SAE (对等同步认证)、802.11w 的 PMF (受保护管理帧)，新固件要确认芯片固件版本支持。老的只支持 WPA2 的芯片不能直接上 WPA3。</li>
     </ul>
   </div>
 
@@ -380,8 +380,8 @@
   <h2>自检：安全机制吃透了吗</h2>
 
   <div class="quiz" data-type="single"
-       data-question="为什么 PMK 不能直接用来加密数据帧，还要派生出 PTK？"
-       data-explain="PMK 是长期根密钥（可能几周几个月不变），直接加密数据帧一旦泄露后果严重。PTK 是每次关联用随机 nonce 派生的会话密钥，每次新鲜。这样即使某次 PTK 被破，PMK 仍安全，其他会话不受影响——这是弱化的前向保密。另外 PTK 拆成 KCK/KEK/TK 三段各司其职（认证/分发/加密），防止某段被破连累全部。">
+       data-question="为什么 PMK (成对主密钥) 不能直接用来加密数据帧，还要派生出 PTK (成对临时密钥)？"
+       data-explain="PMK 是长期根密钥（可能几周几个月不变），直接加密数据帧一旦泄露后果严重。PTK 是每次关联用随机 nonce 派生的会话密钥，每次新鲜。这样即使某次 PTK 被破，PMK 仍安全，其他会话不受影响——这是弱化的前向保密。另外 PTK 拆成 KCK (密钥确认密钥)/KEK (密钥加密密钥)/TK (临时密钥) 三段各司其职（认证/分发/加密），防止某段被破连累全部。">
     <script type="application/json">
       [
         { "text": "PTK 每次会话新鲜，PMK 泄露不连累历史",     "correct": true },
@@ -393,8 +393,8 @@
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="4-Way Handshake 的 M2 里 STA 带上 MIC，目的是什么？"
-       data-explain="M2 是 STA 第一个算出 PTK 后发的帧。MIC 用 PTK 里的 KCK 对帧内容计算。AP 验证 MIC 正确 = 证明 STA 算出了正确的 PTK = 证明 STA 持有正确的 PMK（不知道 PMK 算不出 PTK，签不出 MIC）。这是用 MIC 做'我确实知道根密钥'的身份证明，不泄露 PMK 本身。">
+       data-question="4-Way Handshake 的 M2 里 STA (站点) 带上 MIC (消息完整性码)，目的是什么？"
+       data-explain="M2 是 STA 第一个算出 PTK 后发的帧。MIC 用 PTK 里的 KCK 对帧内容计算。AP (接入点) 验证 MIC 正确 = 证明 STA 算出了正确的 PTK = 证明 STA 持有正确的 PMK（不知道 PMK 算不出 PTK，签不出 MIC）。这是用 MIC 做'我确实知道根密钥'的身份证明，不泄露 PMK 本身。">
     <script type="application/json">
       [
         { "text": "向 AP 证明 STA 算出了正确的 PTK",  "correct": true },
@@ -406,8 +406,8 @@
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="WPA3-Personal 用 SAE 替代 PSK，最关键的改进是什么？"
-       data-explain="WPA2-PSK 最大软肋：PMK=f(密码)，抓到 4-Way Handshake 可离线爆破密码。SAE 派生的 PMK 高熵（加入椭圆曲线随机运算）且每会话新鲜，抓包无法离线验证密码猜测，每次尝试都要在线交互会被限速。这从根本上修掉了离线字典攻击。额外还有前向保密和强制 PMF。">
+       data-question="WPA3-Personal 用 SAE (对等同步认证) 替代 PSK (预共享密钥)，最关键的改进是什么？"
+       data-explain="WPA2-PSK 最大软肋：PMK=f(密码)，抓到 4-Way Handshake 可离线爆破密码。SAE 派生的 PMK 高熵（加入椭圆曲线随机运算）且每会话新鲜，抓包无法离线验证密码猜测，每次尝试都要在线交互会被限速。这从根本上修掉了离线字典攻击。额外还有前向保密和强制 PMF (受保护管理帧)。">
     <script type="application/json">
       [
         { "text": "抓包无法离线爆破密码",     "correct": true },
@@ -419,8 +419,8 @@
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="为什么单播用 PTK，组播/广播却要用单独的 GTK？"
-       data-explain="组播/广播帧要让 BSS 内所有关联 STA 都能解密，必须用大家共用的钥匙——这就是 GTK（一个 BSS 一个）。但单播必须每对 STA-AP 密钥独立（PTK），这样某个 STA 的密钥被破不会连累其他 STA。设计权衡：组播为了'所有人能解'牺牲了'独立密钥'，单播反之。注意 GTK 是在 M3 里用 PTK 的 KEK 加密下发的。">
+       data-question="为什么单播用 PTK (成对临时密钥)，组播/广播却要用单独的 GTK (组临时密钥)？"
+       data-explain="组播/广播帧要让 BSS (基本服务集) 内所有关联 STA 都能解密，必须用大家共用的钥匙——这就是 GTK（一个 BSS 一个）。但单播必须每对 STA-AP 密钥独立（PTK），这样某个 STA 的密钥被破不会连累其他 STA。设计权衡：组播为了'所有人能解'牺牲了'独立密钥'，单播反之。注意 GTK 是在 M3 里用 PTK 的 KEK 加密下发的。">
     <script type="application/json">
       [
         { "text": "组播要让所有 STA 解，必须共用一把",  "correct": true },
@@ -441,7 +441,7 @@
     <li><strong>4-Way Handshake</strong>：M1 发 ANonce → M2 回 SNonce+MIC → M3 发 GTK+MIC → M4 确认</li>
   </ol>
 
-  <p>还有一条演进线：WEP（废弃）→ TKIP（废弃）→ CCMP（现行）；PSK（可爆破）→ SAE（抗爆破）；PMF（可选）→ PMF（WPA3 强制）。</p>
+  <p>还有一条演进线：WEP (有线等效加密)（废弃）→ TKIP (临时密钥完整性协议)（废弃）→ CCMP (基于 AES 的加密+完整性协议)（现行）；PSK (预共享密钥)（可爆破）→ SAE (对等同步认证)（抗爆破）；PMF (受保护管理帧)（可选）→ PMF（WPA3 强制）。</p>
 
   <p>你现在能做的：</p>
   <ul>
@@ -457,16 +457,16 @@
   <h2>下一步</h2>
 
   <div class="callout">
-    <span class="callout-title">下一课：QoS / EDCA 细节</span>
-    <p>第 7 课的伏笔全部兑现。接下来按固件优先级，第 10 课计划讲 <strong>QoS / EDCA 细节</strong>（兑现第 5 课伏笔）：802.11e 的四个 AC（语音/视频/尽力/背景）参数怎么分级、AIFS/CWmin/CWmax/TXOP 各自怎么调度、为什么 VoIP 优先级高。这是你做驱动 tx 队列按 TID 分流的理论基础。</p>
-    <p>或者你想换路线：<strong>MIMO/OFDMA</strong>（PHY 深水区，Wi-Fi 6 核心）、<strong>聚合/Block ACK</strong>（吞吐命脉）、<strong>漫游/802.11r</strong>。</p>
+    <span class="callout-title">下一课：QoS (服务质量) / EDCA 细节</span>
+    <p>第 7 课的伏笔全部兑现。接下来按固件优先级，第 10 课计划讲 <strong>QoS / EDCA (增强分布式信道接入) 细节</strong>（兑现第 5 课伏笔）：802.11e 的四个 AC (接入类别)（语音/视频/尽力/背景）参数怎么分级、AIFS (任意帧间间隔)/CWmin/CWmax/TXOP 各自怎么调度、为什么 VoIP 优先级高。这是你做驱动 tx 队列按 TID (业务标识符) 分流的理论基础。</p>
+    <p>或者你想换路线：<strong>MIMO/OFDMA</strong>（PHY (物理层) 深水区，Wi-Fi 6 核心）、<strong>聚合/Block ACK (确认帧)</strong>（吞吐命脉）、<strong>漫游/802.11r</strong>。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <div class="lesson-foot">
     <p>
-      <strong>下一课预告</strong>：第 10 课 — QoS / EDCA 细节（四个 AC、AIFS/CW/TXOP 分级调度）。<br>
+      <strong>下一课预告</strong>：第 10 课 — QoS (服务质量) / EDCA (增强分布式信道接入) 细节（四个 AC (接入类别)、AIFS (任意帧间间隔)/CW (竞争窗口)/TXOP 分级调度）。<br>
       <a href="./0008-power-save-mode.html">← 第 8 课</a> ·
       <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
       <a href="../GLOSSARY.md">术语表</a> ·

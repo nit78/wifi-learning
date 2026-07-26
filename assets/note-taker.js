@@ -41,6 +41,30 @@
     saveNotes(notes);
   }
 
+  function updateNote(id, patch) {
+    var notes = loadNotes();
+    for (var i = 0; i < notes.length; i++) {
+      if (notes[i].id === id) {
+        // 保留 id 和原始 ts（创建时间），新增 edited 字段记录最后修改时间
+        notes[i] = Object.assign({}, notes[i], patch, {
+          id: notes[i].id,
+          ts: notes[i].ts,
+          edited: Date.now()
+        });
+        break;
+      }
+    }
+    saveNotes(notes);
+  }
+
+  function findNote(id) {
+    var notes = loadNotes();
+    for (var i = 0; i < notes.length; i++) {
+      if (notes[i].id === id) return notes[i];
+    }
+    return null;
+  }
+
   // ── 工具 ──────────────────────────────────────────────
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -103,18 +127,21 @@
   });
 
   // ── 编辑弹窗 ──────────────────────────────────────────
-  function openEditor(capturedText) {
+  // capturedText: 新建时捕获的原文
+  // editingNote:  编辑模式时传入的现有笔记对象（可选）
+  function openEditor(capturedText, editingNote) {
+    var isEditing = !!editingNote;
     var overlay = document.createElement("div");
     overlay.className = "nt-overlay";
     overlay.innerHTML =
       '<div class="nt-modal">' +
-        '<div class="nt-modal-title">📓 记笔记</div>' +
+        '<div class="nt-modal-title">' + (isEditing ? "✏️ 编辑笔记" : "📓 记笔记") + '</div>' +
 
         '<label class="nt-label">选中原文（自动捕获）</label>' +
-        '<div class="nt-captured">' + escapeHTML(capturedText) + '</div>' +
+        '<div class="nt-captured">' + escapeHTML(isEditing ? (editingNote.quote || "") : capturedText) + '</div>' +
 
         '<label class="nt-label" for="nt-title">标题 *</label>' +
-        '<input class="nt-input" id="nt-title" type="text" placeholder="一句话概括这条笔记" autofocus>' +
+        '<input class="nt-input" id="nt-title" type="text" placeholder="一句话概括这条笔记">' +
 
         '<label class="nt-label" for="nt-tags">标签（逗号分隔，可选）</label>' +
         '<input class="nt-input" id="nt-tags" type="text" placeholder="如：CSMA/CA, 退避, MAC">' +
@@ -124,12 +151,21 @@
 
         '<div class="nt-actions">' +
           '<button class="nt-btn nt-btn-cancel" id="nt-cancel">取消</button>' +
-          '<button class="nt-btn nt-btn-save" id="nt-save">保存</button>' +
+          '<button class="nt-btn nt-btn-save" id="nt-save">' + (isEditing ? "保存修改" : "保存") + '</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
 
     var titleEl = document.getElementById("nt-title");
+    var tagsEl = document.getElementById("nt-tags");
+    var bodyEl = document.getElementById("nt-body");
+
+    // 编辑模式：预填现有内容
+    if (isEditing) {
+      titleEl.value = editingNote.title || "";
+      tagsEl.value = editingNote.tags || "";
+      bodyEl.value = editingNote.body || "";
+    }
     titleEl.focus();
 
     function close() { document.body.removeChild(overlay); }
@@ -140,19 +176,29 @@
     document.getElementById("nt-save").onclick = function () {
       var title = titleEl.value.trim();
       if (!title) { titleEl.focus(); alert("请填标题"); return; }
-      var note = {
-        id: uid(),
-        ts: Date.now(),
+      var patch = {
         title: title,
-        tags: document.getElementById("nt-tags").value.trim(),
-        body: document.getElementById("nt-body").value.trim(),
-        quote: capturedText,
-        source: pageName(),
-        sourceUrl: location.pathname.split("/").pop()
+        tags: tagsEl.value.trim(),
+        body: bodyEl.value.trim()
       };
-      addNote(note);
-      close();
-      flashToast("已保存 ✓");
+      if (isEditing) {
+        // 编辑模式：更新现有笔记（quote/source 保持原样，ts 不变，updateNote 内加 edited）
+        updateNote(editingNote.id, patch);
+        close();
+        flashToast("已修改 ✓");
+      } else {
+        // 新建模式
+        var note = Object.assign({
+          id: uid(),
+          ts: Date.now(),
+          quote: capturedText,
+          source: pageName(),
+          sourceUrl: location.pathname.split("/").pop()
+        }, patch);
+        addNote(note);
+        close();
+        flashToast("已保存 ✓");
+      }
     };
   }
 
@@ -200,17 +246,28 @@
         return (n.title + " " + n.tags + " " + n.body + " " + n.quote).toLowerCase().indexOf(q) >= 0;
       });
       document.getElementById("nt-list").innerHTML = renderNotes(filtered);
-      bindDelete();
+      bindNoteOps();
     };
 
     // 导出
     document.getElementById("nt-export").onclick = function () { exportHTML(); };
 
-    // 删除
-    function bindDelete() {
+    // 编辑 + 删除 绑定
+    function bindNoteOps() {
+      var edits = document.querySelectorAll(".nt-note-edit");
+      for (var i = 0; i < edits.length; i++) {
+        edits[i].onclick = function () {
+          var id = this.getAttribute("data-id");
+          var note = findNote(id);
+          if (!note) return;
+          // 关掉查看面板，打开编辑器，编辑后再打开查看面板
+          openViewerClose(overlay);
+          openEditorFromViewer(note);
+        };
+      }
       var dels = document.querySelectorAll(".nt-note-del");
-      for (var i = 0; i < dels.length; i++) {
-        dels[i].onclick = function () {
+      for (var j = 0; j < dels.length; j++) {
+        dels[j].onclick = function () {
           if (!confirm("删除这条笔记？")) return;
           deleteNote(this.getAttribute("data-id"));
           openViewerClose(overlay);
@@ -218,13 +275,67 @@
         };
       }
     }
-    bindDelete();
+    bindNoteOps();
 
     function openViewerClose(o) { document.body.removeChild(o); }
     document.getElementById("nt-close-viewer").onclick = function () { openViewerClose(overlay); };
     overlay.addEventListener("click", function (e) {
       if (e.target === overlay) openViewerClose(overlay);
     });
+  }
+
+  // 从查看面板触发的编辑：编辑保存后重新打开查看面板
+  function openEditorFromViewer(note) {
+    var overlay = document.createElement("div");
+    overlay.className = "nt-overlay";
+    overlay.innerHTML =
+      '<div class="nt-modal">' +
+        '<div class="nt-modal-title">✏️ 编辑笔记</div>' +
+
+        '<label class="nt-label">选中原文（自动捕获）</label>' +
+        '<div class="nt-captured">' + escapeHTML(note.quote || "") + '</div>' +
+
+        '<label class="nt-label" for="nt-title">标题 *</label>' +
+        '<input class="nt-input" id="nt-title" type="text">' +
+
+        '<label class="nt-label" for="nt-tags">标签（逗号分隔，可选）</label>' +
+        '<input class="nt-input" id="nt-tags" type="text">' +
+
+        '<label class="nt-label" for="nt-body">我的理解 / 补充（可选）</label>' +
+        '<textarea class="nt-textarea" id="nt-body"></textarea>' +
+
+        '<div class="nt-actions">' +
+          '<button class="nt-btn nt-btn-cancel" id="nt-cancel">取消</button>' +
+          '<button class="nt-btn nt-btn-save" id="nt-save">保存修改</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    var titleEl = document.getElementById("nt-title");
+    var tagsEl = document.getElementById("nt-tags");
+    var bodyEl = document.getElementById("nt-body");
+    titleEl.value = note.title || "";
+    tagsEl.value = note.tags || "";
+    bodyEl.value = note.body || "";
+    titleEl.focus();
+
+    function close() { document.body.removeChild(overlay); }
+    document.getElementById("nt-cancel").onclick = close;
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) close();
+    });
+    document.getElementById("nt-save").onclick = function () {
+      var title = titleEl.value.trim();
+      if (!title) { titleEl.focus(); alert("请填标题"); return; }
+      updateNote(note.id, {
+        title: title,
+        tags: tagsEl.value.trim(),
+        body: bodyEl.value.trim()
+      });
+      close();
+      flashToast("已修改 ✓");
+      openViewer(); // 重新打开查看面板显示更新后的内容
+    };
   }
 
   function renderNotes(notes) {
@@ -244,9 +355,14 @@
         '<div class="nt-note">' +
           '<div class="nt-note-head">' +
             '<span class="nt-note-title">' + escapeHTML(n.title) + '</span>' +
-            '<button class="nt-note-del" data-id="' + n.id + '">✕</button>' +
+            '<span class="nt-note-ops">' +
+              '<button class="nt-note-edit" data-id="' + n.id + '" title="编辑">✏️</button>' +
+              '<button class="nt-note-del" data-id="' + n.id + '" title="删除">✕</button>' +
+            '</span>' +
           '</div>' +
-          '<div class="nt-note-meta">' + formatDate(n.ts) + ' · 来源：' + escapeHTML(n.source) + '</div>' +
+          '<div class="nt-note-meta">' + formatDate(n.ts) +
+            (n.edited ? ' <span class="nt-note-edited">（已编辑 ' + formatDate(n.edited) + '）</span>' : '') +
+            ' · 来源：' + escapeHTML(n.source) + '</div>' +
           quoteHTML +
           bodyHTML +
           tagsHTML +

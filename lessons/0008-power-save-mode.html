@@ -71,9 +71,9 @@
 
   <h1>Power Save 省电模式 —— IoT 续航的协议层设计</h1>
 
-  <p>这一课兑现第 7 课埋的三个伏笔：<strong>AID、TIM、PS-Poll</strong>。它们不是孤立的字段，而是一整套<strong>省电协议机制</strong>的核心。这是你做 Wi-Fi IoT 固件（智能门锁、传感器、电池供电设备）绕不开的主题，也和你做 sub-GHz 低功耗协议栈的经验直接对话。</p>
+  <p>这一课兑现第 7 课埋的三个伏笔：<strong>AID (关联标识符)、TIM (业务指示图)、PS-Poll (省电轮询帧)</strong>。它们不是孤立的字段，而是一整套<strong>省电协议机制</strong>的核心。这是你做 Wi-Fi IoT 固件（智能门锁、传感器、电池供电设备）绕不开的主题，也和你做 sub-GHz 低功耗协议栈的经验直接对话。</p>
 
-  <p>Wi-Fi 省电的根本矛盾：<strong>STA 不知道下行什么时候来，只能一直醒着听</strong>——但射频一直开，电池几小时就没了。802.11 的解法是<strong>把"被动接收"改成"主动预约取"</strong>：STA 睡眠时 AP 帮它缓存帧，STA 定期醒来问"有我的快递吗"，有就取，没有继续睡。这一思路从 1997 年的 legacy PS-Poll 一路演进到 Wi-Fi 6 的 TWT，越走越精细。</p>
+  <p>Wi-Fi 省电的根本矛盾：<strong>STA (站点) 不知道下行什么时候来，只能一直醒着听</strong>——但射频一直开，电池几小时就没了。802.11 的解法是<strong>把"被动接收"改成"主动预约取"</strong>：STA 睡眠时 AP (接入点) 帮它缓存帧，STA 定期醒来问"有我的快递吗"，有就取，没有继续睡。这一思路从 1997 年的 legacy PS-Poll 一路演进到 Wi-Fi 6 的 TWT (目标唤醒时间)，越走越精细。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -83,11 +83,11 @@
     <span class="callout-title">本课支点 / Core Insight</span>
     <p>所有 802.11 省电机制都遵循同一个三步循环，只是"取件"的触发方式和睡眠粒度在进化：</p>
     <ol>
-      <li><strong>声明睡眠</strong>：STA 在某个帧里置 Power Management bit=1，告诉 AP"我要睡了"</li>
+      <li><strong>声明睡眠</strong>：STA (站点) 在某个帧里置 Power Management bit=1，告诉 AP (接入点)"我要睡了"</li>
       <li><strong>睡眠</strong>：关闭射频（这才是真正省电的地方），AP 把发给它的下行帧缓存起来</li>
-      <li><strong>醒来取件</strong>：STA 醒来，检查 TIM/协商窗口，发 PS-Poll / 触发帧取回缓存的帧</li>
+      <li><strong>醒来取件</strong>：STA 醒来，检查 TIM (业务指示图)/协商窗口，发 PS-Poll (省电轮询帧) / 触发帧取回缓存的帧</li>
     </ol>
-    <p>从 legacy PS-Poll → U-APSD → TWT，<strong>变的只是第 3 步怎么触发、第 2 步能睡多久</strong>。把这三步当成骨架，所有变体都好理解。</p>
+    <p>从 legacy PS-Poll → U-APSD (非调度自动省电投递) → TWT (目标唤醒时间)，<strong>变的只是第 3 步怎么触发、第 2 步能睡多久</strong>。把这三步当成骨架，所有变体都好理解。</p>
   </div>
 
   <div class="callout bridge">
@@ -97,9 +97,9 @@
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>① Legacy Power Save：PS-Poll + TIM + DTIM</h2>
+  <h2>① Legacy Power Save：PS-Poll (省电轮询帧) + TIM (业务指示图) + DTIM (投递业务指示图)</h2>
 
-  <p>最古老（802.11-1997）也最基础的省电模式。整套机制围绕 Beacon 周期运转：</p>
+  <p>最古老（802.11-1997）也最基础的省电模式。整套机制围绕 Beacon (信标帧) 周期运转：</p>
 
   <div class="seq-diagram">
 时间 ──▶
@@ -134,67 +134,67 @@
     </thead>
     <tbody>
       <tr>
-        <td class="num">TIM</td>
-        <td>Beacon 里的<strong>位图</strong>，每一位对应一个 AID。AID 位=1 表示"AP 为这个 STA 缓存了单播帧"</td>
+        <td class="num">TIM (业务指示图)</td>
+        <td>Beacon (信标帧) 里的<strong>位图</strong>，每一位对应一个 AID (关联标识符)。AID 位=1 表示"AP (接入点) 为这个 STA (站点) 缓存了单播帧"</td>
         <td>Beacon 的 Information Element</td>
       </tr>
       <tr>
-        <td class="num">DTIM</td>
+        <td class="num">DTIM (投递业务指示图)</td>
         <td>特殊的 TIM（按 DTIM Period 周期出现）。不仅指示单播缓存，还<strong>立即发送缓存的广播/组播帧</strong>。省电 STA 必须在 DTIM 醒来</td>
         <td>Beacon（DTIM Count=0 的那个）</td>
       </tr>
       <tr>
-        <td class="num">PS-Poll</td>
-        <td>省电 STA 向 AP"取一个缓存帧"的控制帧。<strong>Duration/ID 字段放 AID</strong>（不是 NAV）</td>
+        <td class="num">PS-Poll (省电轮询帧)</td>
+        <td>省电 STA 向 AP"取一个缓存帧"的控制帧。<strong>Duration/ID 字段放 AID</strong>（不是 NAV (网络分配矢量)）</td>
         <td>控制帧</td>
       </tr>
     </tbody>
   </table>
 
-  <p><strong>DTIM 为什么强制醒来</strong>：广播/组播帧（如 ARP、DHCP、mDNS）没有特定的接收方，没法"按 AID 缓存等取"。AP 把它们攒着，等 DTIM Beacon 发完立即广播出去。省电 STA 必须在 DTIM 醒来收，否则错过广播——这就是为什么 DTIM Period 越大越省电、但广播延迟越高（VoIP、ARP 受影响）。</p>
+  <p><strong>DTIM (投递业务指示图) 为什么强制醒来</strong>：广播/组播帧（如 ARP、DHCP、mDNS）没有特定的接收方，没法"按 AID (关联标识符) 缓存等取"。AP (接入点) 把它们攒着，等 DTIM Beacon 发完立即广播出去。省电 STA (站点) 必须在 DTIM 醒来收，否则错过广播——这就是为什么 DTIM Period 越大越省电、但广播延迟越高（VoIP、ARP 受影响）。</p>
 
   <div class="callout key">
     <span class="callout-title">Listen Interval：主动声明睡多久</span>
-    <p>除了被动跟 DTIM，STA 还能在 <strong>Association Request</strong> 里声明 <strong>Listen Interval = N</strong>，意思是"我每 N 个 Beacon 醒一次"。N=1 每次都醒；N=10 每 10 个 Beacon（约 1 秒）醒一次，睡得更久。<strong>代价</strong>：AP 要为它缓存更多帧，缓存溢出就丢帧；下行延迟也变高。AP 据此分配缓存缓冲区，所以这是个<strong>关联时协商的参数</strong>——又回到第 7 课的 Association 流程。</p>
+    <p>除了被动跟 DTIM，STA (站点) 还能在 <strong>Association (关联) Request</strong> 里声明 <strong>Listen Interval = N</strong>，意思是"我每 N 个 Beacon (信标帧) 醒一次"。N=1 每次都醒；N=10 每 10 个 Beacon（约 1 秒）醒一次，睡得更久。<strong>代价</strong>：AP (接入点) 要为它缓存更多帧，缓存溢出就丢帧；下行延迟也变高。AP 据此分配缓存缓冲区，所以这是个<strong>关联时协商的参数</strong>——又回到第 7 课的 Association 流程。</p>
   </div>
 
   <span class="sidenote">
-    More Data bit：AP 发缓存的下行帧时，如果 STA 还有更多缓存帧待取，置 More Data=1。STA 看到就继续醒着发 PS-Poll 取完；More Data=0 就回去睡。这是省电协议里"取件进度条"。
+    More Data bit：AP (接入点) 发缓存的下行帧时，如果 STA (站点) 还有更多缓存帧待取，置 More Data=1。STA 看到就继续醒着发 PS-Poll (省电轮询帧) 取完；More Data=0 就回去睡。这是省电协议里"取件进度条"。
   </span>
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>② U-APSD：让 AP"送货上门"</h2>
+  <h2>② U-APSD (非调度自动省电投递)：让 AP (接入点)"送货上门"</h2>
 
-  <p>Legacy PS-Poll 的问题：每次取一个帧要一次 PS-Poll 往返，<strong>对 VoIP 这种双向小包业务很啰嗦</strong>——手机每 20ms 收一个语音包就醒一次发 PS-Poll，省电收益被控制帧开销吃掉。802.11e (WMM) 引入了 <strong>U-APSD (Unscheduled Automatic Power Save Delivery, 非调度自动省电投递)</strong>：</p>
+  <p>Legacy PS-Poll (省电轮询帧) 的问题：每次取一个帧要一次 PS-Poll 往返，<strong>对 VoIP 这种双向小包业务很啰嗦</strong>——手机每 20ms 收一个语音包就醒一次发 PS-Poll，省电收益被控制帧开销吃掉。802.11e (WMM (Wi-Fi 多媒体)) 引入了 <strong>U-APSD (Unscheduled Automatic Power Save Delivery, 非调度自动省电投递)</strong>：</p>
 
   <div class="callout key">
     <span class="callout-title">U-APSD 的核心改动</span>
-    <p>STA 不用发 PS-Poll "拉取"缓存帧，而是<strong>用上行数据帧（或 QoS Null 帧）当触发</strong>，AP 收到触发帧后<strong>主动把缓存的下行帧"推"过来</strong>。</p>
+    <p>STA (站点) 不用发 PS-Poll (省电轮询帧) "拉取"缓存帧，而是<strong>用上行数据帧（或 QoS (服务质量) Null 帧）当触发</strong>，AP (接入点) 收到触发帧后<strong>主动把缓存的下行帧"推"过来</strong>。</p>
     <p>效果：一次唤醒里，STA 发上行语音包 → 同一次唤醒里就收到下行语音包，<strong>双向一次唤醒搞定</strong>。对 VoIP 这类周期双向业务，省电效果远超 PS-Poll。</p>
   </div>
 
-  <p>U-APSD 按 AC（接入类别，第 5 课 EDCA 的四个 AC）配置——可以只让语音 AC 走 U-APSD，尽力而为 AC 走 legacy PS-Poll。这种"按业务类型选省电策略"的精细度，是 WMM-PS 比 legacy 强的地方。Wi-Fi Alliance 的 WMM-PS 认证就是基于 U-APSD。</p>
+  <p>U-APSD 按 AC（接入类别，第 5 课 EDCA (增强分布式信道接入) 的四个 AC）配置——可以只让语音 AC 走 U-APSD，尽力而为 AC 走 legacy PS-Poll (省电轮询帧)。这种"按业务类型选省电策略"的精细度，是 WMM-PS 比 legacy 强的地方。Wi-Fi Alliance 的 WMM-PS 认证就是基于 U-APSD。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>③ TWT：Wi-Fi 6 的 IoT 杀器</h2>
+  <h2>③ TWT (目标唤醒时间)：Wi-Fi 6 的 IoT 杀器</h2>
 
-  <p>Legacy PS-Poll 和 U-APSD 都<strong>绑死 Beacon/DTIM 周期</strong>——STA 必须按 Beacon 节奏醒来，最多睡几百毫秒。对智能门锁、温湿度传感器这种"几十秒上报一次"的 IoT 设备， Beacon 周期（102.4 ms）依然太频繁，省电收益有限。</p>
+  <p>Legacy PS-Poll (省电轮询帧) 和 U-APSD (非调度自动省电投递) 都<strong>绑死 Beacon (信标帧)/DTIM (投递业务指示图) 周期</strong>——STA (站点) 必须按 Beacon 节奏醒来，最多睡几百毫秒。对智能门锁、温湿度传感器这种"几十秒上报一次"的 IoT 设备， Beacon 周期（102.4 ms）依然太频繁，省电收益有限。</p>
 
   <p>802.11ax (Wi-Fi 6) 从 802.11ah（IoT/_sub-GHz_ 专用 amendment，你可能有印象）借来了 <strong>TWT (Target Wake Time, 目标唤醒时间)</strong>：</p>
 
   <div class="callout key">
     <span class="callout-title">TWT 的革命性</span>
-    <p>STA 和 AP <strong>显式协商一个未来唤醒时刻表</strong>（Service Period），STA 只在约定的窗口醒来收发，<strong>完全脱离 Beacon/DTIM 周期的束缚</strong>。</p>
+    <p>STA (站点) 和 AP (接入点) <strong>显式协商一个未来唤醒时刻表</strong>（Service Period），STA 只在约定的窗口醒来收发，<strong>完全脱离 Beacon (信标帧)/DTIM (投递业务指示图) 周期的束缚</strong>。</p>
     <p>效果：STA 可以睡<strong>几十秒甚至几分钟</strong>，醒来几十毫秒收发完再睡。这是 Wi-Fi 在 IoT 续航上第一次逼近 BLE/LoRaWAN 的水平。智能门锁、电池传感器、资产标签是典型受益场景。</p>
   </div>
 
-  <p>TWT 协商通过 Action 帧完成（Individual TWT）或 Beacon/广播通告（Broadcast TWT）。STA 可以有多个 TWT 协议（不同业务用不同周期），AP 也能用它做<strong>调度</strong>——把不同 STA 的唤醒窗口错开，避免同时醒来抢占信道（这对密集 IoT 部署尤其有用）。</p>
+  <p>TWT (目标唤醒时间) 协商通过 Action 帧完成（Individual TWT）或 Beacon (信标帧)/广播通告（Broadcast TWT）。STA (站点) 可以有多个 TWT 协议（不同业务用不同周期），AP (接入点) 也能用它做<strong>调度</strong>——把不同 STA 的唤醒窗口错开，避免同时醒来抢占信道（这对密集 IoT 部署尤其有用）。</p>
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From sub-GHz</span>
-    <p>TWT 在精神上非常接近 LoRaWAN 的 Class B（定时 beacon 同步接收窗口）和你自己做 sub-GHz 协议栈时设计的"预约唤醒"。<strong>核心都是"协议层约定时间窗口 + 射频按需开关"</strong>。区别：Wi-Fi 的 TWT 协商在已关联的连接上进行（要先进 State 3），LoRaWAN 则是网络层 join 后通过 MAC 命令配置。你做过的"睡-醒"调度逻辑能直接迁移。</p>
+    <p>TWT (目标唤醒时间) 在精神上非常接近 LoRaWAN 的 Class B（定时 beacon 同步接收窗口）和你自己做 sub-GHz 协议栈时设计的"预约唤醒"。<strong>核心都是"协议层约定时间窗口 + 射频按需开关"</strong>。区别：Wi-Fi 的 TWT 协商在已关联的连接上进行（要先进 State 3），LoRaWAN 则是网络层 join 后通过 MAC (介质访问控制层) 命令配置。你做过的"睡-醒"调度逻辑能直接迁移。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -209,23 +209,23 @@
     </thead>
     <tbody>
       <tr>
-        <td class="num">Legacy PS-Poll</td>
+        <td class="num">Legacy PS-Poll (省电轮询帧)</td>
         <td>802.11-1997</td>
-        <td>STA 发 PS-Poll 逐个取</td>
-        <td class="mono">Beacon/DTIM 周期 (~100ms)</td>
+        <td>STA (站点) 发 PS-Poll 逐个取</td>
+        <td class="mono">Beacon (信标帧)/DTIM (投递业务指示图) 周期 (~100ms)</td>
         <td>偶发下行</td>
         <td>基准</td>
       </tr>
       <tr>
-        <td class="num">U-APSD</td>
-        <td>802.11e (WMM)</td>
-        <td>上行数据帧触发，AP 推送</td>
+        <td class="num">U-APSD (非调度自动省电投递)</td>
+        <td>802.11e (WMM (Wi-Fi 多媒体))</td>
+        <td>上行数据帧触发，AP (接入点) 推送</td>
         <td class="mono">仍绑 Beacon/DTIM</td>
         <td>VoIP 双向周期</td>
         <td>较好</td>
       </tr>
       <tr>
-        <td class="num">TWT</td>
+        <td class="num">TWT (目标唤醒时间)</td>
         <td>802.11ax (Wi-Fi 6)</td>
         <td>协商的 Service Period</td>
         <td class="mono best">秒~分钟级，脱离 Beacon</td>
@@ -243,10 +243,10 @@
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>省电是 Wi-Fi 驱动里最容易出 bug、最难调的部分之一。落点：</p>
     <ul>
-      <li><strong>Power Management bit</strong>：每个发往 AP 的帧，Frame Control 里这一位要正确设置。驱动 tx 路径根据 STA 当前省电状态填这一位——填错 AP 不会缓存，下行丢帧。</li>
-      <li><strong>Beacon 解析</strong>：rx 路径要解析 Beacon 的 TIM 元素，检查自己的 AID 位。SoftMAC 在 mac80211 的 <span class="mono">ieee80211_rx_mgmt_beacon</span> 里做；FullMAC 在固件里做，驱动只上报"有缓存"事件。</li>
-      <li><strong>PS-Poll / 触发帧构造</strong>：检测到 TIM 里自己位=1，驱动要构造 PS-Poll（或 U-APSD 触发帧）发出去。AID 要填对（第 7 课关联时拿到的）。</li>
-      <li><strong>唤醒调度</strong>：硬件要能按 Listen Interval / TWT Service Period 定时唤醒射频。这通常涉及芯片的睡眠定时器、固件和驱动的电源状态机协调。<strong>睡眠后唤醒丢失 Beacon、唤醒太晚错过 DTIM，是常见 bug</strong>。</li>
+      <li><strong>Power Management bit</strong>：每个发往 AP (接入点) 的帧，Frame Control 里这一位要正确设置。驱动 tx 路径根据 STA (站点) 当前省电状态填这一位——填错 AP 不会缓存，下行丢帧。</li>
+      <li><strong>Beacon (信标帧) 解析</strong>：rx 路径要解析 Beacon 的 TIM (业务指示图) 元素，检查自己的 AID (关联标识符) 位。SoftMAC (软件 MAC) 在 mac80211 的 <span class="mono">ieee80211_rx_mgmt_beacon</span> 里做；FullMAC (全 MAC) 在固件里做，驱动只上报"有缓存"事件。</li>
+      <li><strong>PS-Poll (省电轮询帧) / 触发帧构造</strong>：检测到 TIM 里自己位=1，驱动要构造 PS-Poll（或 U-APSD (非调度自动省电投递) 触发帧）发出去。AID 要填对（第 7 课关联时拿到的）。</li>
+      <li><strong>唤醒调度</strong>：硬件要能按 Listen Interval / TWT (目标唤醒时间) Service Period 定时唤醒射频。这通常涉及芯片的睡眠定时器、固件和驱动的电源状态机协调。<strong>睡眠后唤醒丢失 Beacon、唤醒太晚错过 DTIM (投递业务指示图)，是常见 bug</strong>。</li>
       <li><strong>调试难点</strong>：省电 bug 表现为"偶发丢包/延迟高/对端收不到"，抓包看到的是"PS-Poll 发了但 AP 没回"或"Beacon TIM 位和实际缓存不符"。要用 <span class="mono">iw powertool</span> / <span class="mono">iw dev wlan0 get power_save</span> 看当前策略，配合 monitor 抓包看帧交换。</li>
       <li><strong>上层接口</strong>：用户态通过 nl80211 的 <span class="mono">NL80211_CMD_SET_POWER_SAVE</span> 切换省电开关。Android/iOS 还有厂商私有接口控制 TWT 参数。</li>
     </ul>
@@ -258,20 +258,20 @@
 
   <div class="quiz" data-type="single"
        data-question="PS-Poll 帧的 Duration/ID 字段里放的是什么？为什么？"
-       data-explain="PS-Poll 是控制帧里唯一不用 Duration/ID 存 NAV 的特例——它放的是 AID（关联时 AP 分配的 ID）。AP 收到 PS-Poll 后，靠 AID 知道是哪个 STA 来取帧，从该 AID 的缓存队列里取一个帧回发。这是 AID 的两个用途之一（另一个是 TIM 位图的位索引）。">
+       data-explain="PS-Poll (省电轮询帧) 是控制帧里唯一不用 Duration/ID 存 NAV (网络分配矢量) 的特例——它放的是 AID (关联标识符)（关联时 AP (接入点) 分配的 ID）。AP 收到 PS-Poll 后，靠 AID 知道是哪个 STA (站点) 来取帧，从该 AID 的缓存队列里取一个帧回发。这是 AID 的两个用途之一（另一个是 TIM (业务指示图) 位图的位索引）。">
     <script type="application/json">
       [
         { "text": "AID，让 AP 知道是哪个 STA 来取帧",      "correct": true },
         { "text": "NAV，告诉其他 STA 信道占用多久",        "correct": false },
         { "text": "序列号，用于去重",                      "correct": false },
-        { "text": "STA 的 MAC 地址",                       "correct": false }
+        { "text": "STA 的 MAC (介质访问控制层) 地址",                       "correct": false }
       ]
     </script>
   </div>
 
   <div class="quiz" data-type="single"
        data-question="省电 STA 为什么必须 DTIM Beacon 处醒来，普通 TIM 可以跳过？"
-       data-explain="DTIM 是特殊 TIM（按 DTIM Period 周期出现）。普通 TIM 只指示单播缓存，STA 没缓存可以继续睡。但 DTIM 不仅指示单播，还立即发送缓存的广播/组播帧（ARP/DHCP/mDNS）。广播没有特定接收方，没法按 AID 缓存等取，AP 攒到 DTIM 一次性发。STA 不在 DTIM 醒来就永久错过这些广播。">
+       data-explain="DTIM (投递业务指示图) 是特殊 TIM (业务指示图)（按 DTIM Period 周期出现）。普通 TIM 只指示单播缓存，STA (站点) 没缓存可以继续睡。但 DTIM 不仅指示单播，还立即发送缓存的广播/组播帧（ARP/DHCP/mDNS）。广播没有特定接收方，没法按 AID (关联标识符) 缓存等取，AP (接入点) 攒到 DTIM 一次性发。STA 不在 DTIM 醒来就永久错过这些广播。">
     <script type="application/json">
       [
         { "text": "DTIM 会立即发缓存的广播/组播，错过就没了", "correct": true },
@@ -284,7 +284,7 @@
 
   <div class="quiz" data-type="single"
        data-question="TWT 相比 Legacy PS-Poll / U-APSD 的根本优势是什么？"
-       data-explain="Legacy PS-Poll 和 U-APSD 都绑死 Beacon/DTIM 周期（约 100ms），STA 必须按这个节奏醒。TWT 让 STA 和 AP 显式协商独立的唤醒时刻表（Service Period），完全脱离 Beacon 节奏，可睡几十秒到几分钟。这对'几十秒上报一次'的 IoT 设备（门锁、传感器）是质的飞跃，是 Wi-Fi 6 续航逼近 BLE/LoRaWAN 的关键。">
+       data-explain="Legacy PS-Poll (省电轮询帧) 和 U-APSD (非调度自动省电投递) 都绑死 Beacon (信标帧)/DTIM (投递业务指示图) 周期（约 100ms），STA (站点) 必须按这个节奏醒。TWT (目标唤醒时间) 让 STA 和 AP (接入点) 显式协商独立的唤醒时刻表（Service Period），完全脱离 Beacon 节奏，可睡几十秒到几分钟。这对'几十秒上报一次'的 IoT 设备（门锁、传感器）是质的飞跃，是 Wi-Fi 6 续航逼近 BLE/LoRaWAN 的关键。">
     <script type="application/json">
       [
         { "text": "脱离 Beacon 周期，可睡秒级以上",   "correct": true },
@@ -297,11 +297,11 @@
 
   <div class="quiz" data-type="single"
        data-question="STA 睡眠期间，AP 怎么知道要为它缓存下行帧？"
-       data-explain="STA 在某个发往 AP 的帧里置 Frame Control 的 Power Management bit=1，AP 看到后就切换该 STA 到'省电状态'，后续发给它的单播帧都进缓存队列（按 AID 索引），而不是立即丢弃或发送。STA 醒来取件时再发。这个 bit 是省电协议的'总开关'。">
+       data-explain="STA (站点) 在某个发往 AP (接入点) 的帧里置 Frame Control 的 Power Management bit=1，AP 看到后就切换该 STA 到'省电状态'，后续发给它的单播帧都进缓存队列（按 AID (关联标识符) 索引），而不是立即丢弃或发送。STA 醒来取件时再发。这个 bit 是省电协议的'总开关'。">
     <script type="application/json">
       [
         { "text": "STA 置 Frame Control 的 Power Mgmt bit=1", "correct": true },
-        { "text": "STA 发一个特殊的 Deauthentication 帧",      "correct": false },
+        { "text": "STA 发一个特殊的 Deauthentication (取消认证) 帧",      "correct": false },
         { "text": "STA 关闭射频，AP 检测不到信号就缓存",       "correct": false },
         { "text": "AP 默认就缓存所有帧",                       "correct": false }
       ]
@@ -314,18 +314,18 @@
 
   <p>学完这课，你脑子里应该有 Wi-Fi 省电的<strong>统一骨架</strong>：</p>
   <ol>
-    <li><strong>三步循环</strong>：声明睡眠 → 睡眠（AP 缓存）→ 醒来取件</li>
-    <li><strong>三代演进</strong>：Legacy PS-Poll（按 Beacon）→ U-APSD（触发推送）→ TWT（独立时刻表）</li>
-    <li><strong>三个伏笔兑现</strong>：AID（PS-Poll/TIM 索引）、TIM（Beacon 位图通知）、PS-Poll（取件帧）</li>
+    <li><strong>三步循环</strong>：声明睡眠 → 睡眠（AP (接入点) 缓存）→ 醒来取件</li>
+    <li><strong>三代演进</strong>：Legacy PS-Poll (省电轮询帧)（按 Beacon (信标帧)）→ U-APSD (非调度自动省电投递)（触发推送）→ TWT (目标唤醒时间)（独立时刻表）</li>
+    <li><strong>三个伏笔兑现</strong>：AID (关联标识符)（PS-Poll/TIM 索引）、TIM (业务指示图)（Beacon 位图通知）、PS-Poll（取件帧）</li>
   </ol>
 
   <p>你现在能做的：</p>
   <ul>
-    <li>看到 Beacon 的 TIM/DTIM，知道哪些 STA 有缓存、广播什么时候发</li>
-    <li>理解 PS-Poll 为什么用 AID 不用 NAV</li>
-    <li>区分 Listen Interval（被动跟 Beacon）和 TWT（主动协商时刻表）</li>
+    <li>看到 Beacon (信标帧) 的 TIM (业务指示图)/DTIM (投递业务指示图)，知道哪些 STA (站点) 有缓存、广播什么时候发</li>
+    <li>理解 PS-Poll (省电轮询帧) 为什么用 AID (关联标识符) 不用 NAV (网络分配矢量)</li>
+    <li>区分 Listen Interval（被动跟 Beacon (信标帧)）和 TWT (目标唤醒时间)（主动协商时刻表）</li>
     <li>把省电机制和你做 BLE/sub-GHz 的低功耗调度经验做类比</li>
-    <li>定位省电类 bug 时知道看 Power Mgmt bit、TIM 解析、唤醒定时</li>
+    <li>定位省电类 bug 时知道看 Power Mgmt bit、TIM (业务指示图) 解析、唤醒定时</li>
   </ul>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -334,21 +334,21 @@
 
   <div class="callout">
     <span class="callout-title">下一课：两条可选路线</span>
-    <p>到这里，Wi-Fi 协议<strong>主线</strong>（RF → OFDM → CSMA/CA → 帧结构 → 状态机 → 省电）已经走完。接下来按你的优先级选：</p>
+    <p>到这里，Wi-Fi 协议<strong>主线</strong>（RF (射频) → OFDM (正交频分复用) → CSMA/CA (载波侦听多址接入 / 碰撞避免) → 帧结构 → 状态机 → 省电）已经走完。接下来按你的优先级选：</p>
     <ul>
-      <li><strong>安全（WPA / 4-Way Handshake）</strong>：兑现第 7 课伏笔④。EAPOL-Key 四帧握手、PTK/GTK 派生、WPA3 的 SAE/OWE、为什么 4-Way Handshake 超时是常见 bug。</li>
-      <li><strong>QoS / EDCA 细节</strong>：兑现第 5 课伏笔。四个 AC 的参数、AIFS/CW/ TXOP 怎么分级、为什么 VoIP 优先级高。</li>
-      <li><strong>漫游（Roaming / 802.11r）</strong>：兑现第 7 课伏笔。Reassociation 流程、PMK 缓存、Fast Transition 怎么省 4-Way Handshake。</li>
-      <li><strong>聚合 / 块确认（A-MPDU / Block ACK）</strong>：兑现第 6 课伏笔。怎么把多个帧打包提升吞吐。</li>
+      <li><strong>安全（WPA (Wi-Fi 保护访问) / 4-Way Handshake）</strong>：兑现第 7 课伏笔④。EAPOL-Key 四帧握手、PTK (成对临时密钥)/GTK (组临时密钥) 派生、WPA3 的 SAE (对等同步认证)/OWE、为什么 4-Way Handshake 超时是常见 bug。</li>
+      <li><strong>QoS (服务质量) / EDCA (增强分布式信道接入) 细节</strong>：兑现第 5 课伏笔。四个 AC (接入类别) 的参数、AIFS (任意帧间间隔)/CW (竞争窗口)/ TXOP 怎么分级、为什么 VoIP 优先级高。</li>
+      <li><strong>漫游（Roaming / 802.11r）</strong>：兑现第 7 课伏笔。Reassociation (重关联) 流程、PMK (成对主密钥) 缓存、Fast Transition 怎么省 4-Way Handshake。</li>
+      <li><strong>聚合 / 块确认（A-MPDU / Block ACK (确认帧)）</strong>：兑现第 6 课伏笔。怎么把多个帧打包提升吞吐。</li>
     </ul>
-    <p>或者直接「继续」，我按<strong>固件工程师优先级</strong>给你排：安全 &gt; QoS &gt; 漫游 &gt; 聚合。</p>
+    <p>或者直接「继续」，我按<strong>固件工程师优先级</strong>给你排：安全 &gt; QoS (服务质量) &gt; 漫游 &gt; 聚合。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <div class="lesson-foot">
     <p>
-      <strong>下一课预告</strong>：默认第 9 课 — WPA 安全 / 4-Way Handshake（把第 7 课的授权伏笔兑现）。<br>
+      <strong>下一课预告</strong>：默认第 9 课 — WPA (Wi-Fi 保护访问) 安全 / 4-Way Handshake（把第 7 课的授权伏笔兑现）。<br>
       <a href="./0007-sta-association-flow.html">← 第 7 课</a> ·
       <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
       <a href="../GLOSSARY.md">术语表</a> ·
@@ -357,10 +357,10 @@
 
     <div class="ask-prompt">
       💡 <strong>学完请回来反馈</strong> —— 例如：<br>
-      • 「四道自检题答对了，进 WPA 安全」<br>
-      • 「TWT 想看 Wi-Fi 6 IoT 的实际抓包/代码」<br>
-      • 「U-APSD 的触发帧具体长什么样？和 PS-Poll 对比」<br>
-      • 「省电模式下漫游怎么处理？醒了发现该换 AP 了」<br>
+      • 「四道自检题答对了，进 WPA (Wi-Fi 保护访问) 安全」<br>
+      • 「TWT (目标唤醒时间) 想看 Wi-Fi 6 IoT 的实际抓包/代码」<br>
+      • 「U-APSD (非调度自动省电投递) 的触发帧具体长什么样？和 PS-Poll (省电轮询帧) 对比」<br>
+      • 「省电模式下漫游怎么处理？醒了发现该换 AP (接入点) 了」<br>
       • 「mac80211 里 Power Save 状态机是哪段代码？想读」<br>
       你的反馈决定下一课切入点。
     </div>

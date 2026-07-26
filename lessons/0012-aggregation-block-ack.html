@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 12 课 · 帧聚合 / Block ACK —— 吞吐的命脉</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .frame-diagram {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.9rem 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .frame-diagram .hdr { color: var(--accent); font-weight: 700; }
+  .frame-diagram .payload { color: var(--ink); }
+  .frame-diagram .delim { color: #b8761c; font-weight: 600; }
+  .frame-diagram .fcs { color: #2f6b42; font-weight: 600; }
+  .frame-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .frame-diagram .bad { color: #9a2a16; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .good { color: #2f6b42; font-weight: 600; }
+  .compare-table .bad { color: #9a2a16; font-weight: 600; }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 12 课 / Lesson 0012 · 帧聚合 / Block ACK · 高吞吐主线 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0011-qos-edca.html">← 第 11 课</a> ·
+    <a href="../index.html">路线图</a>
+  </div>
+
+  <h1>帧聚合 / Block ACK —— 吞吐的命脉</h1>
+
+  <p>到这里进入「提速」阶段（路线图第 8 步）。前 11 课讲的是"怎么连上、怎么加密、怎么分优先级"——<strong>基础机制</strong>。这课讲 802.11n 引入、现代 Wi-Fi 必备的两套提速机制：<strong>帧聚合</strong>（一次发一大坨）和 <strong>Block ACK (块确认)</strong>（一次确认一大批）。它俩是天作之合，一起把 Wi-Fi 从"百兆"推进到"千兆"。</p>
+
+  <p>这课对你做驱动的落点很硬核——<strong>聚合和 Block ACK 是吞吐优化的主战场</strong>。tx 路径的队列调度、rx 路径的重组（reorder）、Block ACK 会话的状态机，都是固件工程师最常调性能的地方。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：为什么要聚合</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>第 5 课讲过 CSMA/CA：<strong>每发一个帧都要 DIFS + 退避 + 帧本体 + SIFS + ACK</strong>。这套固定开销（DIFS+backoff+SIFS+ACK ≈ 几十到几百 μs）是<strong>每个帧都要付的"过路费"</strong>。</p>
+    <p>问题来了：如果把一个 1500 字节的 IP 包拆成 100 个小帧发，过路费要付 100 次；如果拼成 1 个大帧发，只付 1 次。<strong>聚合的本质：把"过路费"分摊到更多数据上，提升有效吞吐</strong>。</p>
+    <p>另一个痛点：每个帧一个 ACK，ACK 本身也是帧（带 SIFS + 帧本体）。发 100 个帧 = 100 个 ACK 往返。<strong>Block ACK 的本质：用一次确认替代 100 次确认</strong>。</p>
+  </div>
+
+  <p>这两套机制是 802.11n（Wi-Fi 4, 2009）引入的，是 Wi-Fi 从 54 Mbps 跃升到 600 Mbps 的关键之一。802.11ac/ax/be 全部继承并强化。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 先理清：MSDU vs MPDU</h2>
+
+  <p>聚合的两种方式，区别在于<strong>在哪一层拼</strong>。要先分清两个数据单元：</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>单元</th><th>是什么</th><th>有没有 MAC 头</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">MSDU (MAC 业务数据单元)</td>
+        <td>上层交给 MAC 的载荷（≈ 一个 IP 包）</td>
+        <td class="bad">还没有</td>
+      </tr>
+      <tr>
+        <td class="num">MPDU (MAC 协议数据单元)</td>
+        <td>完整的 802.11 帧（MSDU + MAC 头 + FCS）</td>
+        <td class="good">已经有</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>记住这条线：<strong>MSDU 是"原料"，MPDU 是"封装好的成品"</strong>。聚合可以在原料阶段拼（A-MSDU），也可以在成品阶段拼（A-MPDU）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② A-MSDU：原料阶段拼，共享一个头</h2>
+
+  <p>A-MSDU (Aggregate MSDU, 聚合 MSDU) 把多个 MSDU 拼成一个大载荷，<strong>共享一个 MAC 头</strong>。帧结构：</p>
+
+  <div class="frame-diagram">
+A-MSDU 帧结构:
+┌─────────┬──────────────────────────────────────┬─────┐
+│ <span class="hdr">MAC Header</span> │ <span class="payload">MSDU₁ │ MSDU₂ │ MSDU₃ │ ... │ MSDUₙ</span> │ <span class="fcs">FCS</span> │
+│  (1 个)  │  <span class="note">每个 MSDU: DA(6B) + SA(6B) + Length(2B) + 数据 + padding</span>  │     │
+└─────────┴──────────────────────────────────────┴─────┘
+                ↑
+        <span class="note">所有 MSDU 共用外面那一个 MAC 头 + 一个 FCS</span>
+        <span class="note">最大 3839 或 7935 字节</span>
+</div>
+
+  <p><strong>优势</strong>：开销最小——一个 MAC 头管多个包，效率最高。在干净信道下吞吐最好。</p>
+  <p><strong>致命劣势</strong>：整个 A-MSDU 只有<strong>一个 FCS</strong>。任何一个 bit 错，整个帧 CRC 失败 → 整个 A-MSDU 重传。<strong>错一个 bit 赔整批数据</strong>。在噪声信道下性能崩塌。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ A-MPDU：成品阶段拼，每个保留自己的头</h3>
+
+  <p>A-MPDU (Aggregate MPDU, 聚合 MPDU) 把多个<strong>已封装好的 MPDU</strong> 拼成一个大帧，每个 MPDU 保留自己的 MAC 头和 FCS，前面加一个 4 字节的 <strong>MPDU Delimiter (定界符)</strong>：</p>
+
+  <div class="frame-diagram">
+A-MPDU 帧结构:
+┌────┬─────────────────┬────┬─────────────────┬────┬─────────────────┬─────┐
+│<span class="delim">Dlm</span>│<span class="hdr">MAC Hdr</span>│<span class="payload">MPDU₁ 数据</span>│<span class="fcs">FCS</span>│<span class="delim">Dlm</span>│<span class="hdr">MAC Hdr</span>│<span class="payload">MPDU₂ 数据</span>│<span class="fcs">FCS</span>│<span class="delim">Dlm</span>│<span class="hdr">MAC Hdr</span>│<span class="payload">MPDU₃ 数据</span>│<span class="fcs">FCS</span>│ ... │
+└────┴─────────────────┴────┴─────────────────┴────┴─────────────────┴─────┘
+  ↑                                ↑                                ↑
+<span class="delim">4B 定界符</span>                       <span class="delim">4B 定界符</span>                       <span class="delim">4B 定界符</span>
+<span class="note">每个 MPDU 自己的 MAC 头 + 自己的 FCS</span>
+<span class="note">802.11n: ≤65535B / 64 个 MPDU</span>
+<span class="note">802.11ac: 超 1MB（Max A-MPDU Length Exponent）</span>
+</div>
+
+  <p><strong>关键设计：MPDU Delimiter</strong>。这 4 字节标记"下一个 MPDU 多长、从哪开始"。作用：如果某个 MPDU 的 FCS 错了，接收方<strong>能靠 Delimiter 跳到下一个 MPDU 边界</strong>，不至于整个 A-MPDU 报废。这是 A-MPDU 选择重传能力的物理基础。</p>
+
+  <div class="callout key">
+    <span class="callout-title">A-MSDU vs A-MPDU 一句话区别</span>
+    <p>A-MSDU：<strong>拼原料</strong>，一个头管全部，错一赔全部。<br>
+    A-MPDU：<strong>拼成品</strong>，每个保留头+FCS+Delimiter，错了能挑出来重传。</p>
+    <p><strong>现代 Wi-Fi（802.11n/ac/ax）主流只用 A-MPDU</strong>。A-MSDU 在 802.11ac 的 VHT PHY 弃用，因为它"错一赔全部"的脆弱性在高吞吐场景下太吃亏。A-MPDU + Block ACK 是黄金组合。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 对比表：两种聚合的取舍</h2>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>维度</th>
+        <th>A-MSDU</th>
+        <th>A-MPDU</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">聚合层次</td>
+        <td>MAC 头之前（原料）</td>
+        <td>MAC 头之后（成品）</td>
+      </tr>
+      <tr>
+        <td class="num">MAC 头数</td>
+        <td>1 个共享</td>
+        <td>每个 MPDU 自己一个</td>
+      </tr>
+      <tr>
+        <td class="num">最大尺寸</td>
+        <td class="mono">3839 / 7935 B</td>
+        <td class="mono">65535 B (n) / 超 1MB (ac)</td>
+      </tr>
+      <tr>
+        <td class="num">开销</td>
+        <td class="good">小（一个头）</td>
+        <td>略大（每 MPDU 一个头）</td>
+      </tr>
+      <tr>
+        <td class="num">错误恢复</td>
+        <td class="bad">弱（错一赔全部）</td>
+        <td class="good">强（Delimiter + Block ACK 选择重传）</td>
+      </tr>
+      <tr>
+        <td class="num">ACK 方式</td>
+        <td>单个 ACK</td>
+        <td class="good">Block ACK</td>
+      </tr>
+      <tr>
+        <td class="num">现代 Wi-Fi</td>
+        <td class="bad">基本不用</td>
+        <td class="good">主流</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <span class="sidenote">
+    还有"两级聚合"（Two-level Aggregation）：A-MSDU 套在 A-MPDU 里——理论上最高效（A-MSDU 的低开销 + A-MPDU 的鲁棒性），但实现复杂，实际产品几乎不用。知道有这么个东西就行。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ Block ACK：一次确认一大批</h2>
+
+  <p>A-MPDU 发出去一坨，怎么确认？普通 ACK 一个帧一个 ACK 不现实（64 个 MPDU 要 64 个 ACK）。<strong>Block ACK (块确认)</strong> 用<strong>一个 Block Ack 帧</strong>携带<strong>位图（bitmap）</strong>，记录这一批 MPDU 各自收没收到：</p>
+
+  <div class="frame-diagram">
+普通 ACK 流程 (旧, 慢):
+  发 MPDU₁ → ACK
+  发 MPDU₂ → ACK
+  发 MPDU₃ → ACK
+  ... <span class="bad">(N 个帧 = N 个 ACK 往返)</span>
+
+Block ACK 流程 (现代, 快):
+  发 A-MPDU (含 MPDU₁..MPDU₆₄)
+  发 BAR (块确认请求, 带起始序列号)
+  收 Block Ack <span class="note">位图: 1101110111... (每位对应一个 MPDU 收没收到)</span>
+  只重传 <span class="bad">没收到</span> 的 MPDU (位图为 0 的那些)
+</div>
+
+  <p>Block ACK 的<strong>位图</strong>每一位对应一个序列号——1=收到、0=没收到。发送方看位图，只重传 0 的那些。<strong>这就是"选择重传"</strong>，比 A-MSDU 的"错一赔全部"高效得多。位图大小也限制了 A-MPDU 最多 64 个 MPDU（802.11n）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑥ Block ACK 会话：有状态，要先建</h2>
+
+  <p>Block ACK 不是无状态的，用之前要<strong>建立会话（BA Session）</strong>。三步：</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>阶段</th><th>帧</th><th>作用</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">① 建立</td>
+        <td>ADDBA Request → ADDBA Response</td>
+        <td>协商 TID、buffer 大小、Immediate/Delayed 策略、超时</td>
+      </tr>
+      <tr>
+        <td class="num">② 数据传输</td>
+        <td>A-MPDU → BAR → Block Ack</td>
+        <td>会话期间持续用 Block ACK，发送方按位图选择重传</td>
+      </tr>
+      <tr>
+        <td class="num">③ 拆除</td>
+        <td>DELBA</td>
+        <td>任意一方发，释放会话资源（流量结束/超时/异常）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p><strong>会话按 TID 建立</strong>——每个 AC 一个独立 BA 会话。回想第 11 课：语音走 AC_VO，视频走 AC_VI，它们各有自己的 Block ACK 会话。这也是为什么 Block ACK 只配合 <strong>QoS Data 帧</strong>（第 6 课讲过 QoS Data 帧带 TID）——没有 TID 就没法分会话。</p>
+
+  <div class="callout key">
+    <span class="callout-title">Immediate vs Delayed Block ACK</span>
+    <p>Block ACK 两种响应时机：</p>
+    <ul>
+      <li><strong>Immediate BA (立即块确认)</strong>：收到 BAR 后 SIFS 内立即回 Block Ack。<strong>日常几乎都用这个</strong>。</li>
+      <li><strong>Delayed BA (延迟块确认)</strong>：先 ACK BAR，过段时间再回 Block Ack（接收方需要时间处理时用）。<strong>极少见</strong>。</li>
+    </ul>
+    <p>记一条就够：<strong>现代 Wi-Fi 默认 Immediate</strong>，Delayed 当背景了解。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑦ 和 TXOP 的协同（回看第 11 课）</h2>
+
+  <p>第 11 课讲 EDCA 的 TXOP：「抢到信道后能连续发多久」。聚合和 Block ACK 是<strong>怎么用满 TXOP</strong> 的工具：</p>
+
+  <ul>
+    <li>没有聚合：TXOP 时间内逐个帧发，每帧一个 ACK，过路费付很多次。</li>
+    <li>有聚合：TXOP 时间内发一个大 A-MPDU（塞几十个 MPDU），一个 Block ACK 一次确认。<strong>过路费只付一次，分摊到几十个帧上</strong>。</li>
+  </ul>
+
+  <p>所以高优先级 AC（AC_VO/AC_VI）的 TXOP 配额（1.5/3 ms）就是<strong>给聚合腾出连续发送窗口</strong>——窗口越大，能塞的 MPDU 越多，吞吐越高。这是 EDCA + 聚合 + Block ACK 三者的协同设计。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：聚合落代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>聚合和 Block ACK 是吞吐优化的主战场，代码分布：</p>
+    <ul>
+      <li><strong>tx 聚合路径</strong>：驱动/固件把<strong>同一 TID 同一接收方</strong>的多个 MPDU 在硬件队列里聚合成 A-MPDU。聚合时机（什么时候凑够一批发出去）、最大 MPDU 数、最大尺寸——都是可调参数（叫 aggregation threshold / a-mpdu limit）。<strong>调不好要么吞吐低（聚合不够），要么延迟高（聚合过头）</strong>。</li>
+      <li><strong>rx 重组（reorder）</strong>：A-MPDU 收到后要拆开，而且 Block ACK 选择重传会导致<strong>乱序</strong>（MPDU 5 重传后才到，但 MPDU 6 已经到了）。驱动要维护一个<strong>重组缓冲区</strong>，按序列号排好序再上交上层。这是 rx 路径最复杂的一块。</li>
+      <li><strong>Block ACK 会话管理</strong>：ADDBA/DELBA 帧的收发、位图的维护、超时处理。SoftMAC 在 mac80211 的 <span class="mono">agg-rx.c / agg-tx.c</span>；FullMAC 在固件里。</li>
+      <li><strong>调试</strong>：tx 吞吐低 → 检查聚合是否启用（<span class="mono">iw dev wlan0 station dump</span> 看 tx bitrate 和聚合统计）；rx 乱序/丢包 → 检查重组缓冲区大小和 BA 会话状态。Wireshark 抓包能看到 A-MPDU 边界和 Block ACK 位图。</li>
+      <li><strong>常见 bug</strong>：①聚合尺寸超芯片限制导致硬件错误；②重组缓冲区溢出丢帧；③BA 会话建立失败导致退化为普通 ACK（吞吐腰斩）；④TID 映射错导致聚合到错误队列。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：聚合和 Block ACK 吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="A-MSDU 和 A-MPDU 的根本区别是什么？"
+       data-explain="聚合层次不同：A-MSDU 在加 MAC 头之前拼（原料阶段），所有 MSDU 共享一个 MAC 头和一个 FCS——错一个 bit 整个重传。A-MPDU 在加 MAC 头之后拼（成品阶段），每个 MPDU 保留自己的 MAC 头 + FCS + 4B Delimiter——错了能挑出来选择重传。现代 Wi-Fi（802.11n/ac/ax）主流只用 A-MPDU，因为它的错误恢复能力强，配 Block ACK 是黄金组合。A-MSDU 在 802.11ac VHT PHY 已弃用。">
+    <script type="application/json">
+      [
+        { "text": "A-MSDU 加头前拼共享一个 FCS；A-MPDU 加头后拼每个有自己的 FCS", "correct": true },
+        { "text": "A-MSDU 只能用于上行，A-MPDU 只能用于下行",                 "correct": false },
+        { "text": "A-MSDU 用于语音，A-MPDU 用于数据",                       "correct": false },
+        { "text": "A-MSDU 是 802.11ac 引入，A-MPDU 是 802.11n 引入",        "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="A-MPDU 里 MPDU Delimiter（定界符）的核心作用是什么？"
+       data-explain="4 字节 Delimiter 标记每个 MPDU 的长度和位置。关键场景：如果某个 MPDU 的 FCS 错了，接收方能靠 Delimiter 跳到下一个 MPDU 边界，不至于整个 A-MPDU 报废。这是 A-MPDU 选择重传能力的物理基础——配合 Block ACK 位图，只重传错的那些 MPDU。没有 Delimiter 就像 A-MSDU 那样错一赔全部。">
+    <script type="application/json">
+      [
+        { "text": "标记 MPDU 边界，错了能跳到下一个，支持选择重传", "correct": true },
+        { "text": "加密 MPDU 内容，防止窃听",                       "correct": false },
+        { "text": "记录 MPDU 的发送时间戳",                         "correct": false },
+        { "text": "保存 Block ACK 的位图",                           "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="为什么 Block ACK 必须配合 QoS Data 帧用，而不是普通 Data 帧？"
+       data-explain="Block ACK 会话按 TID 建立——每个 AC 一个独立 BA 会话。TID 只存在于 QoS Data 帧的 QoS Control 字段（第 6 课讲过）。普通 Data 帧没有 TID，没法分会话。所以聚合 + Block ACK 只走 QoS Data 帧路径。这也呼应第 11 课 EDCA 的四个 AC：语音/视频/尽力/后台各有自己的 TID 和 Block ACK 会话，互不干扰。">
+    <script type="application/json">
+      [
+        { "text": "Block ACK 会话按 TID 建立，而 TID 只在 QoS Data 帧里", "correct": true },
+        { "text": "普通 Data 帧太大，Block ACK 装不下",                    "correct": false },
+        { "text": "QoS Data 帧更安全，能加密",                            "correct": false },
+        { "text": "普通 Data 帧不能聚合，只有 QoS Data 能",                "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Block ACK 会话的三阶段（建立/传输/拆除）分别用什么帧？"
+       data-explain="建立阶段：ADDBA Request → ADDBA Response（协商 TID、buffer 大小、Immediate/Delayed）。传输阶段：A-MPDU → BAR（块确认请求，带起始序列号）→ Block Ack（位图）。拆除阶段：DELBA（任意一方发，释放资源）。这是个有状态的过程——不能上来就用 Block ACK，得先 ADDBA 建会话。会话超时或流量结束要 DELBA 释放。">
+    <script type="application/json">
+      [
+        { "text": "ADDBA Req/Resp → BAR/Block Ack → DELBA", "correct": true },
+        { "text": "Probe Req/Resp → Data → Deauth",         "correct": false },
+        { "text": "RTS/CTS → Data → ACK",                   "correct": false },
+        { "text": "Auth Req/Resp → Assoc → Disassoc",       "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：聚合 + Block ACK 是吞吐命脉</h2>
+
+  <p>学完这课，你脑子里应该有提速的两件套：</p>
+  <ol>
+    <li><strong>聚合</strong>：把过路费（DIFS+backoff+ACK）分摊到更多数据上。A-MSDU 共享头（错一赔全部，已弃用）；A-MPDU 各自头+Delimiter（选择重传，主流）。</li>
+    <li><strong>Block ACK</strong>：用位图一次确认一批，配 A-MPDU 实现选择重传。会话按 TID 建（ADDBA/DELBA），只配 QoS Data 帧。</li>
+  </ol>
+
+  <p>协同关系：<strong>EDCA 的 TXOP（第 11 课）给聚合腾连续发送窗口 → 聚合塞满窗口 → Block ACK 一次确认</strong>。三件套一起把 Wi-Fi 推进千兆。</p>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>看到抓包里的 A-MPDU，按 Delimiter 拆出每个 MPDU</li>
+    <li>理解为什么 A-MSDU 被弃用（错一赔全部 vs 选择重传）</li>
+    <li>解释 Block ACK 会话为什么按 TID 建（每个 AC 独立）</li>
+    <li>定位吞吐低：检查聚合是否启用、BA 会话是否建成功</li>
+    <li>定位 rx 乱序：检查重组缓冲区和 Block ACK 位图处理</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <div class="callout">
+    <span class="callout-title">下一课：进 PHY 深水区（最大缺口）</span>
+    <p>提速主线（聚合/Block ACK）讲完。下一步进<strong>路线图第 9 步——PHY 深水区</strong>，这是最大的缺口，也是 Wi-Fi 5→6 的分水岭。计划第 13 课讲 <strong>MIMO 基础</strong>（空间流、STBC、波束成形），第 14 课讲 <strong>MU-MIMO + OFDMA</strong>（Wi-Fi 6 PHY 核心），第 15 课讲 <strong>BSS Color + HE PHY 其他</strong>。</p>
+    <p>这是课程最难的部分，也是你最该啃的——做 Wi-Fi 6 固件绕不开。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 13 课 — MIMO 基础（空间流/STBC/波束成形，进 PHY 深水区）。<br>
+      <a href="./0011-qos-edca.html">← 第 11 课</a> ·
+      <a href="../index.html">路线图</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进 MIMO」<br>
+      • 「A-MPDU 的抓包想看实例（Wireshark 怎么拆 Delimiter）」<br>
+      • 「rx 重组缓冲区的代码想看（mac80211 的 agg-rx.c）」<br>
+      • 「两级聚合（A-MSDU 套 A-MPDU）展开讲？」<br>
+      • 「802.11be (Wi-Fi 7) 的多链路聚合 (MLO) 想了解」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>
