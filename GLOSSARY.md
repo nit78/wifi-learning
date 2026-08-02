@@ -501,6 +501,44 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 **BAR (Block ACK Request, 块确认请求帧)**：
 [已学] 发送方发完一批 A-MPDU 后发的控制帧，要求接收方回 Block Ack。BAR 里带起始序列号，告诉接收方"从第几号开始确认"。是 Block ACK 流程的触发器。
 
+## MIMO / 高级 PHY（MIMO & Advanced PHY）
+
+**MIMO (Multiple-Input Multiple-Output, 多入多出)**：
+[已学] 收发两端都用<strong>多根天线</strong>收发的技术。核心收益有两条路线：<strong>①空间复用</strong>（同频同时间传多路独立数据 → 提吞吐）和<strong>②分集</strong>（多路传同一数据的冗余副本 → 提可靠性/距离）。802.11n 引入，是 Wi-Fi 4/5/6/7 的 PHY 基石。
+
+**Spatial Stream (空间流)**：
+[已学] MIMO 空间复用里<strong>同一频段同时传的独立数据流</strong>数量。空间流数 ≤ min(发天线数, 收天线数)。802.11n ≤4 流、802.11ac ≤8 流、802.11ax ≤8 流。<strong>吞吐 ≈ N × 单流速率</strong>（N=空间流数）。是 MIMO 提吞吐的根本。
+
+**SU-MIMO (Single-User MIMO, 单用户 MIMO)**：
+[已学] 所有空间流<strong>都发给同一个 STA</strong>。802.11n 只有 SU-MIMO（最多 4 流服务一个设备）。是 MIMO 的基础形态。
+
+**Diversity (分集)**：
+[已学] 用多天线/多路径传<strong>同一数据的冗余副本</strong>，接收端合并 → 提信噪比/抗衰落。<strong>不增吞吐，增可靠性/距离</strong>。和空间复用（增吞吐）是 MIMO 的两条相反取舍路线。分发射分集（STBC）和接收分集（MRC）。
+
+**STBC (Space-Time Block Coding, 空时块编码)**：
+[已学] <strong>发射端分集</strong>技术（Alamouti 码为代表）。把同一数据用正交模式从多根天线发冗余副本，接收端合并。<strong>不需接收方反馈 CSI</strong>（盲发）。代价：吞吐约减半（冗余占了一半流）。802.11n/ac 可选，<strong>用于 SNR 差时保距离/可靠性</strong>。
+
+**MRC (Maximal Ratio Combining, 最大比合并)**：
+[已学] <strong>接收端分集</strong>技术。接收机多根天线收到同一信号的多路副本，按各路 SNR 加权相干合并 → 最大化总 SNR。<strong>纯接收端 DSP，不需反馈，不减吞吐</strong>。802.11n/ac 标准。是接收端多天线的"标配"。
+
+**Beamforming / TxBF (Transmit Beamforming, 发射波束成形)**：
+[已学> <strong>发射端</strong>用多天线<strong>加权对齐</strong>信号，使其在目标接收方处<strong>相干叠加增强</strong>（阵列增益）。<strong>需要接收方反馈 CSI</strong>（信道状态信息）。增益大、不减吞吐，但开销和复杂度高。802.11n 支持显式+隐式，802.11ac <strong>只用显式</strong>。
+
+**CSI (Channel State Information, 信道状态信息)**：
+[已学] 描述收发之间信道特性的信息（每个子载波的幅度/相位响应）。<strong>波束成形的必需输入</strong>——发射端靠 CSI 知道怎么加权。CSI 由接收方测量后反馈给发射方。
+
+**Sounding (信道探测)**：
+[已学] 获取 CSI 的过程。流程：发射方（BeamFormer）发 <strong>NDP（Null Data Packet，空数据包）</strong>探测帧 → 接收方（BeamFormee）测量信道 → 反馈 CSI（压缩 V 矩阵）。802.11ac 用 VHT NDP，802.11ax 用 HE NDP。<strong>是波束成形的前置步骤</strong>。
+
+**Explicit vs Implicit Feedback (显式 vs 隐式反馈)**：
+[已学> CSI 反馈两种方式。<strong>显式</strong>：接收方测信道后直接把 CSI 发回（准，但有反馈开销）。<strong>隐式</strong>：利用<strong>信道互易性</strong>（TDD 系统里上下行信道对称），发射方从上行信道推下行信道——但收发 RF 链不一致，要<strong>校准 (calibration)</strong>。802.11n 两种都支持，<strong>802.11ac 弃用隐式只用显式</strong>（准、省事）。
+
+**Channel Reciprocity (信道互易性)**：
+[已学] TDD（时分双工）系统里，上下行用同一频段不同时间，信道特性<strong>对称</strong>。隐式波束成形靠它从上行信道推下行。Wi-Fi 是 TDD，理论上满足互易性，但 RF 链不一致要校准。
+
+**Cyclic Shift Diversity (CSD, 循环移位分集)**：
+[待学] 802.11n/ac 发送同一流到多天线时，给每根天线一个不同的循环时移，避免多天线发同信号造成<strong>空间强零点</strong>（某些位置信号相消）。是单流多天线发送的"防相消"技术。绿色发送前导码时常用。
+
 ---
 
 _后续课程每堂都会扩充本表。定义冲突或修正时，标注旧定义被哪条覆盖。_

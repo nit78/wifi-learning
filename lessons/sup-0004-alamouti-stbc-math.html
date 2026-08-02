@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课外补充 4 · Alamouti STBC 数学 —— 正交编码怎么盲发分集</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .math-block {
+    font-family: var(--mono);
+    font-size: 0.92rem;
+    line-height: 1.75;
+    background: #f7f4ec;
+    border-left: 3px solid #6a3aa0;
+    padding: 0.9rem 1.1rem;
+    margin: 1.3rem 0;
+    border-radius: 0 4px 4px 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .math-block .annot { color: var(--ink-faint); font-style: italic; }
+  .math-block .hl { color: #6a3aa0; font-weight: 700; }
+  .math-block .hl2 { color: #2f6b42; font-weight: 700; }
+  .math-block .hl3 { color: #b8761c; font-weight: 700; }
+
+  .step-callout {
+    background: #faf6ef;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 0.8rem 1rem;
+    margin: 1.2rem 0;
+    font-size: 0.9rem;
+  }
+  .step-callout strong { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    课外补充 sup-0004 · STBC 数学专题 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="./0013-mimo-basics.html">← 第 13 课 MIMO 基础</a> ·
+    <a href="./sup-0003-mimo-matrix-decoupling.html">← sup-0003 MIMO 矩阵</a> ·
+    <a href="./sup-0005-sounding-ndp-format.html">sup-0005 Sounding/NDP →</a>
+  </div>
+
+  <h1>Alamouti STBC 数学 —— 正交编码怎么盲发分集</h1>
+
+  <p>这是第 13 课 STBC 的数学深入。第 13 课说 STBC 是"发射端盲发冗余副本，不需 CSI"。这课用最经典的 <strong>Alamouti 码（2×1）</strong>展示这套魔法到底怎么运作——为什么"正交"二字能让你不看信道也能分开合并。</p>
+
+  <div class="callout key">
+    <span class="callout-title">Alamouti 码为什么值得单独讲</span>
+    <p>它是 1998 年 Siavash Alamouti 提出的，是<strong>第一个实用的空时码</strong>。优雅、完整、好懂：</p>
+    <ul>
+      <li><strong>满分集</strong>（2 发 1 收达到 2 阶分集，等于 1 发 2 收 MRC 的效果）</li>
+      <li><strong>全速率</strong>（不丢吞吐——这是它和一般 STBC 的区别，下文解释）</li>
+      <li><strong>线性译码</strong>（不需复杂 ML 搜索，简单加权合并）</li>
+    </ul>
+    <p>802.11n 的 STBC 选项就是基于 Alamouti 思路。理解它，STBC 这一整类技术就通了。</p>
+  </div>
+
+  <div class="callout bridge">
+    <span class="callout-title">⚠️ 先纠正一个第 13 课的简化</span>
+    <p>第 13 课说 STBC"吞吐约减半"——那是<strong>一般 STBC 的笼统说法</strong>。<strong>Alamouti 码是全速率的</strong>（不减半），这是它成为经典的原因。我那个"减半"是针对"用 2 根天线发 1 份数据"的直觉，对一般发射分集成立，但对 Alamouti 这种特殊编码不成立。这里更正——后面会解释为什么。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 场景：2 发 1 收</h2>
+
+  <p>Alamouti 原始设计：2 根发射天线，1 根接收天线。两个要发的符号 s₁、s₂（复数，代表 QAM 星座点）。</p>
+
+  <div class="math-block">物理设置:
+  发天线 1 ──h₁──▶ 收天线 (一个)
+  发天线 2 ──h₂──▶ 收天线
+
+h₁, h₂: 两根发天线到收天线的信道系数（复数）
+<span class="annot">假设信道在两个时隙里不变（慢衰落）</span>
+</div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② Alamouti 的编码：2 时隙发 2 符号</h2>
+
+  <p>Alamouti 的巧妙之处：两个符号 s₁、s₂ 在<strong>两个时隙</strong>里发，但两根天线发的"组合方式"经过正交设计：</p>
+
+  <div class="math-block">              时隙 1        时隙 2
+发天线 1 发:   <span class="hl">s₁</span>           <span class="hl3">-s₂*</span>      <span class="annot">(* 是复共轭)</span>
+发天线 2 发:   <span class="hl">s₂</span>            <span class="hl3">s₁*</span>
+
+写成编码矩阵:
+       <span class="hl2">    时隙1   时隙2</span>
+  X = <span class="hl2">发1 [ s₁    -s₂* ]</span>
+      <span class="hl2">发2 [ s₂     s₁* ]</span>
+
+<span class="annot">关键: 两个符号在两根天线+两个时隙里【交织分布】</span>
+<span class="annot">s₁ 在 (发1,时隙1) 和 (发2,时隙2 共轭)</span>
+<span class="annot">s₂ 在 (发2,时隙1) 和 (发1,时隙2 共轭带负号)</span>
+</div>
+
+  <p><strong>这就是"2 时隙发 2 符号 = 全速率"</strong>——平均每时隙 1 个符号，没浪费。第 13 课说"减半"是错的（已在前面更正框纠正）。一般 STBC 可能有冗余导致减速率，但 Alamouti 的正交设计恰好做到全速率。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 接收端收到什么</h2>
+
+  <div class="math-block">时隙 1 收到:  <span class="hl">y₁</span> = h₁·s₁  + h₂·s₂  + n₁
+时隙 2 收到:  <span class="hl">y₂</span> = h₁·(-s₂*) + h₂·s₁* + n₂
+
+<span class="annot">n₁, n₂ 是两时隙的噪声</span>
+<span class="annot">问题: y₁, y₂ 里 s₁ s₂ 都混着, 怎么分开?</span>
+</div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 魔法：正交性让你线性分开</h2>
+
+  <p>Alamouti 的核心贡献：<strong>对 y₁, y₂ 做特定的线性组合，就能干净地分离 s₁ 和 s₂</strong>。组合方式：</p>
+
+  <div class="math-block"><span class="hl">估计 s₁:</span>  s̃₁ = h₁*·y₁ + h₂·y₂*
+<span class="hl">估计 s₂:</span>  s̃₂ = h₂*·y₁ - h₁·y₂*
+
+<span class="annot">(* 是复共轭)</span>
+
+代入展开 s̃₁:
+  s̃₁ = h₁*·(h₁·s₁ + h₂·s₂ + n₁) + h₂·(h₁·(-s₂*) + h₂·s₁* + n₂)*
+      = h₁*·h₁·s₁ + h₁*·h₂·s₂ + h₁*·n₁
+        + h₂·(-h₁*·s₂) + h₂·h₂·s₁ + h₂·n₂*
+      = (<span class="hl2">|h₁|² + |h₂|²</span>)·s₁ + <span class="hl3">0·s₂</span> + (h₁*·n₁ + h₂·n₂*)
+          ↑                ↑
+    <span class="hl2">增益增强!</span>      <span class="hl3">s₂ 项【完全抵消】!</span>
+
+<span class="annot">同理 s̃₂ = (|h₁|² + |h₂|²)·s₂ + 噪声, s₁ 项也完全抵消</span>
+</div>
+
+  <div class="step-callout">
+    <strong>这就是正交编码的力量</strong>：因为编码矩阵 X 的设计让 s₁ 和 s₂ 在合并时<strong>交叉项完全抵消</strong>（依靠 s₁/s₁*、s₂/-s₂* 的对称布局），最终：
+    <ul>
+      <li>s̃₁ 里 s₂ 的系数 = 0（干净分离）</li>
+      <li>s̃₁ 里 s₁ 的系数 = |h₁|² + |h₂|²（两路信道的能量<strong>相干叠加</strong>，增益翻倍）</li>
+    </ul>
+    <strong>不需要 CSI 就盲发，但接收端只要知道 h₁、h₂（这个收端自己能测）就能合并。</strong> 这就是"盲发分集"的意思——发射端不信道，但接收端用自己测的信道做合并。
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ 为什么叫"正交"</h2>
+
+  <p>验证编码矩阵的正交性：</p>
+
+  <div class="math-block">X·Xᴴ = [s₁  -s₂*]·[s₁*  s₂*]
+       [s₂   s₁*] [-s₂   s₁ ]
+
+     = [|s₁|²+|s₂|²       0          ]  = <span class="hl">(|s₁|²+|s₂|²)·I</span>
+       [     0       |s₁|²+|s₂|²    ]
+                                ↑
+                    <span class="hl">单位矩阵的倍数!</span>
+
+<span class="annot">X·Xᴴ 是对角的 → 两行（两个天线模式）正交</span>
+<span class="annot">这就是"正交"的数学含义, 也是线性合并能成功的根</span>
+</div>
+
+  <p>任何满足 X·Xᴴ = (常数)·I 的编码矩阵，都对应一种能线性合并的 STBC。Alamouti 是 2×2 的最简情况。更复杂的天线数（3、4 发）有对应的正交设计，但有的会牺牲速率（这就是"减半"说法的真正来源——某些更高阶 STBC 为保正交性不得不冗余）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑥ 和 MRC 的等价：为什么"2 发 1 收 ≈ 1 发 2 收"</h2>
+
+  <p>第 13 课说"STBC + MRC 组合"。其实有个经典结论：</p>
+
+  <div class="math-block"><span class="hl">Alamouti (2 发 1 收) 的合并结果:</span>
+  s̃₁ = (<span class="hl2">|h₁|² + |h₂|²</span>)·s₁ + 噪声
+
+<span class="hl">1 发 2 收 MRC 的合并结果:</span>
+  s̃₁ = (<span class="hl2">|h₁|² + |h₂|²</span>)·s₁ + 噪声
+
+<span class="hl2">形式完全一样!</span> 两者都达到 2 阶分集。
+<span class="annot">区别: Alamouti 多约 3 dB SNR 损失（因为发端能量分两路）</span>
+<span class="annot">但分集阶数（抗衰落的"斜率"）相同</span>
+</div>
+
+  <p>这就是为什么 Alamouti 这么有名：<strong>它让"发射端分集"达到了"接收端分集"的效果</strong>（分集阶数上）。对那些只有一根接收天线的小设备（手机、IoT），发射端 STBC 是提升可靠性的利器——不用加接收天线就能拿分集增益。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：这套数学和你工作的关系</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>和 sup-0003 的 SVD 一样，<strong>Alamouti 的编译码在硬件/基带 DSP 里</strong>，驱动看不到。但懂这个数学的好处：</p>
+    <ul>
+      <li><strong>知道 STBC 为什么"不需 CSI"</strong>：发射端盲发，靠编码正交性；接收端用自己测的 h₁ h₂ 合并。这就是为什么 STBC 比 TxBF 简单（后者要 sounding 拿 CSI）。</li>
+      <li><strong>调试 STBC 问题</strong>：抓包看到 STBC 模式吞吐没提升，可能是接收端的信道估计 h₁ h₂ 不准（正交合并依赖准确的 h），导致交叉项没完全抵消 → 残留干扰。这指向前导码/训练字段解析问题。</li>
+      <li><strong>理解 802.11n STBC 选项的价值</strong>：对单天线接收的小设备（IoT、远距离手机），STBC 是"免费的"可靠性提升——只要 AP 支持，STA 不用改硬件就受益。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>一句话总结</h2>
+
+  <div class="callout key">
+    <p>Alamouti STBC 的魔法在于<strong>编码矩阵的正交性</strong>：把两个符号 s₁、s₂ 在 2 天线 × 2 时隙里按 <code>[s₁ -s₂*; s₂ s₁*]</code> 交织分布，使得接收端做简单线性合并 <code>s̃₁ = h₁*y₁ + h₂*y₂*</code> 时，<strong>交叉项因正交性完全抵消</strong>，只剩目标符号 × (|h₁|²+|h₂|²) 的增益增强。</p>
+    <p><strong>全速率、满分集、线性译码、不需 CSI</strong>——这就是为什么它是 STBC 的经典。第 13 课的"吞吐减半"说法在此更正：那是针对一般冗余 STBC，Alamouti 是全速率的特例。</p>
+  </div>
+
+  <div class="lesson-foot">
+    <p>
+      <strong>本系列</strong>：<a href="./sup-0003-mimo-matrix-decoupling.html">← sup-0003 MIMO 矩阵</a> · <a href="./sup-0005-sounding-ndp-format.html">sup-0005 Sounding/NDP →</a><br>
+      <a href="./0013-mimo-basics.html">← 第 13 课 MIMO 基础</a> · <a href="../index.html">路线图</a> · <a href="../GLOSSARY.md">术语表</a>
+    </p>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

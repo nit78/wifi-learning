@@ -905,6 +905,131 @@
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
+  <h2>MIMO / 高级 PHY</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MIMO</span>
+      <span class="term-full">Multiple-Input Multiple-Output</span>
+      <span class="term-cn">· 多入多出</span>
+    </div>
+    <div class="term-body">
+      <p>收发两端都用<strong>多根天线</strong>。两条收益路线：</p>
+      <p><strong>①空间复用</strong>：同频同时传多路独立数据 → 提吞吐</p>
+      <p><strong>②分集</strong>：多路传同一数据副本 → 提可靠性/距离</p>
+      <p class="term-note">802.11n 引入，是 Wi-Fi 4/5/6/7 的 PHY 基石。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">空间流</span>
+      <span class="term-full">Spatial Stream</span>
+    </div>
+    <div class="term-body">
+      <p>同频同时传的<strong>独立数据流</strong>数。≤ min(发天线, 收天线)。<span class="term-val">802.11n ≤4 / ac ≤8 / ax ≤8</span>。</p>
+      <p class="term-note"><strong>吞吐 ≈ N × 单流速率</strong>。是 MIMO 提吞吐的根本。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">SU-MIMO</span>
+      <span class="term-full">Single-User MIMO</span>
+      <span class="term-cn">· 单用户 MIMO</span>
+    </div>
+    <div class="term-body">
+      <p>所有空间流<strong>都发给同一个 STA</strong>。802.11n 只有 SU-MIMO（≤4 流）。MIMO 的基础形态。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">分集 / Diversity</span>
+    </div>
+    <div class="term-body">
+      <p>多天线传<strong>同一数据的冗余副本</strong>，接收端合并 → 提 SNR/抗衰落。<strong>不增吞吐，增可靠性</strong>。和空间复用相反取舍。分发射分集（STBC）+ 接收分集（MRC）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">STBC</span>
+      <span class="term-full">Space-Time Block Coding</span>
+      <span class="term-cn">· 空时块编码</span>
+    </div>
+    <div class="term-body">
+      <p><strong>发射端分集</strong>（Alamouti 码）。多天线发冗余副本，接收端合并。<strong>不需反馈 CSI（盲发）</strong>。</p>
+      <p class="term-note">代价：吞吐约减半。802.11n/ac 可选，用于 SNR 差时保距离/可靠性。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MRC</span>
+      <span class="term-full">Maximal Ratio Combining</span>
+      <span class="term-cn">· 最大比合并</span>
+    </div>
+    <div class="term-body">
+      <p><strong>接收端分集</strong>。多天线收到同信号的多路副本，按 SNR 加权相干合并 → 最大化总 SNR。<strong>纯接收端 DSP，不需反馈，不减吞吐</strong>。</p>
+      <p class="term-note">802.11n/ac 标准，接收端多天线的"标配"。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">TxBF / 波束成形</span>
+      <span class="term-full">Transmit Beamforming</span>
+      <span class="term-cn">· 发射波束成形</span>
+    </div>
+    <div class="term-body">
+      <p><strong>发射端</strong>多天线<strong>加权对齐</strong>信号，在目标接收方处<strong>相干叠加增强</strong>（阵列增益）。<strong>需接收方反馈 CSI</strong>。</p>
+      <p class="term-note">增益大、不减吞吐，但开销高。802.11n 显式+隐式；<strong>802.11ac 只用显式</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CSI</span>
+      <span class="term-full">Channel State Information</span>
+      <span class="term-cn">· 信道状态信息</span>
+    </div>
+    <div class="term-body">
+      <p>描述收发之间信道特性的信息（每子载波幅度/相位响应）。<strong>波束成形的必需输入</strong>。由接收方测量后反馈给发射方。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Sounding / 探测</span>
+      <span class="term-full">Channel Sounding</span>
+    </div>
+    <div class="term-body">
+      <p>获取 CSI 的过程：发射方发 <strong>NDP（空数据包）</strong>→ 接收方测信道 → 反馈 CSI（压缩 V 矩阵）。802.11ac 用 VHT NDP，802.11ax 用 HE NDP。<strong>波束成形的前置步骤</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">显式 vs 隐式反馈</span>
+    </div>
+    <div class="term-body">
+      <p><strong>显式</strong>：接收方测信道后直接发回 CSI（准，有开销）。<strong>隐式</strong>：利用<strong>信道互易性</strong>从上行推下行——但 RF 链不一致要<strong>校准</strong>。</p>
+      <p class="term-note">802.11n 两种都支持；<strong>802.11ac 弃隐式只用显式</strong>（准、省事）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">信道互易性</span>
+      <span class="term-full">Channel Reciprocity</span>
+    </div>
+    <div class="term-body">
+      <p>TDD（时分双工）系统上下行同频不同时，信道特性<strong>对称</strong>。隐式波束成形靠它从上行推下行。Wi-Fi 是 TDD 理论上满足，但 RF 链不一致要校准。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
   <h2>PHY / 调制（物理层）</h2>
 
   <div class="term">

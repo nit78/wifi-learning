@@ -34,7 +34,10 @@
 
 ### 课外补充（独立编号空间 `sup-NNNN-`，不占主线编号）
 - [x] 补充 1（sup-0001）：Linux Wi-Fi 栈 —— 三类帧各在哪一层处理（LR-0015）。学员第 7 课后临时提问，为不打断协议主线单列。默认下一主线课仍是省电模式。
-- [x] 补充 2（sup-0002）：**事实核查专题** —— 对照 IEEE 802.11 标准/CWNA/CWNP/FCC/ETSI/NI 核查第 1–7 课。结论：7 项通过（BEB、DCF 时序、子载波、正交性、状态机、Beacon 间隔、piconet）；1 处实质错误（第 4 课/速查表 SNR 漏 Noise Figure）；4 处精度问题（SIFS 拆解数字非标准值、法规功率标签贴错频段、算例差 1 dB、quiz 标题矛盾）。详见 LR-0016 + `lessons/sup-0002-*.html`。⚠️ 待学员决定走 (A) 先修 RF 那处 还是 (B) 继续推进省电模式。
+- [x] 补充 2（sup-0002）：**事实核查专题** —— 对照 IEEE 802.11 标准/CWNA/CWNP/FCC/ETSI/NI 核查第 1–7 课。结论：7 项通过（BEB、DCF 时序、子载波、正交性、状态机、Beacon 间隔、piconet）；1 处实质错误（第 4 课/速查表 SNR 漏 Noise Figure）；4 处精度问题（SIFS 拆解数字非标准值、法规功率标签贴错频段、算例差 1 dB、quiz 标题矛盾）。详见 LR-0016 + `lessons/sup-0002-*.html`。
+- [x] 补充 3（sup-0003）：**MIMO 矩阵解耦** —— 为什么两流不干扰。y=Hx+n 模型 → SVD 拆 H=UΣVᴴ → 发端 V 预编码 + 收端 Uᴴ 后编码 → 解耦成独立标量子信道。波束成形是单流特例。学员第 13 课后要求"把要深入的在课外课实现"。
+- [x] 补充 4（sup-0004）：**Alamouti STBC 数学** —— 2×1 经典码。编码矩阵 [s₁ -s₂*; s₂ s₁*] 正交 → 线性合并 s̃₁=h₁*y₁+h₂*y₂* 时交叉项抵消。全速率、满分集、不需 CSI。⚠️ 更正第 13 课"STBC 吞吐减半"的说法——Alamouti 是全速率，减半是针对一般冗余 STBC。
+- [x] 补充 5（sup-0005）：**Sounding/NDP 帧格式实战** —— 波束成形协议入口。NDPA（AID12/Feedback Type/Nc）→ NDP（已知内容测信道）→ Compressed BF（压缩 V 矩阵）→ 多 STA 用 BRP 轮询。SU 3 帧、MU 每 STA 多 2 帧。和驱动调试最相关。
 
 **编号规范**：主线课用 `000N-`，课外补充用 `sup-NNNN-`。补充不占主线编号，主线第 8 课仍留给协议内容（省电模式 Power Save，第 7 课 AID/TIM/PS-Poll 伏笔）。
 

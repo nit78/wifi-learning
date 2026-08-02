@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>课外补充 5 · Sounding/NDP 帧格式实战 —— 波束成形的协议入口</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .seq-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.6;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .seq-diagram .ap { color: #b8761c; font-weight: 700; }
+  .seq-diagram .sta1 { color: var(--accent); font-weight: 700; }
+  .seq-diagram .sta2 { color: #6a3aa0; font-weight: 700; }
+  .seq-diagram .frame { color: var(--ink); font-weight: 600; }
+  .seq-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .seq-diagram .sifs { color: #2f6b42; font-weight: 600; }
+
+  .frame-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .frame-table th, .frame-table td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .frame-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .frame-table tbody tr:last-child td { border-bottom: none; }
+  .frame-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .frame-table .mono { font-family: var(--mono); }
+  .frame-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .frame-layout {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    line-height: 1.6;
+    background: #f7f4ec;
+    border-left: 3px solid #6a3aa0;
+    padding: 0.8rem 1rem;
+    margin: 1.2rem 0;
+    border-radius: 0 4px 4px 0;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--ink);
+  }
+  .frame-layout .hdr { color: var(--accent); font-weight: 700; }
+  .frame-layout .annot { color: var(--ink-faint); font-style: italic; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    课外补充 sup-0005 · Sounding 协议实战 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="./0013-mimo-basics.html">← 第 13 课 MIMO 基础</a> ·
+    <a href="./sup-0003-mimo-matrix-decoupling.html">← sup-0003 MIMO 矩阵</a> ·
+    <a href="./sup-0004-alamouti-stbc-math.html">← sup-0004 Alamouti</a>
+  </div>
+
+  <h1>Sounding/NDP 帧格式实战 —— 波束成形的协议入口</h1>
+
+  <p>这是第 13 课波束成形/sounding 的<strong>协议实战深入</strong>。前两节补充（sup-0003 矩阵、sup-0004 Alamouti）是"数学为什么"，这节是<strong>"协议怎么跑"</strong>——波束成形到底用哪些帧、字段装什么、抓包怎么读。<strong>这是三个补充里和你做协议栈工作最相关的一个</strong>。</p>
+
+  <p>第 13 课讲了 sounding 概念（发 NDP → 测信道 → 反馈 CSI）。这课把它<strong>拆到帧级</strong>：NDPA、NDP、VHT Compressed Beamforming、BRP 这些帧各自长啥样、谁先发、字段含义。学完你能在 Wireshark 里读懂一整套 sounding 交换。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 全景：一次 sounding 用到哪些帧</h2>
+
+  <p>波束成形前必须先 sounding 拿 CSI。802.11ac 的显式 sounding 用<strong>一组帧</strong>完成：</p>
+
+  <div class="seq-diagram">
+<span class="ap">BeamFormer (AP, 想做波束成形)</span>   <span class="sta1">BeamFormee 1</span>   <span class="sta2">BeamFormee 2</span>
+    │                                      │                    │
+    │ ① <span class="frame">VHT NDPA</span> (通知: 马上来 NDP)        │                    │
+    │ ────────────────────────────────────▶│───────────────────▶│  <span class="note">广播/单播 Action 帧</span>
+    │                                      │                    │
+    │ ② <span class="frame">VHT NDP</span> (空数据包, 已知内容)        │                    │
+    │ ───────────────────<span class="sifs">SIFS</span>────────────▶│───────────────────▶│  <span class="note">收方测信道</span>
+    │                                      │                    │
+    │ ③ <span class="frame">VHT Compressed BF</span> (CSI 反馈)        │                    │
+    │ ◀──────────────────<span class="sifs">SIFS</span>────────────── │                    │  <span class="note">STA1 先回 (NDPA 列表顺序)</span>
+    │                                      │                    │
+    │ ④ <span class="frame">BRP</span> (Beamforming Report Poll)       │                    │
+    │ ───────────────────<span class="sifs">SIFS</span>────────────▶│                    │  <span class="note">点名 STA2 回反馈</span>
+    │                                      │                    │
+    │ ⑤ <span class="frame">VHT Compressed BF</span>                   │                    │
+    │ ◀──────────────────<span class="sifs">SIFS</span>──────────────────────────────────── │  <span class="note">STA2 回 CSI</span>
+    │                                      │                    │
+    │ <span class="note">现在 AP 有所有 STA 的 CSI, 可以做 MU-MIMO 波束成形了</span>          │
+</div>
+
+  <p>关键点：</p>
+  <ul>
+    <li><strong>NDPA 先行</strong>：NDP 不能直接发，要先发 NDPA 告诉接收方"准备好，NDP 马上来"——否则接收方不知道这个帧是来探测信道的。</li>
+    <li><strong>SIFS 间隔</strong>：每对帧之间是 SIFS（16μs），保持交换紧凑不被打断。这是第 5 课 SIFS 作为"进行中对话"优先级的体现。</li>
+    <li><strong>多 STA 轮询</strong>：MU-MIMO 场景下 AP 给多个 STA sounding，反馈按 NDPA 里的 STA 顺序逐个回，靠 BRP（Beamforming Report Poll，波束成形报告轮询）点名。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② NDPA 帧：sounding 的"开场通知"</h2>
+
+  <p>NDPA (NDP Announcement, NDP 通告) 是个<strong>Action 管理帧</strong>，作用是通知"NDP 要来了，以下是该测信道的 STA 列表"：</p>
+
+  <div class="frame-layout">
+VHT NDPA 帧布局:
+┌──────────┬──────────┬─────────┬─────────┬──────────────────────┐
+│ <span class="hdr">Frame Ctrl</span> │ <span class="hdr">Duration</span> │ <span class="hdr">Addr1=RA</span> │ <span class="hdr">Addr2=TA</span> │ <span class="hdr">Category + Action</span>     │
+└──────────┴──────────┴─────────┴─────────┴──────────────────────┘
+                                                  │
+                          ┌───────────────────────┴───────────────────────┐
+                          │  Sounding Dialogue Token (1B, 序号)            │
+                          ├───────────────────────────────────────────────┤
+                          │  <span class="hdr">STA Info 1</span>: AID12 (12b) + Feedback Type (1b) + Nc (3b) │
+                          ├───────────────────────────────────────────────┤
+                          │  <span class="hdr">STA Info 2</span>: ... (多 STA 时有多个)             │
+                          └───────────────────────────────────────────────┘
+
+<span class="annot">RA: 单 STA 时是该 STA 地址; 多 STA 时是广播</span>
+<span class="annot">TA: BeamFormer (AP) 的地址</span>
+<span class="annot">STA Info 列表的【顺序】决定后面 CSI 反馈的顺序</span>
+</div>
+
+  <p><strong>STA Info 子字段</strong>是 NDPA 的核心，每个要 sounding 的 STA 一个：</p>
+
+  <table class="frame-table">
+    <thead><tr><th>子字段</th><th>位数</th><th>含义</th></tr></thead>
+    <tbody>
+      <tr><td class="num">AID12</td><td class="mono">12 bit</td><td>STA 的 AID（关联标识，第 7 课），标识"该你测信道"</td></tr>
+      <tr><td class="num">Feedback Type</td><td class="mono">1 bit</td><td>0 = SU（单用户反馈），1 = MU（多用户反馈）</td></tr>
+      <tr><td class="num">Nc Index</td><td class="mono">3 bit</td><td> steering 矩阵的最大列数 Nc − 1（波束成形维度）</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>STA Info 的顺序很重要</strong>：它决定了谁先回 CSI。NDPA 里 STA Info 1 对应的 STA 在 NDP 后第一个回 Compressed BF，STA Info 2 由 AP 用 BRP 点名回。<strong>这是协议级的"反馈调度"</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ NDP 帧：已知内容的"探测帧"</h2>
+
+  <p>NDP (Null Data Packet, 空数据包) 在 NDPA 后 SIFS 发出。它<strong>没有数据载荷</strong>（所以叫 Null），但有完整的 PHY 前导码（preamble）——前导码的训练字段（training fields）内容<strong>双方已知</strong>。</p>
+
+  <div class="callout key">
+    <span class="callout-title">NDP 为什么能测信道</span>
+    <p>接收方知道 NDP 前导码"应该是什么样"，收到后拿实际信号和"应有信号"对比，<strong>反推出每个子载波的信道响应</strong>（幅度+相位）。这就是 CSI。原理和 OFDM 的训练序列（第 2 课）一样——已知信号过未知信道，从输出推信道。</p>
+  </div>
+
+  <p>NDP 在 802.11ac 叫 VHT NDP，在 802.11ax 叫 HE NDP。它们的 PHY 头标识自己"这是 NDP"（比如 VHT Signal A 字段里有 bit 标记），让接收方进 sounding 处理路径而非数据接收路径。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ VHT Compressed Beamforming：CSI 怎么传回来</h2>
+
+  <p>接收方测完信道后，要把 CSI 反馈给 AP。原始 CSI 数据量大（每个子载波×每个天线对的复数），802.11ac 用<strong>压缩格式 VHT Compressed Beamforming</strong>——传的是<strong>压缩后的 V 矩阵</strong>（sup-0003 讲的 SVD 里那个 V，发端预编码权重）。</p>
+
+  <div class="frame-layout">
+VHT Compressed Beamforming 帧:
+┌──────────┬──────────┬─────────────────────────────────┐
+│ <span class="hdr">MAC Hdr</span>  │ <span class="hdr">Category</span> │ <span class="hdr">VHT MIMO Control + Compressed BF</span>  │
+│(Action)  │ (VHT)    │   <span class="annot">(压缩后的 V 矩阵反馈)</span>     │
+└──────────┴──────────┴─────────────────────────────────┘
+
+<span class="annot">VHT MIMO Control: 标识这是给谁的反馈、什么粒度</span>
+<span class="annot">Compressed BF: 实际的 V 矩阵角度数据 (Givens 旋转参数化)</span>
+</div>
+
+  <p>注意：<strong>反馈的是 V 矩阵（发端预编码权重），不是原始 H</strong>。这样 AP 拿到 V 直接就能用，不用自己再做 SVD。<strong>这是"显式反馈"的精髓</strong>——接收方做了重活（测 H + 算 SVD），把结果 V 交给 AP。</p>
+
+  <span class="sidenote">
+    压缩用的是 Givens 旋转参数化——把酉矩阵 V 表示成一组角度，比存复数矩阵省空间。这是协议设计在"准确性 vs 开销"上的权衡。
+  </span>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ BRP：多 STA 场景的"点名"帧</h2>
+
+  <p>多 STA sounding 时（MU-MIMO 前置），多个 STA 要回 CSI，但不能同时回（会碰撞）。协议用 <strong>BRP (Beamforming Report Poll, 波束成形报告轮询)</strong> 逐个点名：</p>
+
+  <ul>
+    <li>NDPA 里 STA Info 列表的<strong>第一个 STA</strong> 在 NDP 后自动回（不用点名）。</li>
+    <li>第二个及以后的 STA，AP 发 <strong>BRP 帧逐个点名</strong>："STA2，该你回了" → STA2 回 Compressed BF → AP 再 BRP STA3...</li>
+  </ul>
+
+  <p>这避免了多 STA 同时反馈的碰撞，代价是 sounding 时长变长（STA 越多越久）。<strong>这是 MU-MIMO 开销的来源之一</strong>——为什么 MU-MIMO 的 sounding 比 SU-MIMO 重。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑥ SU vs MU Sounding：帧序列对比</h2>
+
+  <table class="frame-table">
+    <thead>
+      <tr><th>场景</th><th>帧序列</th><th>开销</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">SU 波束成形（单 STA）</td>
+        <td class="mono">NDPA → NDP → Compressed BF</td>
+        <td>小（3 帧）</td>
+      </tr>
+      <tr>
+        <td class="num">MU 波束成形（多 STA）</td>
+        <td class="mono">NDPA → NDP → BF(STA1) → BRP → BF(STA2) → BRP → BF(STA3)...</td>
+        <td>大（每 STA 多 2 帧）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>这就是为什么 802.11ac 的 MU-MIMO 实际增益常被打折——<strong>sounding 开销吃掉了一部分波束成形增益</strong>。STA 越多、移动越快（信道变化快要反复 sounding），开销越明显。这也是 802.11ax 引入新的 HE sounding 优化（更紧凑、支持 OFDMA 并行 sounding）的动机。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：sounding 协议落代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>sounding 在协议栈里的落点（这节最贴你的工作）：</p>
+    <ul>
+      <li><strong>NDPA/NDP 收发</strong>：AP 模式要构造并发 NDPA + NDP；STA 模式要识别 NDPA、进 sounding 路径、测信道、构造 Compressed BF 回发。SoftMAC 在 mac80211 + 固件配合；FullMAC 主要在固件。</li>
+      <li><strong>BRP 状态机</strong>：多 STA sounding 是个小型状态机（NDPA → 等 NDP → 等 STA1 反馈 → 发 BRP 点 STA2 → ...）。你要维护"当前轮到谁、超时没回怎么办"。<strong>BRP 超时是常见 bug</strong>——STA 没在 SIFS 内回反馈，AP 要重试或放弃该 STA。</li>
+      <li><strong>CSI/V 矩阵存储</strong>：每个 STA 的 V 矩阵要存起来用于后续波束成形。信道变化后要重新 sounding 更新。<strong>缓存过期策略</strong>（多久重 sounding）是性能/准确性权衡的关键参数。</li>
+      <li><strong>调试</strong>：Wireshark monitor mode 能看到 NDPA/NDP/Compressed BF/BRP 这套帧序列。波束成形不生效 → 先抓包看 sounding 是否完成；吞吐低 → 看 sounding 频率（是不是太频繁吃开销）。<span class="mono">iw dev wlan0 station dump</span> 里有 <span class="mono">tx bitrate flags</span> 显示是否激活了 TxBF。</li>
+      <li><strong>常见 bug</strong>：①STA 不支持显式反馈（能力位没协商）导致 AP 发不出 NDPA；②SIFS 超时导致 BRP 链断裂；③CSI 压缩解压不对导致 V 矩阵错、波束对错方向；④移动场景下 sounding 过期未更新。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>一句话总结</h2>
+
+  <div class="callout key">
+    <p>波束成形的 sounding 是<strong>一组管理帧的协作交换</strong>：NDPA 通知 → NDP 探测（已知内容测信道）→ Compressed BF 反馈 V 矩阵（压缩的发端权重）→ 多 STA 时 BRP 点名轮询。每个帧带具体字段（STA Info 的 AID/Feedback Type/Nc），抓包能逐字段读。</p>
+    <p><strong>这套协议是波束成形/MU-MIMO 落到协议栈的实体</strong>——sup-0003 讲的"V 矩阵从哪来"，答案就在这组的 Compressed BF 帧里。你做驱动调试波束成形，90% 时间在调这套 sounding 帧序列。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>三个补充课的关系</h2>
+
+  <p>这三个补充课构成 MIMO 数学/协议的完整闭环：</p>
+  <ol>
+    <li><strong>sup-0003 矩阵解耦</strong>：为什么两流不干扰（SVD 把 H 拆成正交模式，V/U 预编码后编码）</li>
+    <li><strong>sup-0004 Alamouti</strong>：为什么 STBC 盲发也能分集（编码矩阵正交性让交叉项抵消）</li>
+    <li><strong>sup-0005 Sounding/NDP</strong>：波束成形的 V 矩阵怎么从协议传回来（NDPA→NDP→Compressed BF）</li>
+  </ol>
+
+  <p>主线第 13 课是"概念地图"，这三个补充是"为什么的数学+协议"。回到主线，第 14 课讲 <strong>MU-MIMO + OFDMA</strong>（Wi-Fi 6 真正核心）——它会用到这里 sup-0003 的多模式解耦（MU-MIMO 是把不同模式分给不同 STA）和 sup-0005 的多 STA sounding。</p>
+
+  <div class="lesson-foot">
+    <p>
+      <strong>本系列</strong>：<a href="./sup-0003-mimo-matrix-decoupling.html">← sup-0003 MIMO 矩阵</a> · <a href="./sup-0004-alamouti-stbc-math.html">← sup-0004 Alamouti</a><br>
+      <a href="./0013-mimo-basics.html">← 第 13 课 MIMO 基础</a> · <a href="../index.html">路线图</a> · <a href="../GLOSSARY.md">术语表</a>
+    </p>
+    <div class="ask-prompt">
+      💡 这三个补充课讲完。回主线 <a href="./0013-mimo-basics.html">第 13 课</a> 复习，或直接说「继续」进 <strong>第 14 课 MU-MIMO + OFDMA</strong>。如果某个补充还想深入（比如 sup-0003 的注水定理、sup-0005 的 Givens 旋转压缩细节），告诉我。
+    </div>
+  </div>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>
