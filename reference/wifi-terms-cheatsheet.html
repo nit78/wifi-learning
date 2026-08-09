@@ -1030,6 +1030,99 @@
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
+  <h2>Wi-Fi 6 多用户（MU-MIMO / OFDMA）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">MU-MIMO</span>
+      <span class="term-full">Multi-User MIMO</span>
+      <span class="term-cn">· 多用户 MIMO</span>
+    </div>
+    <div class="term-body">
+      <p>AP 的多个空间流<strong>分给不同 STA</strong>。802.11ac Wave 2 下行 ≤4 用户，802.11ax 加上行 ≤8 用户。</p>
+      <p class="term-note"><strong>切空间域</strong>，适合大包高吞吐（视频/下载）。不适合小包 IoT。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">OFDMA</span>
+      <span class="term-full">Orthogonal Frequency Division Multiple Access</span>
+      <span class="term-cn">· 正交频分多址</span>
+    </div>
+    <div class="term-body">
+      <p>802.11ax 引入。把 OFDM 信道在<strong>频域</strong>切成多个 RU，AP 一次下行发多 STA、上行多 STA 同时发。</p>
+      <p class="term-note"><strong>切频域</strong>，适合小包多设备（IoT/语音）。和 MU-MIMO 互补，可组合（一个 RU 内做 MU-MIMO）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">RU</span>
+      <span class="term-full">Resource Unit</span>
+      <span class="term-cn">· 资源单元</span>
+    </div>
+    <div class="term-body">
+      <p>OFDMA 里分给一个 STA 的<strong>子载波组</strong>。标准尺寸：26/52/106/242/484/996/2×996 tone。</p>
+      <p><span class="term-val">26-tone ≈ 2MHz</span>（IoT 小包）<span class="term-val">996-tone ≈ 80MHz</span>（大包）</p>
+      <p class="term-note">20MHz 最多切 9 个 26-tone RU（服务 9 个 STA）。分配由 AP 在 HE-SIG-B 字段通告。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">DL MU / UL MU</span>
+      <span class="term-full">Downlink / Uplink Multi-User</span>
+    </div>
+    <div class="term-body">
+      <p><strong>DL MU</strong>：AP 同时发多 STA（802.11ac 起）。<strong>UL MU</strong>：多 STA 同时发 AP（802.11ax 新增——靠 Trigger 调度，STA 不能自调度上行）。</p>
+      <p class="term-note">Wi-Fi 6 真正突破之一就是<strong>上行多用户</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Trigger Frame</span>
+      <span class="term-full">触发帧</span>
+    </div>
+    <div class="term-body">
+      <p>802.11ax AP 发的控制帧，<strong>调度 UL OFDMA / UL MU-MIMO</strong>。带每 STA 的 RU 分配、目标 RSSI、MCS、空间流、PPDU 时长。</p>
+      <p class="term-note">STA 收到后用 HE TB PPDU 在分配的资源里同时上行。<strong>UL MU 必须由 Trigger 触发</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">HE TB PPDU</span>
+      <span class="term-full">HE Trigger-Based PPDU</span>
+      <span class="term-cn">· HE 触发基 PPDU</span>
+    </div>
+    <div class="term-body">
+      <p>STA 用于 UL OFDMA/UL MU-MIMO 的 PPDU 格式。收到 Trigger 后用它响应，<strong>只在分配的 RU/流里发</strong>。多 STA 同时发不同 RU → AP 一次收多个上行。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">HE-SIG-B</span>
+      <span class="term-full">HE Signal B field</span>
+    </div>
+    <div class="term-body">
+      <p>HE MU PPDU 里的字段，承载<strong>每 STA 的 RU 分配</strong>（谁占哪个 RU、几流、什么 MCS）。DL OFDMA 时 STA 靠它找自己的数据。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">BSS Color</span>
+      <span class="term-full">BSS 着色 / 空间复用</span>
+    </div>
+    <div class="term-body">
+      <p>802.11ax 引入。每 BSS 一个 1-63 颜色编号写在 PHY 头。STA 收帧看颜色——<strong>颜色不同（邻居）且信号弱</strong>，可提高 CCA 阈值继续发。高密度部署缓解同频干扰。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
   <h2>PHY / 调制（物理层）</h2>
 
   <div class="term">

@@ -539,6 +539,30 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 **Cyclic Shift Diversity (CSD, 循环移位分集)**：
 [待学] 802.11n/ac 发送同一流到多天线时，给每根天线一个不同的循环时移，避免多天线发同信号造成<strong>空间强零点</strong>（某些位置信号相消）。是单流多天线发送的"防相消"技术。绿色发送前导码时常用。
 
+**MU-MIMO (Multi-User MIMO, 多用户 MIMO)**：
+[已学] AP 的多个空间流<strong>分给不同 STA</strong>（而不是全给一个 STA）。802.11ac Wave 2 引入下行 MU-MIMO（最多 4 用户），802.11ax 加上上行 MU-MIMO（最多 8 用户）。把 sup-0003 的多空间模式<strong>分配给不同物理接收方</strong>。适合<strong>大包高吞吐</strong>（视频/下载），不适合小包 IoT。
+
+**OFDMA (Orthogonal Frequency Division Multiple Access, 正交频分多址)**：
+[已学] 802.11ax (Wi-Fi 6) 引入。把 OFDM 信道在频域切成多个 <strong>RU (Resource Unit, 资源单元)</strong>，AP 一次下行同时发给多个 STA（各占不同 RU）、上行多 STA 同时发。和 MU-MIMO 互补：OFDMA 切<strong>频域</strong>（适合小包多设备），MU-MIMO 切<strong>空间域</strong>（适合大包高吞吐）。两者可组合（一个 RU 内做 MU-MIMO）。
+
+**RU (Resource Unit, 资源单元)**：
+[已学] 802.11ax OFDMA 里分配给一个 STA 的<strong>子载波组</strong>。标准尺寸按 2 的幂：26/52/106/242/484/996/2×996 tone（音调）。26-tone ≈ 2MHz（IoT 小包），996-tone ≈ 80MHz（大包）。20MHz 信道最多切 9 个 26-tone RU（服务 9 个 STA）。RU 分配由 AP 在 HE-SIG-B 字段通告。
+
+**DL MU / UL MU (Downlink / Uplink Multi-User)**：
+[已学] 多用户传输的两个方向。<strong>DL MU</strong>：AP 同时发给多个 STA（802.11ac 起，下行 MU-MIMO/OFDMA）。<strong>UL MU</strong>：多个 STA 同时发给 AP（802.11ax 新增——靠 <strong>Trigger Frame</strong> 调度，STA 不能自调度上行）。Wi-Fi 6 真正的突破之一就是<strong>上行多用户</strong>。
+
+**Trigger Frame (触发帧)**：
+[已学] 802.11ax AP 发的控制帧，<strong>调度 UL OFDMA / UL MU-MIMO</strong>。携带每个 STA 的 RU 分配、目标 RSSI、MCS、空间流、PPDU 时长。STA 收到后用 <strong>HE TB PPDU (Trigger-Based PPDU, 触发基 PPDU)</strong> 在分配的资源里同时上行。UL MU 必须由 Trigger 触发（STA 不能自调度上行）。也分 Basic Trigger / MU-RTS / BSRP 等子类型。
+
+**HE TB PPDU (HE Trigger-Based PPDU, HE 触发基 PPDU)**：
+[已学] 802.11ax STA 用于 UL OFDMA/UL MU-MIMO 的 PPDU 格式。STA 收到 Trigger Frame 后用它响应，<strong>只在 Trigger 分配的 RU/空间流里发</strong>。多个 STA 同时发不同 RU → AP 一次收多个 STA 的上行。是 UL MU 的承载格式。
+
+**HE-SIG-B (HE Signal B field)**：
+[已学] 802.11ax HE MU PPDU 里的字段，承载<strong>每个 STA 的 RU 分配信息</strong>（哪个 STA 占哪个 RU、用几流什么 MCS）。DL OFDMA 时 STA 靠它知道"自己的数据在哪个 RU"。是 OFDMA 调度的信令载体。
+
+**BSS Color / Spatial Reuse (BSS 着色 / 空间复用)**：
+[待学] 802.11ax 引入。每个 BSS 分配一个 1-63 的"颜色"编号，写在 PHY 头。STA 收到帧时先看颜色——<strong>颜色不同（邻居 BSS）且信号弱</strong>，可以提高 CCA 阈值继续发（不被邻居拖累）。是高密度部署（多 AP）缓解同频干扰的关键。下节课（第 15 课）讲。
+
 ---
 
 _后续课程每堂都会扩充本表。定义冲突或修正时，标注旧定义被哪条覆盖。_
