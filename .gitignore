@@ -21,6 +21,7 @@ desktop.ini
 # ===== ZCode / AI 工具本地缓存 =====
 # 会话计划等本地缓存, 不需要跟踪
 .zcode/
+.mimosa/
 
 # ===== 操作系统杂项 =====
 ehthumbs.db

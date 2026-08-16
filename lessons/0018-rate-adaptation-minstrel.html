@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 18 课 · 速率自适应 —— 谁在决定用哪个 MCS</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .neighbor { color: #b8761c; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 18 课 / Lesson 0018 · 速率自适应 · 高吞吐 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0017-roaming-fast-transition.html">← 第 17 课</a> ·
+    <a href="../index.html">路线图</a>
+  </div>
+
+  <h1>速率自适应 —— 谁在决定用哪个 MCS</h1>
+
+  <p>前面课里反复出现一句"信号差了就自动降到低 MCS"（第 13/15/16 课），但一直没回答：<strong>谁在选？怎么选？</strong>MCS 表有几十档（调制 × 码率 × 空间流），选高了丢包重传、选低了浪费吞吐——而且 Wi-Fi 没有基站指挥，<strong>发送端全靠自己猜</strong>。这课讲速率自适应 (Rate Adaptation / Rate Control)：从最朴素的 ARF 到 Linux 默认的 Minstrel-HT。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：没有反馈信道，只能试错</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>蜂窝网里基站拿 CSI 指挥手机用什么 MCS；Wi-Fi 里<strong>没有这个指挥</strong>——发送端能拿到的唯一可靠反馈是 <strong>ACK 到没到</strong>（或者 Block ACK 里哪些帧到了，第 12 课）。速率自适应的本质：<strong>用"成功/失败"的统计去猜当前信道能扛多高的速率</strong>。</p>
+    <p>两大门派：<strong>盲试派</strong>（拿丢包统计试出来，ARF/Minstrel）和<strong>信道测量派</strong>（直接看 SNR/CSI 查表，固件里常见）。前者不依赖硬件校准、对干扰鲁棒；后者反应快但 SNR↔MCS 映射因芯片而异、校准成本高。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 先看选项：MCS 表到底多大</h2>
+
+  <div class="cca-diagram">
+一条 11ac 链路的"菜单" (每条空间流):
+ MCS0  BPSK   1/2   (最远也能收)   <span class="note">← SNR 要求最低</span>
+ MCS1  QPSK   1/2
+ MCS2  QPSK   3/4
+ MCS3  16QAM  1/2
+ MCS4  16QAM  3/4
+ MCS5  64QAM  2/3
+ MCS6  64QAM  3/4
+ MCS7  64QAM  5/6
+ MCS8  256QAM 3/4
+ MCS9  256QAM 5/6                 <span class="note">← SNR 要求最高</span>
+ <span class="neighbor">× 空间流数 (1-8) × 带宽 (20/40/80/160) × 长短 GI</span>
+ <span class="bad">→ 组合数成百上千, 还要随信号实时换</span>
+</div>
+
+  <p>11ax 的 MCS10/11（1024-QAM，第 15 课）再添两档。而且注意：<strong>速率是每个 STA 一份的</strong>——AP 对远处的 IoT 用 MCS2、对桌上的笔记本用 MCS9，同时进行（这才让 OFDMA/MU-MIMO 有意义）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 朴素算法：ARF / AARF</h2>
+
+  <p><strong>ARF (Auto Rate Fallback)</strong>，1997 年就有，规则简单到一行：</p>
+
+  <div class="cca-diagram">
+ARF:
+ 连续 <span class="threshold">2 次</span>失败 → 降一档, 并设"定时器"
+ 定时器到 / 连续 <span class="threshold">10 次</span>成功 → 试探升一档
+   ↑ 升档失败? 立刻降回来, 定时器翻倍 (下次更晚再试)
+
+<span class="bad">问题: 阈值全是拍脑袋的常数 —— 信道好的时候升得太慢,
+       信道抖的时候降得太晚, 静态信道里反复无谓试探</span>
+</div>
+
+  <p><strong>AARF (Adaptive ARF)</strong> 把"连续成功次数"改成自适应（试探失败就翻倍，成功后回到 10），减少无谓试探。它们是理解后续算法的基线：<strong>所有速率自适应都是在回答"什么时候降、什么时候升、升试探多少"这三个问题</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ Minstrel：Linux 的正统答案</h2>
+
+  <p>Minstrel（"吟游诗人"，取自 Minstrel in the Gallery）思路换成<strong>统计吞吐最大化</strong>：不看次数阈值，直接维护每个速率的成功率和期望吞吐：</p>
+
+  <div class="cca-diagram">
+对每个速率 r 维护 (EWMA 平滑):
+   P(r)  = 成功率     <span class="note">(指数加权滑动平均, 新样本权重高, 忘得快)</span>
+   T(r)  = P(r) × 理论速率(r)   <span class="note">= 期望吞吐</span>
+
+每 100ms 一个统计周期, 每帧按概率选:
+   ~90%  用 <span class="good">max_tp</span>: T(r) 最大的速率      <span class="note">(挑吞吐)</span>
+   ~<span class="threshold">10%  用 sample</span>: 随机试别的速率(优先更高的)  <span class="note">(保持探索)</span>
+   退化时用 <span class="good">max_prob</span>: P(r) 最高的稳妥速率   <span class="note">(重传/低信号用, 保成功)</span>
+
+<span class="good">本质: 多臂老虎机问题 —— 90% 利用(exploit) + 10% 探索(explore)</span>
+</div>
+
+  <p>几个精妙细节：</p>
+
+  <ul>
+    <li><strong>重传链</strong>：Minstrel 还维护一张 retry chain——首发用 max_tp，失败后逐级降速重试（最后兜底到 max_prob），<strong>重传本身就是一次免费的探测</strong>。</li>
+    <li><strong>EWMA 忘得快</strong>：信道变了，旧统计迅速失效，几秒内换挡完成。</li>
+    <li><strong>吞吐而非成功率</strong>：一个 90% 成功的 MCS9 往往比 100% 成功的 MCS3 吞吐高（重传也划算）——ARF 类算法看不到这一点。</li>
+  </ul>
+
+  <p><strong>Minstrel-HT</strong>（11n 时代重写）是 Linux mac80211 至今的默认算法：把整个 MCS×流数×带宽 组成一个三维速率组统一统计，加了对 A-MPDU 的修正（见下节）。你在 <span class="mono">/sys/kernel/debug/ieee80211/phy0/netdev:wlan0/stations/&lt;mac&gt;/rc_stats</span> 能直接看到每档的成功率/吞吐/采样计数——<strong>调试速率问题的第一现场</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 聚合让统计变难</h2>
+
+  <p>第 12 课的 A-MPDU 聚合和速率自适应互相纠缠，这是实践中的难点：</p>
+
+  <div class="cca-diagram">
+无聚合: 1 帧 → 1 ACK → 成功/失败, 一清二楚
+
+有 A-MPDU: 64 帧打包 → 1 个 Block ACK:
+  ┌ frame1 ✓ ─ frame2 ✓ ─ frame3 <span class="bad">✗</span> ─ frame4 ✓ ... ┐
+  <span class="good">Block ACK 位图: 1101...11</span>   ← 一批 64 个样本一次拿回!
+
+ <span class="good">好处: 统计样本量暴增, 收敛快</span>
+ <span class="bad">麻烦1: "聚合成功率"≠"单帧成功率" —— 聚合本身要时间对齐, 速率高更容易坏</span>
+ <span class="bad">麻烦2: 速率决定聚合大小 (低速率帧耗时长, 聚太大占满 TXOP)</span>
+ <span class="bad">麻烦3: 11ax 以后统计粒度更细 (每 RU/每用户), 固件里叫 per-peer rate table</span>
+</div>
+
+  <p>Minstrel-HT 的应对：统计单位改为<strong>聚合成功率</strong>（ampdu_success/ampdu_len），并按聚合长度修正期望吞吐。FullMAC 芯片的固件里，速率表和聚合长度通常是<strong>联合调优</strong>的一个状态机——这也是厂商固件真正下功夫的地方之一。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ 另一派：SNR 查表（固件的私房菜）</h2>
+
+  <p>芯片厂商固件常用<strong>信道测量派</strong>：收包时记 RSSI/SNR（甚至信道估计的 EVM），按出厂校准的 SNR→MCS 映射表直接选档，丢包统计只做兜底修正。</p>
+
+  <ul>
+    <li><strong>优点</strong>：换挡快（一个包的 SNR 就够，不用等统计窗口）、上行选择更准（AP 对 STA 的链路质量在 AP 侧看包就知道）。</li>
+    <li><strong>缺点</strong>：SNR↔MCS 映射依赖射频链校准（每芯片每固件一份），干扰突发看不出（SNR 高但碰撞多），跨芯片不可比。</li>
+    <li><strong>11ax 之后趋势</strong>：协议本身在补反馈通道——上行触发帧里 AP 可以指定 STA 用什么参数（AP 主导的调度），等于把蜂窝那套"网络指挥"慢慢搬进 Wi-Fi。速率自适应正从"纯猜测"走向"半指挥"。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：rate control 落代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>速率控制在 Linux 栈的落点：</p>
+    <ul>
+      <li><strong>SoftMAC：mac80211 的 RC API</strong>。算法实现为模块：<span class="mono">rc80211_minstrel_ht.c</span>（默认）、可插拔（<span class="mono">ieee80211_rate_control_ops</span> 注册）。驱动每发一帧回调 <span class="mono">get_rate()</span>，收 ACK 后上报 <span class="mono">tx_status()</span> 供统计。</li>
+      <li><strong>FullMAC：速率表在固件</strong>。驱动/host 只下发初始速率限制（比如 11b-only 的 IoT 场景锁 MCS0），选择逻辑全在固件——固件工程师写的就是 per-peer 速率状态机 + 聚合联动 +（可能有的）SNR 查表。</li>
+      <li><strong>调试三板斧</strong>：① SoftMAC 看 <span class="mono">rc_stats</span>（每档成功率/吞吐/EWMA）；② <span class="mono">iw dev wlan0 station dump</span> 看 current rate/signal/重传统计；③ 抓包看实际 MCS 分布（Wireshark 的 Radiotap VHT/HE 字段）。"信号很好却跑在低 MCS"先看 rc_stats 是探测失败还是被限速。</li>
+      <li><strong>常见 bug</strong>：ACK 状态上报丢（tx_status 缺失 → 统计失真 → 卡在低档）；聚合长度和速率不联动（高速率聚太长 → 尾帧全坏）；多天线场景空间流升降抖动（1 流↔2 流来回切）；sample 比例设太高导致延迟敏感业务抖动。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：速率自适应吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="Wi-Fi 发送端选择速率时，最可靠的直接反馈是什么？"
+       data-explain="ACK（或 Block ACK 位图）到没到。Wi-Fi 没有蜂窝那样的基站调度反馈信道，发送端不能直接被告知'信道支持 MCS 几'，只能靠传输成功/失败的统计去推断。SNR 可以辅助（收包时测的），但 SNR→MCS 映射依赖芯片校准且看不到碰撞干扰。这就是'盲试派'算法（ARF/Minstrel）存在的根本原因。">
+    <script type="application/json">
+      [
+        { "text": "ACK / Block ACK 的成功失败统计", "correct": true },
+        { "text": "AP 下发的 MCS 指令",              "correct": false },
+        { "text": "Beacon 里的速率通告",              "correct": false },
+        { "text": "对端 STA 的 CTS 帧率",            "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Minstrel 每 100ms 统计周期里，sample（试探别的速率）占约多少？为什么要保留这部分？"
+       data-explain="约 10%。如果永远只发当前最优速率，其他速率的统计会过期——信道变好后你永远不知道（没有样本就没法更新成功率）。这是典型的多臂老虎机权衡：~90% 利用当前最优（max_tp，保吞吐），~10% 探索其他速率（保信息）。探索比例太高浪费吞吐，太低反应迟钝，10% 是实测的平衡点。">
+    <script type="application/json">
+      [
+        { "text": "约 10%；不试探的话其他速率的统计会过期，信道变好就发现不了", "correct": true },
+        { "text": "约 50%；一半试探才公平",                                     "correct": false },
+        { "text": "0%；Minstrel 从不试探，只看 SNR",                             "correct": false },
+        { "text": "约 10%；法规要求留探测带宽",                                   "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="为什么 Minstrel 选'期望吞吐 T(r)=P(r)×理论速率'最大的速率，而不是成功率最高的速率？"
+       data-explain="因为重传是可以接受的。90% 成功的 MCS9 期望吞吐 = 0.9×高理论速率，往往远高于 100% 成功的 MCS3——偶尔丢一次重传即可，总吞吐仍更高。成功率最高（max_prob）的速率只在重传兜底/信号很差时用，保证'至少能发出去'。ARF 类按次数阈值升降，看不到'高失败率高吞吐更划算'这种全局比较。">
+    <script type="application/json">
+      [
+        { "text": "重传可接受，90% 成功的高速率总吞吐可能远超 100% 成功的低速率", "correct": true },
+        { "text": "因为成功率无法测量",                                        "correct": false },
+        { "text": "因为协议规定必须按吞吐选",                                   "correct": false },
+        { "text": "因为高速率更省电",                                           "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="A-MPDU 聚合给速率自适应带来了什么？"
+       data-explain="一好三难。好：一个 Block ACK 位图一次带回几十个样本，统计收敛极快。难：①聚合成功率≠单帧成功率，聚合对时间对齐敏感，速率高更容易坏尾部帧，统计要按聚合修正；②速率和聚合长度要联动（低速率聚合太长会占满 TXOP）；③11ax 后还有 per-RU/per-user 的粒度。Minstrel-HT 因此把统计单位改成了聚合成功率（ampdu_success/ampdu_len）。">
+    <script type="application/json">
+      [
+        { "text": "样本暴增收敛快，但聚合成功率/聚合长度联动/per-user 粒度都更难了", "correct": true },
+        { "text": "没有影响，聚合只是 MAC 层的事",                                 "correct": false },
+        { "text": "让速率自适应不再需要，Block ACK 里直接告诉你最优速率",           "correct": false },
+        { "text": "只影响下行，上行速率还是靠猜",                                   "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：90% 利用 + 10% 探索</h2>
+
+  <p>学完这课，你脑子里应该有：</p>
+  <ol>
+    <li><strong>问题本质</strong>：无指挥反馈信道，只能拿 ACK 统计试错；盲试派（ARF→Minstrel）vs 测量派（SNR 查表）</li>
+    <li><strong>ARF/AARF</strong>：次数阈值升降档——所有算法的基线，三个问题：何时降、何时升、试探多少</li>
+    <li><strong>Minstrel</strong>：EWMA 成功率 + 期望吞吐最大化 + 90% 利用/10% 探索 + retry chain；Minstrel-HT 是 Linux 默认</li>
+    <li><strong>聚合纠缠</strong>：Block ACK 位图样本暴增，但聚合成功率≠单帧成功率，速率与聚合长度要联动</li>
+    <li><strong>趋势</strong>：11ax 起 AP 调度权增强，速率自适应从纯猜测走向半指挥</li>
+  </ol>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>看 rc_stats 判断"信号好但速率低"是探测失败、被限速还是统计失真</li>
+    <li>解释为什么手机走远后吞吐是逐渐降而不是断崖（EWMA 平滑 + retry chain 兜底）</li>
+    <li>理解 FullMAC 固件里 per-peer 速率状态机和聚合的联动设计</li>
+    <li>用 station dump + 抓包的 MCS 分布验证速率自适应行为</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>🏁 查漏补缺三连完成</h2>
+
+  <div class="callout key">
+    <span class="callout-title">里程碑：三大缺口闭合</span>
+    <p>第 16–18 课把课程盘点的三个高优缺口全部补上：</p>
+    <ul>
+      <li><strong>第 16 课</strong>：信道绑定与频谱划分（吞吐主线地基：20/40/80/160、主辅信道、打洞、6GHz）</li>
+      <li><strong>第 17 课</strong>：漫游 802.11r/k/v（路线图第 6 步最后一块：FT 密钥层级、邻居报告、BSS Transition）</li>
+      <li><strong>第 18 课</strong>：速率自适应（ARF→Minstrel-HT，吞吐与可靠的权衡算法）</li>
+    </ul>
+    <p>至此 MAC/吞吐主线知识地图完整。剩下的低优先主题（Beacon/IE 逐字段、Wi-Fi 7/MLO 深入、干扰共存）可按需要再开课。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课方向</strong>（可选）：mac80211 驱动框架代码导读 / Wi-Fi 7 (MLO) / Beacon/IE 逐字段拆解 / 综合复盘。<br>
+      <a href="./0017-roaming-fast-transition.html">← 第 17 课</a> ·
+      <a href="../index.html">路线图</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进驱动实战」<br>
+      • 「Minstrel-HT 的三维速率组结构想细看」<br>
+      • 「Wi-Fi 7 的 MLO 想了解」<br>
+      • 「来一份全课程知识地图总复盘」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://wireless.wiki.kernel.org/en/developers/documentation/mac80211/ratecontrol/minstrel">Minstrel — Linux Wireless Wiki</a>（EWMA、90/10 利用探索、retry chain）</li>
+    <li><a href="http://lwireless.sourceforge.net/docs/paper_minstrel.pdf">Minstrel Rate Adaptation Algorithm (原始论文/文档)</a>（期望吞吐公式、统计周期）</li>
+    <li><a href="https://blog.espresso.works/2020/12/24/802-11-rate-control-algorithms.html">802.11 Rate Control Algorithms Survey</a>（ARF/AARF/SampleRate/ONOE 对比）</li>
+    <li><a href="https://www.cs.cornell.edu/people/egs/cornellonly/syslunch/spring04/papers/Onoe.pdf">Madwifi Onoe Rate Control</a>（基于错误率的定时升降档思路）</li>
+    <li><a href="https://minstrel.rt.fm/">Minstrel-HT 资源页</a>（11n 三维速率组、ampdu 统计修正）</li>
+    <li><a href="https://wireless.wiki.kernel.org/en/developers/documentation/mac80211/development">mac80211 development docs</a>（RC API: get_rate/tx_status、rc_stats 调试）</li>
+    <li>CWNA-108 Study Guide, Ch.5（调制与数据速率回顾）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

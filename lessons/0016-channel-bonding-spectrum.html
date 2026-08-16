@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 16 课 · 信道绑定与频谱划分 —— 吞吐主线的地基</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .neighbor { color: #b8761c; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 16 课 / Lesson 0016 · 信道绑定与频谱划分 · 高吞吐地基 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0015-bss-color-he-phy.html">← 第 15 课</a> ·
+    <a href="../index.html">路线图</a>
+  </div>
+
+  <h1>信道绑定与频谱划分 —— 吞吐主线的地基</h1>
+
+  <p>第 12 课讲了聚合（一次发一大包）、第 14 课讲了 OFDMA（把信道切给多设备）——但有一块地基一直没铺：<strong>信道本身有多宽、怎么来的</strong>。Wi-Fi 的 "20/40/80/160 MHz" 不是天上掉下来的，是<strong>把相邻的 20MHz 信道绑在一起</strong>用。这课讲清楚：频谱怎么划分、信道怎么绑定、绑宽了付出什么代价。这是吞吐主线的最后一块拼图。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：一切从 20MHz 说起</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>OFDM（第 2 课）的基本单位是 <strong>20MHz 信道</strong>：64 个 312.5kHz 子载波（11n/ac），或 256 个 78.125kHz 子载波（11ax，第 15 课）。要更高吞吐，最粗暴的一招是<strong>把两个相邻 20MHz 绑成一个 40MHz</strong>——子载波翻倍，理论速率直接翻倍。这就是<strong>信道绑定 (Channel Bonding)</strong>。</p>
+    <p>但天下没有免费的带宽：绑得越宽，<strong>噪声底越高（第 4 课：带宽翻倍，噪声底 +3dB）、需要空闲的频谱越多、被邻居干扰的面越大</strong>。信道绑定是"用干扰容忍度换吞吐"的交易。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 频谱划分：2.4 / 5 / 6 GHz 三个战场</h2>
+
+  <p>先看地有多大。Wi-Fi 有三个频段，性格完全不同：</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>频段</th><th>范围</th><th>20MHz 信道数</th><th>特点</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="num">2.4 GHz</td>
+        <td class="mono">2.400–2.4835 GHz</td>
+        <td class="mono">11/13 个（互重叠！）</td>
+        <td>传播远、穿墙好；但只有 3 个<strong>不重叠</strong>信道（1/6/11），且与蓝牙/微波炉共处</td>
+      </tr>
+      <tr>
+        <td class="num">5 GHz</td>
+        <td class="mono">~5.150–5.895 GHz（各国不同）</td>
+        <td class="mono">20+ 个</td>
+        <td>带宽大户；部分信道要 DFS（雷达避让）；穿墙衰减大</td>
+      </tr>
+      <tr>
+        <td class="num">6 GHz (Wi-Fi 6E/7)</td>
+        <td class="mono">5.925–7.125 GHz</td>
+        <td class="mono">~59 个（含 7 个 160MHz）</td>
+        <td>2020 年开放，<strong>只许 Wi-Fi 6 及以上进入</strong>（无老协议拖累，无需等待).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="cca-diagram">
+2.4 GHz 的经典困境 —— 信道互相重叠 (每个 20MHz, 间隔只有 5MHz):
+
+ 1      6      11
+ ├──20MHz──┤
+      ├──20MHz──┤
+             ├──20MHz──┤
+ <span class="good">1/6/11 互相不重叠 → 唯一靠谱的三兄弟</span>
+ <span class="bad">选 3 和 6?  部分重叠 → 互相干扰且解不出来 → 比同信道更糟</span>
+
+5 GHz (编号规则: 信道号 ×5 = 中心频率 MHz 偏移, 如 ch36=5180):
+ ch36 ─ ch40 ─ ch44 ─ ch48 ─ ch52* ─ ch56* ─ ch60* ─ ch64* ...
+ <span class="note">*=DFS 信道: 先听雷达(CAC 60s), 听到就让路</span>
+</div>
+
+  <p><strong>DFS（动态频率选择）</strong>：5GHz 的部分频段与气象/军用雷达共用，法规要求 AP 上电先做 <strong>CAC（信道可用性检查，通常 60 秒）</strong>确认没雷达才能用；用着用着检测到雷达脉冲必须立刻让路（切换信道）。这是企业网和调试时常见的"AP 突然换信道了"的原因。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 40MHz：主信道 + 辅信道</h2>
+
+  <p>802.11n (Wi-Fi 4) 引入信道绑定。一个 40MHz 由<strong>主 20MHz (Primary 20MHz)</strong> + <strong>辅 20MHz (Secondary 20MHz)</strong> 组成：</p>
+
+  <div class="cca-diagram">
+                    40 MHz = 主 20 + 辅 20
+ ┌───────────────────────────┬───────────────────────────┐
+ │      <span class="threshold">Primary 20MHz (ch36)</span>      │      Secondary 20MHz (ch40)     │
+ │  <span class="mine">老设备在这里收发 20MHz 帧</span>          │  <span class="neighbor">只在绑定传输时才用</span>           │
+ │  Beacon/管理帧都走主信道   │  <span class="note">必须空闲才能绑着发</span>           │
+ └───────────────────────────┴───────────────────────────┘
+
+ 关键规则:
+  1. <span class="mine">主信道永远承载信令</span> —— Beacon、关联、老设备的 20MHz 帧全在主信道
+  2. <span class="neighbor">发 40MHz 帧前, 主+辅两个 20MHz 都必须 CCA 空闲</span>
+     <span class="note">(辅信道不用 DIFS/退避那套, 只需能量检测: 次信道空闲 ≥ 一个 CCA 时隙)</span>
+  3. 40MHz 帧的 <span class="threshold">前导码只在主 20MHz 上重复一份</span>在辅信道
+     <span class="note">→ 老 20MHz 设备听到也能正确设置 NAV, 不去撞辅信道</span>
+</div>
+
+  <p><strong>为什么这么设计</strong>：向后兼容。11n AP 带着一群 11a/b/g 老设备时，老设备只在主信道说话（它们不知道 40MHz 的存在）；靠主信道上的前导码重复，老设备也能"听到"40MHz 传输并退避。代价是<strong>一个 20MHz 老设备就能拖累整个 40MHz 小区</strong>——共存机制（20/40 Coexistence、Forty MHz Intolerant 位）允许老设备宣布"别绑了"，AP 退回 20MHz。2.4GHz 上这个机制几乎总是触发，<strong>所以 2.4GHz 实战中别指望 40MHz</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 80/160/80+80：VHT 的扩张 + 绑定的代价</h2>
+
+  <p>802.11ac (Wi-Fi 5) 把绑定推向 80/160MHz。结构是递归的：80 = 主 20 + 辅 20 + 辅 40；160 = 两个 80MHz 相邻绑定，或 <strong>80+80</strong>（两个不相邻的 80MHz，射频上分开、基带拼成 160 用——5GHz 频谱碎，连续 160MHz 不好找）。</p>
+
+  <table class="compare-table">
+    <thead><tr><th>带宽</th><th>HT/VHT 子载波数</th><th>HE 子载波数</th><th>理论吞吐×</th><th>噪声底</th></tr></thead>
+    <tbody>
+      <tr><td class="num">20 MHz</td><td class="mono">56/52 数据</td><td class="mono">242</td><td class="mono">1×</td><td class="mono">基准 (-101 dBm @ 20MHz)</td></tr>
+      <tr><td class="num">40 MHz</td><td class="mono">108</td><td class="mono">484</td><td class="mono">~2×</td><td class="mono">+3 dB</td></tr>
+      <tr><td class="num">80 MHz</td><td class="mono">234</td><td class="mono">996</td><td class="mono">~4×</td><td class="mono">+6 dB</td></tr>
+      <tr><td class="num">160 MHz</td><td class="mono">468</td><td class="mono">2×996</td><td class="mono">~8×</td><td class="mono">+9 dB</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout key">
+    <span class="callout-title">绑定不是免费的：三笔账</span>
+    <p><strong>第一笔，灵敏度账</strong>（第 4 课）：带宽翻倍 → 噪声底 +3dB → 相同 SNR 下可用 MCS 降一档。绑宽信道在<strong>远距离反而更慢</strong>——这是"我家 160MHz 怎么不如 80MHz"的头号原因。</p>
+    <p><strong>第二笔，CCA 账</strong>（第 5 课）：发 80MHz 帧要求主 20 + 辅 20 + 辅 40 + 辅 60 <strong>全部空闲</strong>。邻居越多、越宽的信道越难等到"全家空闲"——密集部署里 160MHz 的实际信道利用率常常惨不忍睹。</p>
+    <p><strong>第三笔，频谱账</strong>：5GHz 总共也就三四个不重叠的 160MHz。相邻两家 AP 都用 160 → 同信道复用 → 互相压 CCA。企业部署普遍用 20/40MHz 做频率规划，家宽才敢开 160。</p>
+  </div>
+
+  <p><strong>主信道位置也是部署变量</strong>：同一个 80MHz（如 ch36-48），主信道可以放在 ch36 也可以放在 ch44。相邻 AP 用<strong>相同 80MHz 但不同主 20MHz</strong>，能让各自的老设备/管理流量错开——这是企业频率规划的常规手法。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ Wi-Fi 6 的解法：Preamble Puncturing</h2>
+
+  <p>绑定最痛的是"辅信道有一个忙就全废"。802.11ax 给了破局手段：</p>
+
+  <div class="cca-diagram">
+传统 (11ac): 80MHz 传输要求全部 4 个 20MHz 空闲
+
+ ch36   ch40   ch44   ch48
+ ────── ────── ┌───── ──────
+  <span class="good">闲</span>     <span class="good">闲</span>    │<span class="bad">忙(邻居AP)</span>  <span class="good">闲</span>
+                ↑
+        <span class="bad">整个 80MHz 退避!  3/4 的频谱白白闲着</span>
+
+Preamble Puncturing (11ax):
+ ch36   ch40   ch44   ch48
+ ────── ────── ╳───── ──────
+  <span class="good">用</span>     <span class="good">用</span>    <span class="bad">打洞</span>     <span class="good">用</span>
+        <span class="good">→ 发 60MHz, 在前导码里声明"44 被打洞"</span>
+        <span class="good">→ 接收方知道这段是干扰, 信道估计时绕开它</span>
+</div>
+
+  <p><strong>Preamble Puncturing（前导码打洞）</strong>：发送端在 HE 前导码（HE-SIG-A 的带宽/打洞字段）里声明"哪些 20/40MHz 段被打洞不用"，其余照常 OFDMA 发送。接收方做信道估计时跳过洞，等于<strong>在忙频谱里见缝插针</strong>。Wi-Fi 7 (802.11be) 进一步把它扩展成更细粒度的 20MHz 打洞。这和 BSS Color（第 15 课）是一对：BSS Color 解决"听见了要不要退避"，打洞解决"退不掉的洞能不能绕开"。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ 6GHz：Wi-Fi 6E 的新大陆</h2>
+
+  <p>2020 年 FCC 开放 6GHz（5.925–7.125GHz，共 1200MHz）给免许可业务，Wi-Fi 6E/7 专用。它把本课所有痛点一次解决了一大半：</p>
+
+  <ul>
+    <li><strong>频谱大</strong>：约等于 2.4G + 5G 之和，能塞下 7 个互不重叠的 160MHz——绑定不再是稀缺品。</li>
+    <li><strong>没有老设备</strong>：法规只许 HE (Wi-Fi 6) 及以上协议进入，不存在 11b/g/n 拖累，无需 20/40 共存机制。</li>
+    <li><strong>无需 DFS 等待</strong>（标准功率模式仍要 AFC 自动频率协调查数据库，但不是雷达检测那套）。</li>
+    <li><strong>信令简化</strong>：不需要兼容旧前导码，发现/绑定流程更干净（用新的 Neighbor Report / Fast Initial Link Setup 机制）。</li>
+  </ul>
+
+  <p>代价：6GHz 穿墙衰减更大（频率越高越像光），实际覆盖半径比 5GHz 还小一圈——大频谱 + 小覆盖，6GHz 注定是<strong>同室高吞吐</strong>专用频段。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：信道上下文落代码哪里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>信道绑定和频谱管理在 Linux 栈里的落点：</p>
+    <ul>
+      <li><strong>cfg80211 regulatory</strong>：频段/信道/功率的法规数据库（CRDA / Linux 内置 regdb），DFS 状态机也在这层。固件工程师移植时要对齐固件的信道表和内核法规域——两边不一致是经典 bug（固件能发 ch144，内核说 NO_IR，连不上）。</li>
+      <li><strong>mac80211 channel context (chanctx)</strong>：每个在用的"信道+带宽+主信道位置"是一个 chanctx，AP/STA 加入对应 context。带宽切换（20↔40↔80）= 重构 chanctx + 通知固件切射频。多信道并发（如一个 2.4G + 一个 5G）= 多 chanctx + 时分切射频（MCC）。</li>
+      <li><strong>主辅信道协商</strong>：AP 在 Beacon 的 HT/VHT Operation IE 里通告带宽和辅信道位置；STA 驱动读它配置射频。抓包看 Beacon IE 是排查"为什么只跑 20MHz"的第一步。</li>
+      <li><strong>DFS/CAC</strong>：AP 模式选到 DFS 信道要先 CAC（内核有 CAC 定时器、雷达检测回调 <span class="mono">ieee80211_radar_detected</span>）；雷达触发后整网换信道，所有 STA 跟着 Beacon 找新家。</li>
+      <li><strong>常见 bug</strong>：主信道被邻居占满导致吞吐塌方（辅信道闲也用不上）；带宽能力位声明错（STA 声明 160 但射频只支持 80）；DFS 信道雷达误报（微波炉/蓝牙脉冲被当雷达）频繁跳信道。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：信道绑定吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="为什么 2.4GHz 实战中几乎用不了 40MHz 信道绑定？"
+       data-explain="三个原因叠加：① 频谱总共只有 83.5MHz，只能塞一个不重叠的 40MHz（1+6 绑起来就占了 2/3 频段，11 就没了）；② 老设备（11b/g/n 20MHz）极多，20/40 共存机制会检测到主辅信道上的 20MHz 设备并强制 AP 退回 20MHz；③ 还有蓝牙/微波炉在同频段捣乱。所以 2.4GHz 的正确姿势是固定 1/6/11 之一跑 20MHz。">
+    <script type="application/json">
+      [
+        { "text": "频谱太窄 + 老设备触发 20/40 共存退回 + 干扰源多", "correct": true },
+        { "text": "2.4GHz 的芯片不支持 40MHz",                    "correct": false },
+        { "text": "法规禁止 2.4GHz 使用信道绑定",                  "correct": false },
+        { "text": "2.4GHz 的子载波间隔不兼容",                     "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="AP 用 80MHz（ch36-48，主信道 ch36）。隔壁 BSS 正在 ch44（属于这个 80MHz 的辅 40 段）上发帧。802.11ac 的 STA 想发 80MHz 帧，会怎样？"
+       data-explain="11ac 要求整个 80MHz（主 20 + 辅 20 + 辅 40 + 辅 60）全部 CCA 空闲才能绑定发送。ch44 属于辅 40 段，它忙 → 整个 80MHz 传输做不了，STA 只能退避、或只用主 20MHz 发。这正是 Preamble Puncturing 要解决的问题——11ax 可以在 ch44 打洞，用剩下的 60MHz 照发。">
+    <script type="application/json">
+      [
+        { "text": "整个 80MHz 绑定发送失败，退避（或只发主 20MHz）", "correct": true },
+        { "text": "照发 80MHz，反正前导码在主信道上",                "correct": false },
+        { "text": "自动打洞，用其余 60MHz 发",                        "correct": false },
+        { "text": "发 RTS/CTS 把邻居赶走",                            "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="同一位置同一信号，AP 分别用 20MHz 和 160MHz。远处（SNR 较低）的 STA 实测速率：160MHz 反而更慢。最可能的解释？"
+       data-explain="带宽翻倍噪声底 +3dB：160MHz 比 20MHz 高 9dB。远距 SNR 本就紧张，再扣 9dB，可用 MCS 掉好几档，速率自适应算下来反而更低。宽信道的收益只在 SNR 富余（近距离）时才能兑现；远距离该降带宽。这就是很多驱动/AP 的'带宽自适应'功能存在的意义。">
+    <script type="application/json">
+      [
+        { "text": "带宽翻倍噪声底 +3dB，160MHz 比 20MHz 高 9dB，低 SNR 下可用 MCS 大幅下降", "correct": true },
+        { "text": "160MHz 的 OFDM 符号更长，开销更大",                                     "correct": false },
+        { "text": "160MHz 需要更多天线",                                                    "correct": false },
+        { "text": "法规限制 160MHz 的发射功率",                                              "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Preamble Puncturing 和 BSS Color 分别解决什么问题？"
+       data-explain="两者是搭档：BSS Color（第 15 课）解决'听见了邻居要不要退避'——弱邻居信号用高 OBSS_PD 阈值当没听见，实现空间复用；Preamble Puncturing 解决'绕不开的忙频段怎么办'——在前导码里声明打洞，跳过忙的 20/40MHz 段用剩余频谱发送。一个管'要不要让'，一个管'不让的话怎么绕'。Wi-Fi 7 把打洞粒度做得更细。">
+    <script type="application/json">
+      [
+        { "text": "BSS Color 管'要不要为邻居退避'；打洞管'忙频段怎么绕开继续用'", "correct": true },
+        { "text": "两者是同一机制的两个名字",                                     "correct": false },
+        { "text": "BSS Color 提高速率，打洞提高灵敏度",                            "correct": false },
+        { "text": "BSS Color 用于上行，打洞用于下行",                              "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：带宽是绑出来的</h2>
+
+  <p>学完这课，你脑子里应该有：</p>
+  <ol>
+    <li><strong>频谱地图</strong>：2.4G（3 个不重叠信道，别绑 40）、5G（20+ 信道，DFS 要让雷达）、6G（1200MHz 新大陆，只有 Wi-Fi 6+ 能进）</li>
+    <li><strong>信道绑定</strong>：40/80/160 = 主 20MHz + 逐级递归的辅信道；信令永远在主信道；绑定发送要求全带宽空闲</li>
+    <li><strong>三笔账</strong>：噪声底 +3dB/倍频、CCA 全家必须闲、频谱规划变挤——宽信道只在 SNR 富余 + 邻居少时划算</li>
+    <li><strong>Preamble Puncturing</strong>：11ax 起可在前导码声明打洞，绕开忙频段见缝插针；与 BSS Color 是一对</li>
+    <li><strong>驱动落点</strong>：cfg80211 法规/DFS、mac80211 chanctx、Beacon 里 HT/VHT Operation IE 的带宽协商</li>
+  </ol>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>解释"为什么我家 160MHz 反而不如 80MHz 快"（噪声底 + CCA 两笔账）</li>
+    <li>看 Beacon 的 Operation IE 推出这个 BSS 的带宽和主信道位置</li>
+    <li>排查"STA 只跑 20MHz"：辅信道忙？老设备触发共存？能力位没开？</li>
+    <li>理解 DFS 信道为什么 AP 上电要等一分钟（CAC）</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课预告</strong>：第 17 课 — 漫游 / 802.11r/k/v —— 路线图第 6 步的最大缺口（换 AP 不掉线是怎么做到的）。<br>
+      <a href="./0015-bss-color-he-phy.html">← 第 15 课</a> ·
+      <a href="./0017-roaming-fast-transition.html">第 17 课 →</a> ·
+      <a href="../index.html">路线图</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进第 17 课漫游」<br>
+      • 「DFS 雷达检测的细节想看」<br>
+      • 「80+80 的射频实现想深入」<br>
+      • 「6GHz 的 AFC 标准功率模式想了解」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://www.wiwind.com/publication/wi-fi-%e9%80%9a%e9%81%93%e7%bb%91%e5%ae%9a-40mhz80mhz160mhz8080mhz/">Wi-Fi 信道绑定 40MHz/80MHz/160MHz/80+80MHz</a>（主辅信道结构、递归绑定）</li>
+    <li><a href="https://www.extremenetworks.com/resources/blogs/what-is-40-mhz-intolerant/">What is 40 MHz Intolerant — Extreme Networks</a>（20/40 共存机制、老设备退回 20MHz）</li>
+    <li><a href="https://www.wi-fi.org/discover-wi-fi/wi-fi-6e">Wi-Fi 6E — Wi-Fi Alliance</a>（6GHz 频谱开放、1200MHz、仅 Wi-Fi 6+ 设备）</li>
+    <li><a href="https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/protocols/wifi/radio_mgmt.html">Wi-Fi Radio Management — Nordic</a>（CCA 主辅信道判断、DFS/CAC）</li>
+    <li><a href="https://mrncciew.com/2019/01/15/channel-width-impact-on-snr/">Channel Width Impact on SNR — MrNcciew</a>（带宽翻倍噪声底 +3dB、宽信道远距劣势）</li>
+    <li><a href="https://www.extremenetworks.com/resources/blogs/preamble-puncturing/">Preamble Puncturing — Extreme Networks</a>（11ax 打洞机制、与 BSS Color 的关系）</li>
+    <li><a href="https://documents.phys.ethz.ch/phys/seg/seglab/serv09_hr/seglab_bachelorthesis_rueegg_2014.pdf">DFS in IEEE 802.11 (ETH thesis)</a>（CAC 60s、雷达检测、信道让路流程）</li>
+    <li>CWNA-108 Study Guide, Ch.2/3（射频数学与信道规划）、Ch.6（802.11 MAC 复习）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

@@ -95,8 +95,8 @@
   <h1>Wi-Fi 学习路线图</h1>
   <p>从蓝牙固件工程师视角，按「一次 Wi-Fi 连接从生到死」拆解。下面是 10 个阶段的全景图——你随时能回来对照「我在哪、下一站去哪」。</p>
 
-  <div class="progress-text">主线进度：<strong>9 / 10 阶段完成（PHY 深水区闭合）</strong> · 已交付 15 课</div>
-  <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: 88%"></div></div>
+  <div class="progress-text">主线进度：<strong>9 / 10 阶段完成（查漏补缺三连交付，仅剩驱动实战）</strong> · 已交付 18 课</div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: 92%"></div></div>
 
   <div class="roadmap-intro">
     <strong>怎么看这张图</strong>：Wi-Fi 一次连接走 10 步——<strong>① 射频（信号是什么）→ ② PHY（信号↔比特）→ ③ MAC 抢信道 → ④ 帧长啥样 → ⑤ 怎么连上 → ⑥ 连上后维护 → ⑦ 加密 → ⑧ 提速 → ⑨ PHY 深水（Wi-Fi 6）→ ⑩ 驱动实战</strong>。每阶段对应若干课，绿色=完成、橙色=部分、灰色=待开。<strong>红框「下一站」</strong>是接下来的课。
@@ -114,14 +114,14 @@
       <div class="stage-status">✓ 完成</div>
     </a>
 
-    <a class="stage partial" href="lessons/0002-ofdm-orthogonality.html">
+    <a class="stage done" href="lessons/0013-mimo-basics.html">
       <div class="stage-num">2</div>
       <div class="stage-body">
         <div class="stage-title">PHY · 信号↔比特</div>
-        <div class="stage-desc">OFDM 正交性已立（Δf=1/T）。<strong>MIMO / OFDMA / BSS Color 未讲——这是 Wi-Fi 6 PHY 核心，最大缺口</strong></div>
-        <div class="stage-lessons">第 2 课（一半）· 缺 MIMO/OFDMA 课</div>
+        <div class="stage-desc">OFDM 正交性（2）+ MIMO（13）+ MU-MIMO/OFDMA（14）+ BSS Color/HE PHY（15）+ 信道绑定/频谱（16）——PHY 闭合</div>
+        <div class="stage-lessons">第 2、13、14、15、16 课</div>
       </div>
-      <div class="stage-status">◐ 部分</div>
+      <div class="stage-status">✓ 完成</div>
     </a>
 
     <a class="stage done" href="lessons/0005-csma-ca-backoff.html">
@@ -154,14 +154,14 @@
       <div class="stage-status">✓ 完成</div>
     </a>
 
-    <a class="stage partial" href="lessons/0008-power-save-mode.html">
+    <a class="stage done" href="lessons/0017-roaming-fast-transition.html">
       <div class="stage-num">6</div>
       <div class="stage-body">
         <div class="stage-title">MAC 维护 · 连上之后</div>
-        <div class="stage-desc">省电（PS-Poll/TIM/TWT）、QoS（EDCA 四优先级）已讲。<strong>漫游（802.11r）未讲</strong></div>
-        <div class="stage-lessons">第 8、11 课 · 缺漫游课</div>
+        <div class="stage-desc">省电（PS-Poll/TIM/TWT）、QoS（EDCA）、漫游 802.11r/k/v（FT 密钥层级、邻居报告）——连接维护闭合</div>
+        <div class="stage-lessons">第 8、11、17 课</div>
       </div>
-      <div class="stage-status">◐ 部分</div>
+      <div class="stage-status">✓ 完成</div>
     </a>
 
     <a class="stage done" href="lessons/0009-wpa-security-4way-handshake.html">
@@ -178,8 +178,8 @@
       <div class="stage-num">8</div>
       <div class="stage-body">
         <div class="stage-title">高吞吐 · 怎么提速</div>
-        <div class="stage-desc">A-MPDU 帧聚合、Block ACK 批量确认、TXOP 协同——吞吐命脉</div>
-        <div class="stage-lessons">第 12 课</div>
+        <div class="stage-desc">A-MPDU 帧聚合、Block ACK（12）、信道绑定（16）、速率自适应 Minstrel（18）——吞吐命脉</div>
+        <div class="stage-lessons">第 12、16、18 课</div>
       </div>
       <div class="stage-status">✓ 完成</div>
     </a>
@@ -198,8 +198,8 @@
       <div class="stage-num">10</div>
       <div class="stage-body">
         <div class="stage-title">驱动实战（下一站）</div>
-        <div class="stage-desc">mac80211 代码导读、漫游/802.11r、调试实战、综合复盘——路线图最后一步</div>
-        <div class="stage-lessons">→ 第 16-18 课（收尾）</div>
+        <div class="stage-desc">mac80211 代码导读、调试实战、综合复盘——路线图最后一步（查漏补缺三连 16-18 已交付）</div>
+        <div class="stage-lessons">→ 第 19+ 课（收尾）</div>
       </div>
       <div class="stage-status">→ 下一站</div>
     </a>
@@ -261,6 +261,9 @@ var FALLBACK_LESSONS = [
   { href: 'lessons/0013-mimo-basics.html', title: '第 13 课 · MIMO 基础 —— 多天线到底在干嘛' },
   { href: 'lessons/0014-mu-mimo-ofdma.html', title: '第 14 课 · MU-MIMO + OFDMA —— Wi-Fi 6 多用户的两大支柱' },
   { href: 'lessons/0015-bss-color-he-phy.html', title: '第 15 课 · BSS Color + HE PHY 收尾 —— PHY 深水区闭合' },
+  { href: 'lessons/0016-channel-bonding-spectrum.html', title: '第 16 课 · 信道绑定与频谱划分 —— 吞吐主线的地基' },
+  { href: 'lessons/0017-roaming-fast-transition.html', title: '第 17 课 · 漫游与 Fast Transition —— 换 AP 不掉线是怎么做到的' },
+  { href: 'lessons/0018-rate-adaptation-minstrel.html', title: '第 18 课 · 速率自适应 —— 谁在决定用哪个 MCS' },
   { href: 'lessons/sup-0001-linux-wifi-stack-frame-processing.html', title: '课外补充 1 · Linux Wi-Fi 栈 —— 三类帧各在哪一层处理' },
   { href: 'lessons/sup-0002-fact-audit-where-the-course-is-wrong.html', title: '课外补充 2 · 事实核查 —— 课件哪里写错了' },
   { href: 'lessons/sup-0003-mimo-matrix-decoupling.html', title: '课外补充 3 · MIMO 矩阵解耦 —— 为什么两流不干扰' },
