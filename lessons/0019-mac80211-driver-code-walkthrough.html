@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 19 课 · mac80211 代码导读 —— 驱动框架怎么搭</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .neighbor { color: #b8761c; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+  .cca-diagram .bt { color: #1d5a8a; font-weight: 600; }
+
+  .code-block {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.6;
+    background: #f7f5ef;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 5px;
+    padding: 0.9rem 1.1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--ink-soft);
+  }
+  .code-block .cm { color: var(--ink-faint); font-style: italic; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 19 课 / Lesson 0019 · 驱动实战 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0018-rate-adaptation-minstrel.html">← 第 18 课</a> ·
+    <a href="../index.html">路线图</a>
+  </div>
+
+  <h1>mac80211 代码导读 —— 驱动框架怎么搭</h1>
+
+  <p>这是你转岗使命的正主：前面 18 课攒的协议知识，这课开始<strong>落进 Linux 内核代码</strong>。<a href="./sup-0001-linux-wifi-stack-frame-processing.html">补充课 1</a> 讲过"帧在四层软件栈里怎么流"（架构层），这课往下钻一层——<strong>函数与结构体层</strong>：一个 Wi-Fi 驱动到底要写哪些函数、注册什么、数据从哪进从哪出。好消息：你写过蓝牙驱动，这里的套路你<strong>全部见过</strong>，只是换了名字。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：mac80211 是"半成品协议栈"，你只填一张回调表</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>Linux 把 802.11 协议栈劈成两半：<strong>框架（mac80211）包揽"协议"</strong>——管理帧解析、关联状态机（第 7 课）、加密握手后的密钥装载（第 9 课）、聚合会话（第 12 课）、速率控制统计（第 18 课）；<strong>驱动只做"硬件抽象"</strong>——把帧搬进搬出芯片、配置寄存器。</p>
+    <p>两者的契约就是<strong>一张函数指针表 <span class="mono">struct ieee80211_ops</span>（驱动操作回调表）</strong>。这和你写蓝牙驱动时注册 <span class="mono">hci_dev</span>（主机控制器接口设备）、填 <span class="mono">.send/.open</span> 回调、用 <span class="mono">hci_recv_frame()</span> 送帧上来，是<strong>一模一样的肌肉记忆</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 鸟瞰：三个子系统 + 你的驱动</h2>
+
+  <div class="cca-diagram">
+用户态:   iw / wpa_supplicant (认证器客户端)          <span class="note">← 第 20 课的主角们</span>
+              │  nl80211 (Netlink 用户态接口, 多播/单播消息)
+              ▼
+         cfg80211 (配置面: 扫描结果/ Regulatory 法规/ 接口管理)
+              │
+              ▼
+         mac80211 (数据面: 协议主体 — 管理帧/加密/聚合/速率控制)
+              │  <span class="threshold">ieee80211_ops 回调表 ←—— 你的驱动要实现的全部</span>
+              ▼
+         你的驱动 (mt76 / ath11k / iwlwifi ...)
+              │  寄存器 + DMA (直接内存访问) / 或 MCU (微控制器) 消息
+              ▼
+            硬件
+</div>
+
+  <p>一句话分工：<strong>cfg80211（配置子系统）管"配置"</strong>（扫描、法规、接口增删，通过 nl80211 消息和用户态对话）；<strong>mac80211（介质访问控制子系统）管"数据与协议"</strong>（帧的加工与流动）；<strong>驱动管"硬件"</strong>。SoftMAC（软件介质访问控制）芯片走完整条路；FullMAC（全硬件介质访问控制）芯片则由固件包掉 mac80211 的大部分活，驱动只剩 cfg80211 + 固件通道——<a href="./sup-0001-linux-wifi-stack-frame-processing.html">补充课 1</a> 详述过这个分野，不重复。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 驱动注册三步曲</h2>
+
+  <p>任何 SoftMAC 驱动的 <span class="mono">probe()</span>（总线探测函数，PCIe（高速外设互联）热插拔或平台设备枚举时被调）都长这个样子：</p>
+
+  <div class="code-block"><span class="cm">/* 简化示意：结构来自内核 Documentation，字段名以 include/net/mac80211.h 为准 */</span>
+static int my_wifi_probe(struct platform_device *pdev)
+{
+    struct my_priv *priv;
+
+    <span class="cm">/* 第 1 步：分配 hw 对象（框架的"设备代表"），绑定 ops 回调表 */</span>
+    hw = ieee80211_alloc_hw(sizeof(*priv), &my_wifi_ops);
+    if (IS_ERR(hw))
+        return PTR_ERR(hw);
+
+    priv = hw-&gt;priv;              <span class="cm">/* 框架替你分配的驱动私有数据 */</span>
+
+    <span class="cm">/* 第 2 步：描述硬件能力 —— 你在前 18 课学的每个特性都在这声明 */</span>
+    hw-&gt;queues = 4;                <span class="cm">/* 硬件队列数：对应 EDCA 的 4 个 AC（接入类别）→ 第 11 课 */</span>
+    hw-&gt;max_rates = 4;             <span class="cm">/* 重传链长度 → 第 18 课 retry chain */</span>
+    <span class="cm">/* ... 填 band（频段）/ 支持的 MCS（调制与编码方案）/ iftype（接口类型）… */</span>
+
+    <span class="cm">/* 第 3 步：注册进框架 —— 从此框架会按需调你的回调 */</span>
+    ret = ieee80211_register_hw(hw);
+    if (ret)
+        goto err_free;             <span class="cm">/* 失败路径：ieee80211_free_hw(hw) */</span>
+
+    return 0;
+}</div>
+
+  <p>三个动作记住顺序：<strong>alloc（分配）→ 填能力 → register（注册）</strong>。<span class="mono">struct ieee80211_hw</span>（硬件抽象对象）是框架视角的"你的网卡"，里面内嵌 <span class="mono">wiphy</span>（无线物理设备对象，cfg80211 的句柄）和给驱动留的 <span class="mono">priv</span> 私有区——这个"对象里塞私有数据"的手法，和蓝牙 <span class="mono">hci_dev</span> 如出一辙。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ ieee80211_ops：唯一要填的"菜单"</h2>
+
+  <p>回调几十个，但<strong>没有一个驱动全填</strong>——不填的留 NULL（空指针），框架走默认/软件路径。按职责分组看高频核心：</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>分组</th><th>回调</th><th>框架什么时候调你</th><th>对应课程</th></tr>
+    </thead>
+    <tbody>
+      <tr><td rowspan="3">生命周期</td><td class="mono">.start / .stop</td><td>网卡 up / down：上电、启中断</td><td>—</td></tr>
+      <tr><td class="mono">.add_interface / .remove_interface</td><td>创建/删除虚拟接口（一个射频可跑 AP（接入点）+ STA（站点）多角色）</td><td>第 7 课角色</td></tr>
+      <tr><td class="mono">.flush</td><td>"把队列里的帧全丢掉"（换信道前）</td><td>—</td></tr>
+      <tr><td>发送</td><td class="mono">.tx</td><td>每帧下行都经它进驱动（见 ④）</td><td>第 6/12 课</td></tr>
+      <tr><td rowspan="2">配置</td><td class="mono">.config</td><td>换信道/换频率/发功率变更</td><td>第 3/16 课</td></tr>
+      <tr><td class="mono">.bss_info_changed</td><td>BSS（基本服务集）参数变化：SSID（服务集标识）、Beacon（信标帧）间隔、加密开关、TIM（业务指示图）置位…</td><td>第 5/8/9 课</td></tr>
+      <tr><td rowspan="2">站点</td><td class="mono">.sta_add / .sta_remove / .sta_state</td><td>关联成功/断开/状态推进时同步驱动侧的每站点资源</td><td>第 7 课状态机</td></tr>
+      <tr><td class="mono">.sta_rc_update</td><td>速率控制参数变化（带宽/空间流数变更）</td><td>第 13/18 课</td></tr>
+      <tr><td>密钥</td><td class="mono">.set_key</td><td>四次握手完成后把 PTK（成对临时密钥）/GTK（组临时密钥）装进硬件加密引擎</td><td>第 9/10 课</td></tr>
+      <tr><td>聚合</td><td class="mono">.ampdu_action</td><td>ADDBA（添加块确认会话）协商成功 → 通知驱动建收/发聚合会话</td><td>第 12 课</td></tr>
+      <tr><td>扫描</td><td class="mono">.hw_scan</td><td>硬件扫（芯片代劳）；不填则 mac80211 自己切信道"软扫"</td><td>第 7 课扫描</td></tr>
+    </tbody>
+  </table>
+
+  <p>看出味道了吗：<strong>每张课学过的协议机制，最终都落到某个回调里"通知驱动"</strong>。这就是协议课和驱动课的接口面——面试问"四次握手之后内核做了什么"，答案链条是：wpa_supplicant（认证器客户端）算出 PTK → 经 nl80211 交给内核 → <span class="mono">.set_key</span> 进驱动 → 硬件装密钥。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 两条数据路径：一帧的完整旅程</h2>
+
+  <p>驱动工程师的日常 90% 在这两条路上。TX（发送）方向：</p>
+
+  <div class="cca-diagram">
+<span class="good">TX 发送路径（框架 → 驱动）:</span>
+ 应用数据
+   │ 网络栈 ndo_start_xmit (网卡发送入口)
+   ▼
+ mac80211: 选 AC（接入类别）队列 (第11课 EDCA) → 速率控制 get_rate() 选 MCS (第18课)
+           → 加密标志 (硬件加密? 带上 key idx 第9课)
+   ▼
+ <span class="threshold">.tx(hw, skb, control)   ← 驱动拿到帧: 入 DMA 环 / 发寄存器</span>
+   ▼
+ 硬件发出, 产生完成中断
+   ▼
+ <span class="threshold">ieee80211_tx_status(hw, skb)  ← 驱动回报: 成功/失败 + 实际用的速率</span>
+   └→ 喂速率控制 tx_status() 统计 (第18课闭环) / 重传决策
+</div>
+
+  <p>RX（接收）方向则反过来，<strong>驱动要先"打扮"好每个帧再交框架</strong>：</p>
+
+  <div class="cca-diagram">
+<span class="good">RX 接收路径（驱动 → 框架）:</span>
+ 硬中断/NAPI (中断+轮询混合收包) 收到帧
+   ▼
+ 驱动解析硬件 RX 描述符: 信号强度/速率/是否已硬件解密
+   ▼
+ <span class="threshold">填 skb-&gt;cb 里的 struct ieee80211_rx_status (接收元数据):</span>
+      .band 频段  .freq 频率  .signal 信号(dBm 分贝毫瓦)
+      .rate_idx 速率  .flag |= RX_FLAG_DECRYPTED (硬件已解密)
+   ▼
+   <span class="threshold">ieee80211_rx() 交框架   (NAPI/软中断上下文直接调; 进程上下文用 ieee80211_rx_ni 变体)</span>
+   ▼
+ mac80211: A-MPDU (聚合介质访问控制协议数据单元) 重排序 → rx handlers (接收处理链)
+   ├─ 数据帧 → 递给网络栈 → 应用
+   └─ 管理帧 → 关联状态机(第7课) / 经 cfg80211 转发用户态 wpa_supplicant (第9课)
+</div>
+
+  <p>注意职责边界：<strong>驱动不解析管理帧</strong>（那是框架的活），只如实上报"这帧怎么收来的"（元数据）。唯一要小心的坑：<span class="mono">skb</span>（套接字缓冲区，内核的帧容器）的 <span class="mono">cb</span>（控制块）区在收发两个方向被框架塞了<strong>不同的结构</strong>（RX 是 <span class="mono">ieee80211_rx_status</span>，TX 完成时是 <span class="mono">ieee80211_tx_info</span>）——驱动碰 <span class="mono">cb</span> 前必须看清方向，这是新手驱动最常见的崩溃源之一。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ 看一个真实驱动：mt76（联发科家族）</h2>
+
+  <p>理论落地。mt76 是最推荐的入门阅读对象：<strong>现代、在主线内核、同时覆盖 PCIe（高速外设互联）/USB/SDIO（安全数字输入输出）三种总线、还带片上 MCU（微控制器）消息通道</strong>——一份代码看全所有总线形态。以 Wi-Fi 6 芯片 mt7915 为例：</p>
+
+  <div class="cca-diagram">
+drivers/net/wireless/mediatek/mt76/          <span class="note">← 内核主线真实路径</span>
+├── dma.c  util.c  mac80211.c               <span class="good">芯片无关共享层: DMA 环/公共工具</span>
+├── pci.c  usb.c  sdio.c                    <span class="good">三种总线的接入抽象</span>
+└── mt7915/                                 <span class="threshold">具体芯片一族</span>
+    ├── main.c      <span class="mine">probe 探测 + ieee80211_ops 表 + 回调实现</span>
+    ├── mac.c       <span class="mine">收发数据路径: 中断/描述符/寄存器时序</span>
+    ├── dma.c       <span class="mine">环形缓冲区管理 (帧在内存与硬件间搬运)</span>
+    ├── mcu.c       <span class="neighbor">与片上 MCU(固件) 的消息通道 — 一半协议跑在固件里</span>
+    ├── init.c eeprom.c    初始化 / EEPROM (电可擦写存储器) 校准数据
+    ├── mmio.c pci.c soc.c  内存映射 IO / PCIe / 片上系统接入
+    └── debugfs.c   <span class="good">调试接口 — 第 20 课的现场</span>
+</div>
+
+  <p>两个观察：① <strong>"共享层 + 芯片子目录"</strong>是 Wi-Fi 驱动的通用组织法（ath（高通 Atheros 家族）系列、iwlwifi（英特尔无线）同款），因为一个厂商家族的芯片 80% 代码可复用；② 现代驱动是<strong>"寄存器 + MCU 消息"混合体</strong>——数据面走寄存器/DMA（直接内存访问，延迟敏感），配置面（扫描、功率控制、固件表）打包成消息发给片上 MCU。你在蓝牙里写的 HCI（主机控制器接口）命令包，和这里的 MCU 消息，扮演的角色几乎相同。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑥ 蓝牙驱动对照桥：你已经会的那套直接平移</h2>
+
+  <p>把两边的"骨架动作"对齐——这张表是本课最值得收藏的东西：</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>蓝牙（你熟的）</th><th>Wi-Fi / mac80211（新家）</th><th>骨架动作</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="mono">hci_alloc_dev() → hci_register_dev()</td><td class="mono">ieee80211_alloc_hw() → ieee80211_register_hw()</td><td>分配设备对象 + 注册进栈</td></tr>
+      <tr><td class="mono">hdev-&gt;open / hdev-&gt;close</td><td class="mono">.start / .stop</td><td>开/关硬件</td></tr>
+      <tr><td class="mono">hdev-&gt;send(skb)</td><td class="mono">.tx(hw, skb, control)</td><td>栈把帧交给驱动发</td></tr>
+      <tr><td class="mono">hci_recv_frame(hdev, skb)</td><td class="mono">ieee80211_rx(hw, skb)</td><td>驱动把收到的帧交回栈</td></tr>
+      <tr><td class="mono">hdev-&gt;flush</td><td class="mono">.flush</td><td>丢弃在途帧</td></tr>
+      <tr><td>—（LMP（链路管理协议）在控制器固件里，host 不可见）</td><td class="mono">.set_key / .ampdu_action / .sta_state</td><td>协议事件通知驱动（框架管协议但硬件要配合）</td></tr>
+      <tr><td>skb 承载 HCI 包</td><td>skb 承载 802.11 帧（<span class="mono">cb</span> 里塞元数据）</td><td>同一套内核帧容器约定</td></tr>
+    </tbody>
+  </table>
+
+  <p>最后一行是本质差异：蓝牙把 LMP（链路管理协议）等时序协议<strong>整个关进控制器固件</strong>，host 驱动真的只是"搬运工"；Wi-Fi 因为 CSMA/CA（载波侦听多址接入/碰撞避免，第 5 课）和聚合、加密联动都要 host 参与决策，框架和硬件之间才有这么多<strong>协议级回调</strong>。<strong>驱动要理解的协议深度，Wi-Fi 远大于蓝牙</strong>——这正是你上前 18 课的原因。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：入职第一周任务清单</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>拿到一份 Wi-Fi 驱动代码库，按这五步建立地图：</p>
+    <ul>
+      <li><strong>① 找 ops 表</strong>：grep（全局搜索）<span class="mono">ieee80211_ops</span> —— 它是驱动功能的"目录页"，扫一眼就知道这驱动支持什么（有没有 .hw_scan 硬扫？.ampdu_action 聚合？）。</li>
+      <li><strong>② 跟一条 TX 帧</strong>：从 <span class="mono">.tx</span> 回调向下追到 DMA 环入队，再追完成中断到 <span class="mono">ieee80211_tx_status()</span>。</li>
+      <li><strong>③ 跟一条 RX 帧</strong>：从中断/NAPI 收包追到 <span class="mono">ieee80211_rx()</span>，看清 <span class="mono">ieee80211_rx_status</span>（接收元数据）每个字段从哪个硬件描述符来。</li>
+      <li><strong>④ 对照框架目录</strong>：<span class="mono">net/mac80211/</span> 下的 <span class="mono">rx.c</span>（接收处理链）、<span class="mono">tx.c</span>（发送处理）、<span class="mono">sta_info.c</span>（站点表，RCU（读-复制更新）无锁保护的重点）、<span class="mono">key.c</span>（密钥）、<span class="mono">rc/rc80211_minstrel_ht.c</span>（第 18 课的速率控制）——遇到问题先定位"是框架层还是驱动层"。</li>
+      <li><strong>⑤ 会遇到的黑话</strong>：txq/txqi（每站点发送队列，airtime（空口时间）公平调度的单位）、chanctx（信道上下文，多接口共享射频的资源抽象）、offchannel（离信道操作，扫描/保护帧时暂离主信道）。</li>
+    </ul>
+    <p>典型 bug 高发区：<span class="mono">cb</span> 控制块方向搞混、RX（接收）元数据漏填或单位错（signal 用错 dBm（分贝毫瓦）/内部值）、<span class="mono">.set_key</span> 和加密标志不一致导致"关联成功但一个数据帧都解不开"、ampdu_action（聚合动作）时序没处理好导致聚合永远建不起来。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：mac80211 框架吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="一个 SoftMAC Wi-Fi 驱动的 probe（总线探测）函数里，正确的注册顺序是什么？"
+       data-explain="三步曲：ieee80211_alloc_hw() 分配 hw（硬件抽象对象）并绑定 ieee80211_ops（驱动操作回调表）→ 填硬件能力（队列数、频段、MCS（调制与编码方案）支持）→ ieee80211_register_hw() 注册进框架。顺序不能乱：能力必须在注册前声明（注册时框架会按能力初始化），失败路径记得 ieee80211_free_hw()。">
+    <script type="application/json">
+      [
+        { "text": "先 register（注册）占住设备，再分配 hw，最后填能力", "correct": false },
+        { "text": "alloc（分配）→ 填硬件能力 → register（注册），失败时 free_hw", "correct": true },
+        { "text": "直接 register_ops（注册回调），框架自己来分配硬件对象", "correct": false },
+        { "text": "先注册网络设备 netdev（网络设备），mac80211 会自动找到它", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="四次握手（第 9 课）算出 PTK（成对临时密钥）之后，密钥是怎么到达硬件加密引擎的？"
+       data-explain="链条：wpa_supplicant（认证器客户端，用户态）算出 PTK → 经 nl80211（Netlink 用户态接口）交给内核 → cfg80211/mac80211 调驱动的 .set_key 回调 → 驱动把密钥写进硬件加密引擎。这就是'协议课→驱动课'的接口面：每个协议事件（密钥/聚合/站点状态）最终都落到一个 ieee80211_ops 回调通知驱动。">
+    <script type="application/json">
+      [
+        { "text": "wpa_supplicant → nl80211 → 内核 → 驱动 .set_key 回调 → 硬件", "correct": true },
+        { "text": "握手帧里密钥直接写进芯片，驱动全程不参与", "correct": false },
+        { "text": "驱动自己截获 M3（第三个握手消息）解析出密钥", "correct": false },
+        { "text": "密钥只留在内核软件加密层，从不进硬件", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="RX（接收）路径上，驱动交给框架之前必须做什么？"
+       data-explain="驱动要'打扮'好每个 skb（套接字缓冲区）：把硬件描述符里的接收元数据（band（频段）/freq（频率）/signal（信号强度）/rate_idx（速率索引）/是否已解密）填进 skb->cb 的 struct ieee80211_rx_status，再调 ieee80211_rx() 交框架。解析管理帧内容、A-MPDU（聚合介质访问控制协议数据单元）重排序、状态机推进都是 mac80211 框架的活——驱动只是如实上报'这帧怎么收来的'。">
+    <script type="application/json">
+      [
+        { "text": "解析完管理帧并推进关联状态机，才能交框架", "correct": false },
+        { "text": "在内核里解密所有加密帧，不管硬件有没有做", "correct": false },
+        { "text": "把帧攒够一批（比如 64 个）再一次性交框架", "correct": false },
+        { "text": "把接收元数据填进 skb->cb，再调 ieee80211_rx() 交框架", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="对照蓝牙驱动：mac80211 的 ieee80211_rx() 对应蓝牙栈的哪个函数？"
+       data-explain="hci_recv_frame() 是蓝牙驱动把收到的 HCI 包交回协议栈的入口，ieee80211_rx() 是 Wi-Fi 驱动把收到的 802.11 帧交回 mac80211 的入口——骨架动作完全一致（驱动→栈方向）。同理 hdev->send 对应 .tx、hci_register_dev() 对应 ieee80211_register_hw()。差别在深度：蓝牙的 LMP（链路管理协议）关在控制器固件里，Wi-Fi 框架有大量协议级回调（.set_key/.ampdu_action 等）需要驱动理解协议才能实现。">
+    <script type="application/json">
+      [
+        { "text": "hci_send_frame()，因为都是收帧方向", "correct": false },
+        { "text": "没有对应物，Wi-Fi 的收帧完全绕过内核栈", "correct": false },
+        { "text": "hci_recv_frame() —— 同为'驱动把收到的帧交回栈'的入口", "correct": true },
+        { "text": "hci_alloc_dev()，因为都发生在设备枚举时", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：一张 ops 表 + 两条数据路径</h2>
+
+  <p>学完这课，你脑子里应该有：</p>
+  <ol>
+    <li><strong>分层契约</strong>：cfg80211（配置面）/nl80211（用户态接口）/mac80211（协议数据面）三件套，驱动=硬件抽象，契约=一张 <span class="mono">ieee80211_ops</span> 回调表</li>
+    <li><strong>注册三步曲</strong>：<span class="mono">ieee80211_alloc_hw</span> → 填能力 → <span class="mono">ieee80211_register_hw</span>；能力声明覆盖前 18 课每个特性（队列=AC、MCS、聚合）</li>
+    <li><strong>两条路径</strong>：TX = .tx 回调进驱动 → 完成后 ieee80211_tx_status 回报喂速率控制；RX = 填 <span class="mono">ieee80211_rx_status</span> 元数据 → ieee80211_rx 交框架，管理帧解析在框架</li>
+    <li><strong>真实组织法</strong>：mt76 = 共享层（总线/DMA）+ 芯片子目录（main/mac/dma/mcu），现代驱动 = 寄存器 + MCU 消息混合体</li>
+    <li><strong>蓝牙平移表</strong>：alloc/register、.send↔.tx、hci_recv_frame↔ieee80211_rx 一一对齐；差异 = Wi-Fi 驱动要理解更深的协议（.set_key/.ampdu_action/.sta_state）</li>
+  </ol>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>打开任意 Wi-Fi 驱动，先 grep <span class="mono">ieee80211_ops</span> 三分钟建立功能地图</li>
+    <li>跟着一次握手抓包，说出密钥从 wpa_supplicant 到硬件加密引擎的完整链条</li>
+    <li>解释为什么 Wi-Fi 驱动的协议深度要求远高于蓝牙驱动（协议回调的数量差）</li>
+    <li>在内核源码树里定位 net/mac80211/ 与 drivers/net/wireless/ 的对应模块</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>下一步</h2>
+
+  <p>框架读懂了，下一课把<strong>调试工具箱</strong>装上：iw（无线配置工具）全家桶、monitor（监听）模式抓空口、Wireshark（网络协议分析器）过滤器、debugfs（内核调试文件系统）——把前 19 课学的所有帧格式<strong>亲眼看见</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课</strong>：<a href="./0020-debugging-toolbox.html">第 20 课 · 调试实战 —— 把不可见变可见</a><br>
+      <a href="./0018-rate-adaptation-minstrel.html">← 第 18 课</a> ·
+      <a href="../index.html">路线图</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，继续调试课」<br>
+      • 「想看 mt76 某个具体函数的逐行拆解」<br>
+      • 「ops 表里某个回调想展开讲」<br>
+      • 「蓝牙对照表想再加几行」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://docs.kernel.org/driver-api/80211/mac80211.html">mac80211 subsystem (basics) — 内核官方文档</a>（ops 回调、注册流程、收发路径的权威描述）</li>
+    <li><a href="https://docs.kernel.org/driver-api/80211/mac80211-advanced.html">mac80211 subsystem (advanced) — 内核官方文档</a>（高级回调与可调参数）</li>
+    <li><a href="https://wireless.docs.kernel.org/en/latest/en/developers/documentation/mac80211/api.html">mac80211 driver API notes — Linux Wireless 文档</a>（驱动 API 逐条说明）</li>
+    <li><a href="https://codebrowser.dev/linux/linux/include/net/mac80211.h.html">include/net/mac80211.h — 内核源码浏览器</a>（ieee80211_ops / ieee80211_hw / rx_status 结构体权威定义）</li>
+    <li><a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/mediatek/mt76/mt7915">mt76/mt7915 目录 — kernel.org 源码树</a>（main.c/mac.c/dma.c/mcu.c 等真实文件布局）</li>
+    <li><a href="https://static.lwn.net/kerneldoc/driver-api/80211/index.html">Linux 802.11 Driver Developer's Guide — LWN 托管</a>（驱动开发者指南总入口）</li>
+    <li><a href="https://www.kernel.org/doc/html/latest/driver-api/80211/cfg80211.html">cfg80211 subsystem — 内核官方文档</a>（配置面子系统的角色）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

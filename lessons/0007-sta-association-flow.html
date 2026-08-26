@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>第 7 课 · STA 关联流程 —— 协议栈移植的主战场</title>
+<title>第 7 课 · STA (站点) 关联流程 —— 协议栈移植的主战场</title>
 <link rel="stylesheet" href="../assets/style.css">
 <style>
   .state-diagram {
@@ -78,7 +78,7 @@
 <main>
 
   <div class="lesson-meta">
-    第 7 课 / Lesson 0007 · STA 关联流程 · 协议主线 ·
+    第 7 课 / Lesson 0007 · STA (站点) 关联流程 · 协议主线 ·
     <a href="../MISSION.md">使命</a> ·
     <a href="../GLOSSARY.md">术语表</a> ·
     <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
@@ -87,7 +87,7 @@
 
   <h1>STA (站点) 关联流程 —— 协议栈移植的主战场</h1>
 
-  <p>这是你做 Wi-Fi 驱动移植最核心的一课。前面六课讲的（RF (射频)、OFDM (正交频分复用)、CSMA/CA (载波侦听多址接入 / 碰撞避免)、帧结构）都是"基础设施"，<strong>这一课讲的是状态机</strong> —— 一个 STA 怎么从"什么都不行"走到"能传数据"。这正是你做 BT 协议栈移植时的老本行，只是把 BLE 的 <span class="mono">Standby → Advertising → Connection</span> 换成 Wi-Fi 的版本。</p>
+  <p>这是你做 Wi-Fi 驱动移植最核心的一课。前面六课讲的（RF (射频)、OFDM (正交频分复用)、CSMA/CA (载波侦听多址接入 / 碰撞避免)、帧结构）都是"基础设施"，<strong>这一课讲的是状态机</strong> —— 一个 STA (站点) 怎么从"什么都不行"走到"能传数据"。这正是你做 BT 协议栈移植时的老本行，只是把 BLE 的 <span class="mono">Standby → Advertising → Connection</span> 换成 Wi-Fi 的版本。</p>
 
   <p>第 6 课讲了管理帧是状态机的载体。这课就把状态机本身摊开给你看：<strong>哪些状态、什么帧触发迁移、迁移失败会怎样</strong>。关联连不上、漫游断流、连上不能传 —— 90% 的 Wi-Fi 协议栈 bug 都在这条流程上。</p>
 
@@ -101,7 +101,7 @@
     <ul>
       <li><strong>State 1 · 未认证 (Unauthenticated)</strong>：刚开机，几乎什么都干不了，只能扫描</li>
       <li><strong>State 2 · 已认证未关联 (Authenticated, Unassociated)</strong>：过了 802.11 认证，还没加入 BSS (基本服务集)</li>
-      <li><strong>State 3 · 已关联 (Associated)</strong>：正式加入 BSS，可以发数据帧（WPA (Wi-Fi 保护访问) 下还要 4-Way Handshake 才真正能传）</li>
+      <li><strong>State 3 · 已关联 (Associated)</strong>：正式加入 BSS (基本服务集)，可以发数据帧（WPA (Wi-Fi 保护访问) 下还要 4-Way Handshake (四次握手) 才真正能传）</li>
     </ul>
   </div>
 
@@ -119,9 +119,9 @@
                           (保留认证)          已关联 (Associated)
                                                   │ + 4-Way Handshake → "已授权"
                                                   ▼
-<span class="cls">Class 1 帧</span>: Probe, Beacon, Auth     <span class="frame">→ State 1 起允许</span>
-<span class="cls">Class 2 帧</span>: Association Req/Resp    <span class="frame">→ State 2 起允许</span>
-<span class="cls">Class 3 帧</span>: 数据帧, Deauth, Disassoc <span class="frame">→ State 3 起允许</span>
+<span class="cls">Class 1 帧</span>: Probe, Beacon, Auth, Deauth  <span class="frame">→ State 1 起允许</span>
+<span class="cls">Class 2 帧</span>: Association Req/Resp, Disassoc <span class="frame">→ State 2 起允许</span>
+<span class="cls">Class 3 帧</span>: 数据帧, PS-Poll                 <span class="frame">→ State 3 起允许</span>
 </div>
 
   <div class="callout bridge">
@@ -149,15 +149,15 @@
       │                              <span class="state">→ State 2</span>     │
       │                                                    │
       │  <span class="label">③ 关联 / Association</span>                                │
-      │ ──────────── <span class="frame">Association Request</span> ────────▶│  <span class="note">能力 + 速率 + 监听信道</span>
+      │ ──────────── <span class="frame">Association Request</span> ────────▶│  <span class="note">能力 + 速率 + 监听间隔</span>
       │ ◀──────────── <span class="frame">Association Response</span> ───────  │  <span class="note">Status=0 + <strong>AID=42</strong></span>
       │                              <span class="state">→ State 3</span>     │
       │                                                    │
       │  <span class="label">④ 授权 / Authorization</span>  <span class="note">(WPA 才需要)</span>          │
-      │ ──────────── <span class="frame">EAPOL-Key 1/4</span> ──────────────▶ │
-      │ ◀──────────── <span class="frame">EAPOL-Key 2/4</span> ───────────────  │  <span class="note">4-Way Handshake</span>
-      │ ──────────── <span class="frame">EAPOL-Key 3/4</span> ──────────────▶ │  <span class="note">协商 PTK（加密密钥）</span>
-      │ ◀──────────── <span class="frame">EAPOL-Key 4/4</span> ───────────────  │
+      │ ◀──────────── <span class="frame">EAPOL-Key 1/4</span> ──────────────  │
+      │ ──────────── <span class="frame">EAPOL-Key 2/4</span> ───────────────▶ │  <span class="note">4-Way Handshake</span>
+      │ ◀──────────── <span class="frame">EAPOL-Key 3/4</span> ──────────────  │  <span class="note">协商 PTK（加密密钥）</span>
+      │ ──────────── <span class="frame">EAPOL-Key 4/4</span> ───────────────▶ │
       │                              <span class="state">→ 已授权, 可传数据</span>│
       │                                                    │
       │  <span class="label">⑤ 数据传输 / Data</span>                                │
@@ -175,7 +175,7 @@
 
   <h2>① 扫描：怎么发现 AP (接入点)</h2>
 
-  <p>STA 要先知道周围有哪些 AP，才能挑一个连。两种扫描方式：</p>
+  <p>STA (站点) 要先知道周围有哪些 AP (接入点)，才能挑一个连。两种扫描方式：</p>
 
   <table class="num-table">
     <thead>
@@ -191,7 +191,7 @@
       </tr>
       <tr>
         <td class="num">主动扫描 (Active)</td>
-        <td>STA 在每个信道发 <span class="mono">Probe Request</span>，匹配的 AP 回 <span class="mono">Probe Response</span></td>
+        <td>STA (站点) 在每个信道发 <span class="mono">Probe Request (探测请求)</span>，匹配的 AP (接入点) 回 <span class="mono">Probe Response (探测响应)</span></td>
         <td class="mono">快</td>
         <td class="mono">略高（要发帧）</td>
         <td>绝大多数手机/笔记本的默认行为</td>
@@ -199,7 +199,7 @@
     </tbody>
   </table>
 
-  <p>扫描要在<strong>多个信道</strong>之间跳（2.4 GHz 有 1–13，5 GHz 几十个），每信道停一下听/问，这就是为什么完整扫描要花 1–2 秒。<strong>Beacon (信标帧) 和 Probe Response 内容几乎一样</strong>：SSID (服务集标识)、BSSID (基本服务集标识)、Capability Info（能力位）、支持的速率、加密套件、TIM (业务指示图) 等。STA (站点) 拿这些信息挑 AP (接入点)（一般按信号强度 RSSI (接收信号强度指示) 排序）。</p>
+  <p>扫描要在<strong>多个信道</strong>之间跳（2.4 GHz 有 1–13，5 GHz 几十个），每信道停一下听/问，这就是为什么完整扫描要花 1–2 秒。<strong>Beacon (信标帧) 和 Probe Response (探测响应) 内容几乎一样</strong>：SSID (服务集标识)、BSSID (基本服务集标识)、Capability Info（能力位）、支持的速率、加密套件、TIM (业务指示图) 等。STA (站点) 拿这些信息挑 AP (接入点)（一般按信号强度 RSSI (接收信号强度指示) 排序）。</p>
 
   <div class="callout firmware">
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
@@ -261,7 +261,7 @@
         <td>Capability Info（我要的能力）、Listen Interval（省电相关）、Supported Rates、SSID (服务集标识)</td>
       </tr>
       <tr>
-        <td class="num">Association Response</td>
+        <td class="num">Association Response (关联)</td>
         <td>AP → STA</td>
         <td>Status Code、<strong>AID (关联标识符)（1–2007）</strong>、Supported Rates、协商后的能力</td>
       </tr>
@@ -274,7 +274,7 @@
     <span class="callout-title">AID 是什么，为什么重要</span>
     <p>AID (关联标识符) 是 AP (接入点) 给每个关联 STA (站点) 的<strong>唯一编号</strong>。它的作用到省电课才显出来：</p>
     <ul>
-      <li><strong>PS-Poll (省电轮询帧) 帧</strong>的 Duration/ID 字段存 AID，STA 用它向 AP"取快递"（缓存的下行帧）。</li>
+      <li><strong>PS-Poll (省电轮询帧) 帧</strong>的 Duration/ID 字段存 AID，STA (站点) 用它向 AP (接入点)"取快递"（缓存的下行帧）。</li>
       <li><strong>TIM (业务指示图)</strong>（在 Beacon (信标帧) 里）是一个位图，按 AID 标记哪个 STA 有缓存的下行帧。</li>
     </ul>
     <p>AID 范围 1–2007 限制了<strong>一个 BSS (基本服务集) 最多 2007 个关联 STA</strong>——这是 802.11 单 AP 的硬上限。实际产品里因内存/调度限制远低于此。</p>
@@ -286,7 +286,7 @@
 
   <h2>④ 授权：4-Way Handshake（WPA (Wi-Fi 保护访问) 才有）</h2>
 
-  <p>这是<strong>安全</strong>课的内容，这里只点一下它在状态机里的位置。Association (关联) 成功 → State 3，但 WPA/WPA2/WPA3 网络下，<strong>State 3 还不能立刻发用户数据</strong>。STA (站点) 和 AP (接入点) 要先做 <strong>4-Way Handshake</strong>（四个 EAPOL-Key 帧来回），协商出单播加密密钥 PTK (Pairwise Transient Key) 和组播密钥 GTK (组临时密钥)。握手完成后 STA 进入"已授权"状态，才能发加密的 Protected=1 数据帧。</p>
+  <p>这是<strong>安全</strong>课的内容，这里只点一下它在状态机里的位置。Association (关联) 成功 → State 3，但 WPA/WPA2/WPA3 网络下，<strong>State 3 还不能立刻发用户数据</strong>。STA (站点) 和 AP (接入点) 要先做 <strong>4-Way Handshake</strong>（四个 EAPOL-Key 帧来回），协商出单播加密密钥 PTK (Pairwise Transient Key, 成对临时密钥) 和组播密钥 GTK (组临时密钥)。握手完成后 STA 进入"已授权"状态，才能发加密的 Protected=1 数据帧。</p>
 
   <div class="callout">
     <span class="callout-title">为什么状态机要分这么细</span>
@@ -350,7 +350,7 @@
     <p>这课内容在 Linux/mac80211 栈里的对应点：</p>
     <ul>
       <li><strong>状态机本体</strong>：mac80211 维护 <span class="mono">ieee80211_if_managed</span> 子状态（扫描中/已认证/已关联/关联中），对应 802.11 的 State 1/2/3。你移植时这个状态机要么用 mac80211 的实现，要么自己重写一份——这是 BT 协议栈状态机经验最直接迁移的地方。</li>
-      <li><strong>管理帧收发</strong>：<span class="mono">ieee80211_sta_tx_auth/assoc</span> 这组函数构造 Auth/Assoc Request；rx 路径按 subtype 分发到 <span class="mono">ieee80211_rx_mgmt_auth/assoc</span>。帧字段填充错了（Capability Info 漏位、AID (关联标识符) 解析错）直接导致关联失败。</li>
+      <li><strong>管理帧收发</strong>：<span class="mono">ieee80211_send_auth/assoc</span> 这组函数构造 Auth/Assoc Request；rx 路径按 subtype 分发到 <span class="mono">ieee80211_rx_mgmt_auth/assoc</span>。帧字段填充错了（Capability Info 漏位、AID (关联标识符) 解析错）直接导致关联失败。</li>
       <li><strong>跨进程边界</strong>：mac80211 管到 State 3；<span class="mono">wpa_supplicant</span>（用户态）接管 4-Way Handshake 和漫游决策。两边的接口是 <span class="mono">nl80211</span>（netlink），调试时要同时看内核日志和 wpa_supplicant 日志。</li>
       <li><strong>调试黄金组合</strong>：<span class="mono">wpa_supplicant -ddd</span>（看状态机日志）+ monitor mode 抓包（看真实帧）+ <span class="mono">dmesg</span>（看驱动日志）。关联失败时三路日志对时间戳，问题在哪一段一眼看出。</li>
       <li><strong>常见 bug</strong>：①扫描 dwell time 太短漏 AP (接入点)；②Auth/Assoc 帧地址填错（参考第 6 课 ToDS/FromDS）；③Capability Info 位填错导致 AP 拒关联；④4-Way Handshake 超时（密钥派生 bug）；⑤漫游时没刷旧密钥导致新 AP 拒收。</li>
@@ -362,7 +362,7 @@
   <h2>自检：状态机吃透了吗</h2>
 
   <div class="quiz" data-type="single"
-       data-question="802.11 的 Authentication（认证）帧握手，到底做了什么？"
+       data-question="802.11 的 Authentication (认证帧) 握手，到底做了什么？"
        data-explain="这是最大的名字陷阱：802.11 Authentication (802.11 认证帧) ≠ 安全认证。Open System 是固定两帧（Seq 1/2）握手，几乎永远成功，作用只是让状态机从 State 1 推进到 State 2。真正验证身份（PSK (预共享密钥)/802.1X）发生在关联之后的 4-Way Handshake。标准这么命名是 WEP (有线等效加密) 时代的历史包袱。">
     <script type="application/json">
       [
@@ -375,13 +375,13 @@
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="STA 关联成功后，在 WPA2 网络下能立刻发用户数据吗？"
-       data-explain="关联成功只到 State 3。WPA2 网络下 State 3 还不能传明文数据，必须先做 4-Way Handshake 协商 PTK/GTK，进入'已授权'状态后才能发 Protected=1 的加密数据帧。Open 网络下 State 3 直接能传明文。">
+       data-question="STA (站点) 关联成功后，在 WPA2 网络下能立刻发用户数据吗？"
+       data-explain="关联成功只到 State 3。WPA2 网络下 State 3 还不能传明文数据，必须先做 4-Way Handshake 协商 PTK (成对临时密钥)/GTK (组临时密钥)，进入'已授权'状态后才能发 Protected=1 的加密数据帧。Open 网络下 State 3 直接能传明文。">
     <script type="application/json">
       [
-        { "text": "不能，还要过 4-Way Handshake",  "correct": true },
         { "text": "能，关联成功即可传数据",         "correct": false },
         { "text": "能，但要先发 Beacon (信标帧)",           "correct": false },
+        { "text": "不能，还要过 4-Way Handshake",  "correct": true },
         { "text": "不能，要先发 Probe Request",    "correct": false }
       ]
     </script>
@@ -401,14 +401,14 @@
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="一个 BSS 理论上最多能关联多少个 STA？为什么？"
+       data-question="一个 BSS (基本服务集) 理论上最多能关联多少个 STA (站点)？为什么？"
        data-explain="AID (关联标识符)（Association ID）范围是 1–2007，AP (接入点) 给每个关联 STA (站点) 分配一个唯一 AID。这限制了单 BSS (基本服务集) 硬上限是 2007。实际产品里因内存/调度/性能限制远低于此（家用路由几十个，企业 AP 几百个）。AID 还用在 PS-Poll (省电轮询帧) 和 TIM (业务指示图) 位图里，是省电机制的索引。">
     <script type="application/json">
       [
-        { "text": "2007 个，受 AID 取值范围限制",      "correct": true },
         { "text": "255 个，受 MAC 地址表限制",          "correct": false },
         { "text": "无上限，看 AP 内存",                 "correct": false },
-        { "text": "7 个，像蓝牙 piconet 的 slave 数",   "correct": false }
+        { "text": "7 个，像蓝牙 piconet 的 slave 数",   "correct": false },
+        { "text": "2007 个，受 AID 取值范围限制",      "correct": true }
       ]
     </script>
   </div>

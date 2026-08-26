@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企课 1 · 标准、组织与修正案字母汤</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+  .cca-diagram .main { color: #1d5a8a; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.42rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    企课 1 / Enterprise 0001 · 标准与组织 · 对应书 Ch1+Ch2 ·
+    <a href="./index.html">本课程首页</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="../index.html">主课程路线图</a>
+  </div>
+
+  <h1>标准、组织与修正案字母汤 —— 802.11 的家谱</h1>
+
+  <p>主课程里修正案编号零散出现过：11e（QoS）、11n（MIMO）、11r（漫游）、11ax（Wi-Fi 6）……这课把它们<strong>整张排进家谱</strong>。目标不是背全——是<strong>听到/看到一个字母，能立刻有印象"它是哪一代、管哪块、去哪查"</strong>。这是把 CWNA 这本工具书用成手册的第一块索引。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：标准分三层，三层各说各话</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>人们嘴里的"Wi-Fi 标准"其实混着三层东西：<strong>法规层</strong>（谁允许你用哪段频率、多大功率——ITU（国际电信联盟）和各国监管机构）、<strong>技术层</strong>（IEEE 802.11 修正案——协议怎么写）、<strong>认证/营销层</strong>（Wi-Fi Alliance（Wi-Fi 联盟）——产品拿到"Wi-Fi 6"标签的认证测试）。</p>
+    <p>三层经常被混为一谈："Wi-Fi 6 是标准吗？"——11ax 是标准，"Wi-Fi 6"是认证名。分清三层，你才能准确回答"这个特性写在哪份文档里"。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 谁管什么：四层机构一张图</h2>
+
+  <div class="cca-diagram">
+<span class="threshold">ITU-R (国际电信联盟无线电通信部门)</span>   划全球/区域频率表 (无线电规则)
+   │  "这段频率给移动/固定/卫星…"
+   ▼
+<span class="threshold">各国监管机构</span>  FCC(美) / ETSI(欧洲电信标准化协会) / ARIB(日本)…
+   │  具体法规域: 频段+功率+DFS(动态频率选择)要求  ← 主课第16课 iw reg
+   ▼
+<span class="threshold">IEEE 802.11 工作组 (WG)</span>
+   │  任务组机制: TGn → 11n, TGax → 11ax, TGbe → 11be
+   │  字母用完后用双字母: aa, bb, … bf (2010 年起)
+   ▼
+<span class="threshold">Wi-Fi Alliance (WFA, Wi-Fi 联盟)</span>   互操作性认证 + 品牌名
+      Wi-Fi CERTIFIED 6 / WPA3 / WMM / Passpoint …
+</div>
+
+  <p>顺带一提认证阶梯（书的出版方 CWNP 体系）：CWNA（认证无线网络管理员）是入门级，上面还有 CWSP（安全）、CWAP（分析）、CWDP（设计）、CWNE（专家）——本书就是 CWNA 的官方教材，你现在等于把它的内容体系化地啃完了。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 家谱主表：11a → 11bf</h2>
+
+  <p>加粗的是主课程深讲过的（链接直达）；其余是本篇会展开或需要"有印象"的：</p>
+
+  <table class="compare-table">
+    <thead><tr><th>修正案</th><th>主题 / 俗名</th><th>一句话</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">802.11-1997</td><td>原始标准</td><td>2.4GHz，2Mbps，FHSS（跳频扩频）/DSSS（直接序列扩频）</td></tr>
+      <tr><td class="mono">802.11b</td><td>11b / Wi-Fi 1</td><td>2.4GHz 11Mbps（CCK 补码键控）——企课 3 讲</td></tr>
+      <tr><td class="mono">802.11a</td><td>11a / Wi-Fi 2</td><td>5GHz OFDM 54Mbps——OFDM（正交频分复用）基本盘的起点</td></tr>
+      <tr><td class="mono">802.11d</td><td>国家法规</td><td>按法规域通告能力（country IE）</td></tr>
+      <tr><td class="mono"><strong>802.11e</strong></td><td>QoS / Wi-Fi 多媒体</td><td>EDCA（增强分布式信道访问）四队列——<a href="../lessons/0011-qos-edca.html">主课 11</a></td></tr>
+      <tr><td class="mono">802.11g</td><td>11g / Wi-Fi 3</td><td>2.4GHz OFDM 54Mbps，兼容 11b</td></tr>
+      <tr><td class="mono">802.11h</td><td>DFS/TPC</td><td>5GHz 雷达避让：动态频率选择 + 发射功率控制</td></tr>
+      <tr><td class="mono">802.11i</td><td>WPA2</td><td>RSN 安全框架：四次握手/CCMP——<a href="../lessons/0009-wpa-security-4way-handshake.html">主课 9/10</a></td></tr>
+      <tr><td class="mono">802.11j</td><td>日本频段</td><td>4.9/5GHz 日本专用</td></tr>
+      <tr><td class="mono"><strong>802.11k</strong></td><td>RRM（无线资源管理）</td><td>邻居报告——<a href="../lessons/0017-roaming-fast-transition.html">主课 17</a></td></tr>
+      <tr><td class="mono"><strong>802.11n</strong></td><td>HT / Wi-Fi 4</td><td>MIMO、40MHz、帧聚合——<a href="../lessons/0013-mimo-basics.html">主课 12/13</a></td></tr>
+      <tr><td class="mono">802.11p</td><td>WAVE（车辆环境无线接入）</td><td>5.9GHz 车联网（DSRC）</td></tr>
+      <tr><td class="mono"><strong>802.11r</strong></td><td>FT（快速转换）</td><td>漫游快速重关联——<a href="../lessons/0017-roaming-fast-transition.html">主课 17</a></td></tr>
+      <tr><td class="mono">802.11s</td><td>Mesh（网状网）</td><td>AP 互连中继——企课 3 讲</td></tr>
+      <tr><td class="mono">802.11u</td><td>Interworking（互通）</td><td>与外部网络互联，Hotspot 2.0 的基础——企课 7 讲</td></tr>
+      <tr><td class="mono"><strong>802.11v</strong></td><td>网络管理</td><td>BSS 过渡管理——<a href="../lessons/0017-roaming-fast-transition.html">主课 17</a></td></tr>
+      <tr><td class="mono">802.11w</td><td>PMF（受保护管理帧）</td><td>管理帧加密（防 deauth 攻击）——<a href="../lessons/0010-wpa2-wpa3-implementation-4way-details.html">主课 10</a>、企课 7</td></tr>
+      <tr><td class="mono">802.11y</td><td>3650MHz</td><td>美国 3.65GHz 专段</td></tr>
+      <tr><td class="mono"><strong>802.11ac</strong></td><td>VHT / Wi-Fi 5</td><td>宽信道 + MU-MIMO（多用户多入多出）下行——<a href="../lessons/0014-mu-mimo-ofdma.html">主课 13/14</a></td></tr>
+      <tr><td class="mono">802.11ad</td><td>DMG / WiGig</td><td>60GHz 千兆短距——企课 3 讲</td></tr>
+      <tr><td class="mono">802.11af</td><td>TV 空白频</td><td>电视频段白空间（54–790MHz）</td></tr>
+      <tr><td class="mono">802.11ah</td><td>HaLow</td><td>sub-1GHz 长距低功耗——企课 3 讲</td></tr>
+      <tr><td class="mono">802.11ai</td><td>FILS（快速初始链路建立）</td><td>关联+握手合并加速</td></tr>
+      <tr><td class="mono">802.11aj</td><td>中国毫米波</td><td>60/45GHz 中国毫米波频段</td></tr>
+      <tr><td class="mono">802.11ak</td><td>桥接</td><td>802.11 链路接入 802.1Q 网桥</td></tr>
+      <tr><td class="mono">802.11aq</td><td>预关联发现</td><td>关联前服务发现</td></tr>
+      <tr><td class="mono"><strong>802.11ax</strong></td><td>HE / Wi-Fi 6</td><td>OFDMA、TWT（目标唤醒时间）、BSS Color（基本服务集着色）——<a href="../lessons/0015-bss-color-he-phy.html">主课 14/15</a></td></tr>
+      <tr><td class="mono">802.11ay</td><td>EDMG</td><td>60GHz 二代（ad 的 4×提速）——企课 3 讲</td></tr>
+      <tr><td class="mono"><strong>802.11be</strong></td><td>EHT / Wi-Fi 7</td><td>320MHz、4096-QAM（正交幅度调制）、MLO（多链路操作）——2024 定稿</td></tr>
+      <tr><td class="mono">802.11bf</td><td>WLAN Sensing（感知）</td><td>用 Wi-Fi 信号做雷达式感知（起草中）</td></tr>
+    </tbody>
+  </table>
+
+  <p>两个"字母陷阱"：<strong>802.11F 和 802.11T 不是标准修正案</strong>，是"推荐实践"（Recommended Practice，大写字母）：11F（IAPP，接入点间协议）2006 年已被撤销；11T（无线性能预测/测试方法）2008 年左右解散、从未发布。所以它们永远不会出现在整合版里——看到有人把它们列进家谱当标准，你就知道他没翻过原始文件。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 整合版（Rollup）：标准文本的"再版"</h2>
+
+  <p>IEEE 每隔几年把零散修正案<strong>卷进一份新的基线文档</strong>，避免你要翻十几份 PDF：</p>
+
+  <div class="cca-diagram">
+802.11-1997 ─ 1999 卷入 a/b ─ <span class="main">2007 (TGma)</span> 卷入 d/e/g…
+   ─ 2012 卷入 n/u/v/y… ─ 2016 卷入 ac/af/ai…
+   ─ <span class="main">2020 (TGme)</span> 卷入 ai/ah/aj/ak/aq/ax   <span class="note">← 11ax 的正式文本在这</span>
+   ─ <span class="main">2024</span> 卷入 11be 等           <span class="note">← Wi-Fi 7 的正式文本在这</span>
+</div>
+
+  <p>手册技能：<strong>查 11ax/11be 条款，别去找名为"802.11ax"的现行文档——内容已在 802.11-2020 / 802.11-2024 基线里</strong>（单行本只有历史意义）。修订任务组叫 REVme/REVme 后继，与 TGme 一脉。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 认证层：Wi-Fi 4/5/6/7 的商业名字</h2>
+
+  <table class="compare-table">
+    <thead><tr><th>营销名</th><th>对应标准</th><th>年份</th><th>一代关键词</th></tr></thead>
+    <tbody>
+      <tr><td>Wi-Fi 4</td><td class="mono">802.11n</td><td>2009</td><td>MIMO、40MHz</td></tr>
+      <tr><td>Wi-Fi 5</td><td class="mono">802.11ac</td><td>2013</td><td>宽信道、MU-MIMO 下行（Wave2）</td></tr>
+      <tr><td>Wi-Fi 6 / 6E</td><td class="mono">802.11ax</td><td>2019/2021</td><td>OFDMA、高密度；<strong>6E = 6GHz 频段扩展，不是新标准版本</strong></td></tr>
+      <tr><td>Wi-Fi 7</td><td class="mono">802.11be</td><td>2024</td><td>320MHz、4096-QAM、MLO</td></tr>
+    </tbody>
+  </table>
+
+  <p>注意两个细节：① 只有 Wi-Fi 4 之后有数字名，11a/b/g 是回头补叫的 Wi-Fi 2/3/1，日常没人用；② WFA（Wi-Fi 联盟）认证的是<strong>互操作性</strong>（不同厂商设备能不能一起工作），不是协议正确性——所以存在"实现了 11ax 但没去做 Wi-Fi 6 认证"的芯片。WPA（Wi-Fi 保护访问）/WPA2/WPA3 也是 WFA 的认证计划名，协议本体分别是 802.11i 前身/11i/SAE（对等同步认证，主课 10）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动工程师：家谱的实际用处</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <ul>
+      <li><strong>代码注释里的条款号</strong>：mac80211/驱动源码注释大量直接引用修正案条款（如 "11w: protected mgmt frames"、"11ax: TWT"）——认识字母汤才能顺藤摸瓜找到标准原文。</li>
+      <li><strong>能力协商 IE 的出处</strong>：每个能力 IE（信息元素）来自哪个修正案，决定了它出现在哪些代设备上（HT IE 只有 11n+ 有）——排查兼容性问题时的第一反应。</li>
+      <li><strong>查文档路径</strong>：特性 → 修正案字母 → 802.11-2020/2024 基线条款号 →（要实现细节时）内核文档/代码。这条链你以后每周都会走。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：家谱建起来了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="你想查 802.11ax（TWT 目标唤醒时间）的正式协议条款，应该去哪份文档？"
+       data-explain="802.11ax 的内容已被卷入 802.11-2020 基线修订版（TGme 完成，连同 ai/ah/aj/ak/aq 一起）。单行本 802.11ax-2021 只有历史意义。同理 Wi-Fi 7 的 11be 条款在 802.11-2024 里。这是整合版（rollup）机制的意义：每隔几年把零散修正案卷进一份基线。「>
+    <script type="application/json">
+      [
+        { "text": "去买一份名为 IEEE 802.11ax 的独立标准", "correct": false },
+        { "text": "IEEE 802.11-2020 基线修订版（TGme 卷入 11ax）", "correct": false },
+        { "text": "Wi-Fi Alliance 的 Wi-Fi 6 认证测试规范", "correct": false },
+        { "text": "802.11-2020 基线修订版——单行本 11ax 已被卷入，只有历史意义", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="802.11F 和 802.11T 为什么永远不在整合版家谱里？"
+       data-explain="大写字母的 11F（IAPP，接入点间协议）和 11T（无线性能预测/测试方法）是「推荐实践」（Recommended Practice），不是标准修正案：11F 是试用性质、2006 年被 IEEE 撤销；11T 任务组约 2008 年解散、从未发布。整合版只卷标准修正案。「>
+    <script type="application/json">
+      [
+        { "text": "它们是推荐实践而非标准修正案，且一个被撤销一个未完成", "correct": true },
+        { "text": "它们是军事机密标准，不对公众开放", "correct": false },
+        { "text": "它们太老了，整合版只收 2010 年后的", "correct": false },
+        { "text": "它们被 Wi-Fi Alliance 买断成了商业标准", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="「Wi-Fi 6 不支持某特性，Wi-Fi 6E 支持」这种说法在什么情况下是错的？"
+       data-explain="6E 不是新的标准版本——它是 802.11ax 在 6GHz 频段的扩展使用（对应芯片/认证带 6GHz 射频）。协议机制层面 6 和 6E 完全相同（同一份 11ax 文本）；差别只在频谱资源和法规（6GHz 干净、无传统设备拖累）。所以「协议特性」层面的 6/6E 差异说法基本是错的，差别应在频段/环境层面。「>
+    <script type="application/json">
+      [
+        { "text": "永远没错，6E 就是 Wi-Fi 7 的别名", "correct": false },
+        { "text": "协议机制层面——6E 与 6 同是 802.11ax，差别只在 6GHz 频段与法规", "correct": true },
+        { "text": "速率层面——6E 最高速率永远比 6 高一倍", "correct": false },
+        { "text": "安全层面——6E 强制用 WPA4", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="「我在芯片里实现了 11ax，但没去做认证」意味着什么？"
+       data-explain="IEEE 标准是「可以自由实现」的技术规范；Wi-Fi Alliance 的 Wi-Fi 6/WPA3 等是互操作性认证计划（测试不同厂商设备能否协同工作），通过才允许打 Wi-Fi CERTIFIED 标签。实现与认证是两回事——认证是市场准入/互操作背书，不是协议正确性的证明。「>
+    <script type="application/json">
+      [
+        { "text": "你的实现是非法的，IEEE 会起诉", "correct": false },
+        { "text": "完全正常：IEEE 标准可自由实现，WFA 认证只是互操作性背书和标签", "correct": true },
+        { "text": "芯片将无法与任何 Wi-Fi 6 设备通信", "correct": false },
+        { "text": "说明协议栈一定不完整", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：三层四层一张家谱</h2>
+  <ol>
+    <li><strong>分层</strong>：ITU-R（国际电信联盟无线电通信部门）/各国监管（法规）→ IEEE 802.11 WG（技术）→ WFA（认证营销）；"Wi-Fi 6"是认证名，"11ax"是标准名</li>
+    <li><strong>家谱</strong>：11a/b/g（速率）→ 11e/i/k/r/v/w（质量/安全/漫游）→ 11n/ac/ax/be（代际吞吐）+ 冷门支线（p/s/u/ad/ay/ah）</li>
+    <li><strong>整合版</strong>：2007/2012/2016/2020/2024 卷积史——查条款先想"卷进哪版了"</li>
+    <li><strong>陷阱</strong>：11F/11T 是推荐实践非标准；6E 是频段扩展非新版本</li>
+  </ol>
+
+  <p>你现在能做的：把家谱表当地图——以后在任何文档/代码里遇到字母，回这课对一眼"哪代、管哪块"。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课</strong>：<a href="./0002-antenna-propagation.html">企课 2 · 天线与传播 —— 信号为什么会"呼吸"</a><br>
+      <a href="./index.html">本课程首页</a> ·
+      <a href="../index.html">主课程路线图</a> ·
+      <a href="./cwna-book-map.html">全书手册化导览</a>
+    </p>
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，继续企课 2」<br>
+      • 「某个修正案想展开讲」（如 11w 管理帧保护）<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://www.ieee802.org/11/Reports/802.11_Timelines.htm">IEEE 802.11 Working Group — 官方项目时间线</a>（任务组/修正案/整合版的权威状态表）</li>
+    <li><a href="https://standards.ieee.org/ieee/802.11/7028/">IEEE SA — 802.11 标准族页</a>（各版基线与修正案文档）</li>
+    <li><a href="https://en.wikipedia.org/wiki/IEEE_802.11">Wikipedia: IEEE 802.11</a>（修正案速查表与整合版卷入清单）</li>
+    <li><a href="https://wifivitae.com/2021/11/30/80211-soup/">802.11 Amendments – The Alphabet Soup — Wi-Fi Vitae</a>（字母汤全景）</li>
+    <li><a href="https://www.cwnp.com/watch-out-s-now-obsolete.-ieee-802.11-use-terms-obsolete-deprecated/">CWNP: 802.11 术语 obsolete/deprecated 说明</a>（11F 撤销等术语状态）</li>
+    <li><a href="https://www.wi-fi.org/">Wi-Fi Alliance 官网</a>（代际命名与认证计划）</li>
+    <li>CWNA-108 Study Guide, Ch.1–Ch.2（本课骨架；按课程规则不要求阅读）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

@@ -134,7 +134,7 @@ _避免_：和「正弦波」混为一谈 —— sinc 是频谱包络，不是�
 **AC (Access Category, 接入类别)**：
 [已学] 802.11e 定义的 4 个优先级队列。从高到低：<strong>AC_VO</strong>（语音，如 VoIP）、<strong>AC_VI</strong>（视频，如流媒体）、<strong>AC_BE</strong>（尽力而为，普通上网）、<strong>AC_BK</strong>（后台，如下载/备份）。每个 AC 有独立的 CWmin/CWmax/AIFSN/TXOP 参数。数据帧的 QoS Control 字段带 TID（0-7），映射到 AC。
 
-**AIFSN / AIFS (Arbitrary IFS, 任意帧间间隔)**：
+**AIFSN / AIFS (Arbitration IFS, 仲裁帧间间隔)**：
 [已学] 802.11e 的可变 IFS。<strong>AIFS[AC] = SIFS + AIFSN[AC] × SlotTime</strong>，AIFSN ≥ 2。802.11a/g 默认：AC_VO/AC_VI=2、AC_BE=3、AC_BK=7。AIFSN 越小 → 等待越短 → 优先级越高。<strong>是 EDCA 区分优先级的第一道闸门</strong>（比 CW 更重要，因为 AIFS 是必等时间）。
 
 **TXOP (Transmission Opportunity, 传输机会)**：
@@ -516,13 +516,13 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 [已学] 用多天线/多路径传<strong>同一数据的冗余副本</strong>，接收端合并 → 提信噪比/抗衰落。<strong>不增吞吐，增可靠性/距离</strong>。和空间复用（增吞吐）是 MIMO 的两条相反取舍路线。分发射分集（STBC）和接收分集（MRC）。
 
 **STBC (Space-Time Block Coding, 空时块编码)**：
-[已学] <strong>发射端分集</strong>技术（Alamouti 码为代表）。把同一数据用正交模式从多根天线发冗余副本，接收端合并。<strong>不需接收方反馈 CSI</strong>（盲发）。代价：吞吐约减半（冗余占了一半流）。802.11n/ac 可选，<strong>用于 SNR 差时保距离/可靠性</strong>。
+[已学] <strong>发射端分集</strong>技术（Alamouti 码为代表）。把同一数据用正交模式从多根天线发冗余副本，接收端合并。<strong>不需接收方反馈 CSI</strong>（盲发）。速率代价要分情况：一般冗余编码会减速率，但 <strong>Alamouti 码是全速率的</strong>（2 时隙发 2 个符号，sup-0004 有证明）——"STBC 必减半吞吐"是错误简化。802.11n/ac 可选，<strong>用于 SNR 差时保距离/可靠性</strong>。
 
 **MRC (Maximal Ratio Combining, 最大比合并)**：
 [已学] <strong>接收端分集</strong>技术。接收机多根天线收到同一信号的多路副本，按各路 SNR 加权相干合并 → 最大化总 SNR。<strong>纯接收端 DSP，不需反馈，不减吞吐</strong>。802.11n/ac 标准。是接收端多天线的"标配"。
 
 **Beamforming / TxBF (Transmit Beamforming, 发射波束成形)**：
-[已学> <strong>发射端</strong>用多天线<strong>加权对齐</strong>信号，使其在目标接收方处<strong>相干叠加增强</strong>（阵列增益）。<strong>需要接收方反馈 CSI</strong>（信道状态信息）。增益大、不减吞吐，但开销和复杂度高。802.11n 支持显式+隐式，802.11ac <strong>只用显式</strong>。
+[已学] <strong>发射端</strong>用多天线<strong>加权对齐</strong>信号，使其在目标接收方处<strong>相干叠加增强</strong>（阵列增益）。<strong>需要接收方反馈 CSI</strong>（信道状态信息）。增益大、不减吞吐，但开销和复杂度高。802.11n 支持显式+隐式，802.11ac <strong>只用显式</strong>。
 
 **CSI (Channel State Information, 信道状态信息)**：
 [已学] 描述收发之间信道特性的信息（每个子载波的幅度/相位响应）。<strong>波束成形的必需输入</strong>——发射端靠 CSI 知道怎么加权。CSI 由接收方测量后反馈给发射方。
@@ -531,7 +531,7 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 [已学] 获取 CSI 的过程。流程：发射方（BeamFormer）发 <strong>NDP（Null Data Packet，空数据包）</strong>探测帧 → 接收方（BeamFormee）测量信道 → 反馈 CSI（压缩 V 矩阵）。802.11ac 用 VHT NDP，802.11ax 用 HE NDP。<strong>是波束成形的前置步骤</strong>。
 
 **Explicit vs Implicit Feedback (显式 vs 隐式反馈)**：
-[已学> CSI 反馈两种方式。<strong>显式</strong>：接收方测信道后直接把 CSI 发回（准，但有反馈开销）。<strong>隐式</strong>：利用<strong>信道互易性</strong>（TDD 系统里上下行信道对称），发射方从上行信道推下行信道——但收发 RF 链不一致，要<strong>校准 (calibration)</strong>。802.11n 两种都支持，<strong>802.11ac 弃用隐式只用显式</strong>（准、省事）。
+[已学] CSI 反馈两种方式。<strong>显式</strong>：接收方测信道后直接把 CSI 发回（准，但有反馈开销）。<strong>隐式</strong>：利用<strong>信道互易性</strong>（TDD 系统里上下行信道对称），发射方从上行信道推下行信道——但收发 RF 链不一致，要<strong>校准 (calibration)</strong>。802.11n 两种都支持，<strong>802.11ac 弃用隐式只用显式</strong>（准、省事）。
 
 **Channel Reciprocity (信道互易性)**：
 [已学] TDD（时分双工）系统里，上下行用同一频段不同时间，信道特性<strong>对称</strong>。隐式波束成形靠它从上行信道推下行。Wi-Fi 是 TDD，理论上满足互易性，但 RF 链不一致要校准。
@@ -561,7 +561,151 @@ _注意_：ath10k / ath11k / iwlwifi 固件很"重"（做扫描/聚合/加密 of
 [已学] 802.11ax HE MU PPDU 里的字段，承载<strong>每个 STA 的 RU 分配信息</strong>（哪个 STA 占哪个 RU、用几流什么 MCS）。DL OFDMA 时 STA 靠它知道"自己的数据在哪个 RU"。是 OFDMA 调度的信令载体。
 
 **BSS Color / Spatial Reuse (BSS 着色 / 空间复用)**：
-[待学] 802.11ax 引入。每个 BSS 分配一个 1-63 的"颜色"编号，写在 PHY 头。STA 收到帧时先看颜色——<strong>颜色不同（邻居 BSS）且信号弱</strong>，可以提高 CCA 阈值继续发（不被邻居拖累）。是高密度部署（多 AP）缓解同频干扰的关键。下节课（第 15 课）讲。
+[已学] 802.11ax 引入。每个 BSS 分配一个 1-63 的 6-bit"颜色"编号，写在 HE-SIG-A（HE Signal A 字段）里。STA 收到帧时先看颜色——<strong>颜色不同（邻居 BSS/OBSS，交叠基本服务集）且信号弱</strong>，可以把 CCA 阈值从 -82dBm 放宽到 -62dBm 继续发（不被邻居拖累）→ 空间复用。是高密度部署缓解同频干扰的关键（第 15 课）。
+
+## 信道绑定与频谱（Channel Bonding / Spectrum）
+
+**Channel Bonding (信道绑定)**：
+[已学] 把两个或多个 20MHz 基础信道捆成一个宽信道用（40/80/160MHz）——吞吐随带宽近似线性翻倍，代价是占频谱、抗干扰变差、邻居更容易把你挤回窄带宽（第 16 课）。
+
+**Primary / Secondary Channel (主信道 / 辅信道)**：
+[已学] 绑定后的宽信道里，<strong>主信道</strong>是发 Beacon（信标）、跑 20MHz 传统交互的"锚点"，<strong>辅信道</strong>是捆上来的额外带宽。STA（站点）先在主信道上对齐，再用辅信道扩宽。主/辅位置由 AP（接入点）通告。
+
+**Preamble Puncturing (前导码打洞)**：
+[已学] 802.11ax 技术：宽信道里某个 20MHz 段被邻居占住时，把那一段"打洞"抠掉、其余部分照用——不必退回整条窄信道。是高密度环境下保住带宽的关键解法（第 16 课）。
+
+**6GHz 频段 / Wi-Fi 6E**：
+[已学] 802.11ax 的扩展频段（Wi-Fi 6E 专属），1.2GHz 连续干净频谱、多达 7 个不重叠 160MHz 信道、只有 11ax 设备无传统客户端拖累——代价是覆盖更小（路径损耗随频率升高）、部分区域需要 AFC（自动频率协调）管控。
+
+## 漫游与快速切换（Roaming / Fast Transition）
+
+**Roaming (漫游)**：
+[已学] STA 在同一 ESS（扩展服务集）内从一个 AP 换到另一个 AP 的过程 = <strong>决策</strong>（什么时候走）+ <strong>执行</strong>（怎么走得快）。朴素漫游要完整重走扫描→认证→关联→四次握手，代价几百毫秒到秒级（第 17 课）。
+
+**802.11k / RRM (Radio Resource Management, 无线资源管理) / Neighbor Report (邻居报告)**：
+[已学] "AP 告诉你邻居在哪"——AP 通过 Neighbor Report 把周边 AP 列表（信道/BSSID/能力）发给 STA，STA 不必全信道扫，<strong>把漫游决策阶段的扫描时间砍掉大半</strong>。
+
+**802.11v / BSS Transition Management (BSS 过渡管理)**：
+[已学] "网络反过来指挥 STA"——AP 主动发 BSS Transition Request（BSS 过渡请求），建议 STA 换到哪个 AP（负载均衡/引导离开拥挤信道）。决策从"STA 单方猜"变成"网络参与"。
+
+**802.11r / FT (Fast Transition, 快速转换)**：
+[已学] "快就快在密钥不用现算"——预先在 Mobility Domain（移动域）内建立 PMK-R0/R1 两级密钥缓存，漫游到新 AP 只需一次 4 帧级别的 Reassociation（重关联）往返就完成密钥切换，省掉完整四次握手+上游认证，漫游时间从几百毫秒压到几十毫秒（第 17 课）。
+
+**PMK-R0 / PMK-R1 (R0 集中密钥 / R1 分布密钥)**：
+[已学] 802.11r 的两级密钥层级：R0 集中保管（认证者侧），R1 按副本下发到每个候选 AP。漫游时新 AP 直接拿 R1 派生 PTK（成对临时密钥）——这就是"快"的实现机制。
+
+## 速率自适应（Rate Adaptation / Rate Control）
+
+**Rate Adaptation / Rate Control (速率自适应 / 速率控制)**：
+[已学] 发送端在无基站指挥的 Wi-Fi 里，<strong>用 ACK（确认帧）/Block ACK（块确认）的成功失败统计猜当前信道能扛多高 MCS</strong>（调制与编码方案）的机制。两大门派：盲试派（ARF/Minstrel，靠丢包统计）和信道测量派（SNR 查表，固件常见）（第 18 课）。
+
+**ARF / AARF (Auto Rate Fallback / Adaptive ARF, 自动速率回退)**：
+[已学] 最早的速率自适应算法：连续 2 次失败降一档，连续 10 次成功（或定时器到）试探升一档。AARF 把"成功次数阈值"做成自适应（失败翻倍）。所有后续算法的基线。
+
+**Minstrel / Minstrel-HT (Linux 默认速率算法)**：
+[已学] Linux mac80211 默认算法：对每档速率维护 EWMA 平滑的成功率 P(r) 和期望吞吐 T(r)=P(r)×理论速率，每 100ms 周期按 <strong>~90% 利用（max_tp，最高吞吐）+ ~10% 探索（sample）</strong> 选速率，退路用 max_prob（最高成功率）。Minstrel-HT 按 MCS×流数×带宽 三维速率组统计并适配 A-MPDU（聚合协议数据单元）。
+
+**EWMA (Exponentially Weighted Moving Average, 指数加权滑动平均)**：
+[已学] 新样本权重高、旧样本指数遗忘的平滑平均——信道变化后旧统计几秒内失效，速率自适应换挡才够快。
+
+**Retry Chain (重传链)**：
+[已学] 一帧的多次尝试速率序列：首发用 max_tp（最高吞吐速率），逐次失败逐级降速，兜底 max_prob（最高成功率速率）。重传本身就是一次免费的速率探测。
+
+## 驱动框架 API（mac80211 代码级）
+
+**ieee80211_ops (驱动操作回调表)**：
+[已学] mac80211 框架与驱动之间的<strong>唯一契约</strong>：一张函数指针表，框架按事件回调（.tx 发送、.set_key 装密钥、.ampdu_action 建聚合、.sta_state 站点状态推进…）。驱动只填需要的，留空的走框架软件路径。读驱动的第一入口（第 19 课）。
+
+**ieee80211_hw (硬件抽象对象)**：
+[已学] 框架视角的"你的网卡"：内嵌 wiphy（无线物理设备）和驱动私有区 hw->priv。用 ieee80211_alloc_hw()（分配）创建，填完能力（队列数/频段/MCS 支持）后 ieee80211_register_hw()（注册）进框架。
+
+**ieee80211_rx() / ieee80211_rx_ni() (接收入口)**：
+[已学] 驱动收完帧交回框架的唯一入口：先把接收元数据填进 skb（套接字缓冲区）->cb 的 struct ieee80211_rx_status，再调 ieee80211_rx()（中断上下文）或 ieee80211_rx_ni()（进程/NAPI 轮询上下文）。对应蓝牙的 hci_recv_frame()。
+
+**ieee80211_tx_status() (发送完成回报)**：
+[已学] 驱动发完帧（拿到 ACK 或确认失败）后调它回报框架：填实际尝试的速率/结果，喂给速率控制的 tx_status() 统计——第 18 课闭环的代码落点。
+
+**skb->cb (套接字缓冲区控制块)**：
+[已学] 内核帧容器 skb 里留给协议栈塞元数据的区域。mac80211 在 RX（接收）方向放 ieee80211_rx_status（接收元数据）、TX 完成时放 ieee80211_tx_info——<strong>方向不同结构不同，驱动混用是常见崩溃源</strong>。
+
+**mt76 (联发科 Wi-Fi 驱动家族)**：
+[已学] 内核主线最推荐的驱动阅读对象：共享层（dma.c/pci.c/usb.c/sdio.c）+ 芯片子目录（mt7915/ 的 main.c/mac.c/dma.c/mcu.c…）。现代驱动 = 寄存器/DMA（直接内存访问）数据面 + MCU（微控制器）消息配置面的混合体。
+
+**txq / txqi (每站点发送队列)**：
+[已学] mac80211 的每站点/每 AC（接入类别）发送队列抽象，airtime（空口时间）公平调度的单位。FQ（公平队列）+ airtime 让多个 STA 不互相饿死。
+
+**chanctx (信道上下文)**：
+[已学] 多虚拟接口共享一个射频时的信道资源抽象：谁在哪个信道、怎么分时。加接口必须能绑到某个 chanctx，扫描/多信道并发都靠它调度。
+
+## 调试工具（Debugging Toolbox）
+
+**iw (无线配置工具)**：
+[已学] nl80211（Netlink 用户态接口）的命令行客户端，取代 iwconfig。三板斧：link（链路现状）、scan（邻居环境）、station dump（站点三要素：signal 信号/bitrate 速率/retries 重传）（第 20 课）。
+
+**phy vs dev (物理设备 vs 网络接口)**：
+[已学] iw 的两个操作对象：phy = 物理射频设备（wiphy），dev = 它上面开出的网络接口（wlan0）。一个 phy 可以同时开多个 dev（AP+STA 多角色）。
+
+**Monitor Mode (监听模式)**：
+[已学] 让网卡旁听电波里<strong>所有</strong>帧（不只发给自己的）的接口模式：iw phy phy0 interface add mon0 type monitor 建监听接口 → 钉信道 → tcpdump 抓包。FullMAC（全硬件）芯片常不支持。
+
+**radiotap (无线捕获元数据头)**：
+[已学] 抓包文件里附在每个 802.11 帧前的元数据头（不是帧的一部分）：信号强度 dBm_antsignal、信道、MCS/VHT/HE 速率字段——驱动 RX 元数据的用户态镜像。
+
+**Wireshark Display Filter (显示过滤器)**：
+[已学] 用协议字段名过滤帧的语法：wlan.fc.type==0/1/2（管理/控制/数据）、wlan.fc.type_subtype==0x0008（Beacon）、eapol（四次握手）、wlan.fc.retry==1（重传帧）、radiotap.dbm_antsignal（信号强度）。帧级排错的日常武器。
+
+**debugfs / rc_stats (内核调试文件系统 / 速率控制统计)**：
+[已学] 挂在 /sys/kernel/debug/ieee80211/phyN/netdev:wlan0/stations/&lt;MAC&gt;/rc_stats 的每站点速率统计：每档 MCS 的成功率/期望吞吐/EWMA/采样次数。前提：CONFIG_MAC80211_DEBUGFS + 已连接站点；FullMAC 芯片没有（速率控制在固件）——存在与否本身就能判断卡型。
+
+## 企业部署篇（姊妹课程 / enterprise）
+
+**Amendment / Rollup (修正案 / 整合版)**：
+[已学] IEEE 802.11 的修正案（11a→11bf，字母用尽后双字母）逐个定义新特性；每隔几年 Task Group（任务组）把它们卷进一份基线整合版（802.11-2007/2012/2016/2020/2024）——查条款先想"卷进哪版"。11F/11T 是大写字母的推荐实践（非标准），一个被撤销一个未完成（企课 1）。
+
+**Fresnel Zone (菲涅尔区)**：
+[已学] 视距链路周围的"净空管道"：第一菲涅尔区半径 r = 17.32×√(d₁d₂/(f·D))（km/GHz→米）。工程准则：至少 60% 净空（理想 80%），否则障碍引入额外损耗——"没挡视线"≠没损耗（企课 2）。
+
+**Beamwidth / Azimuth / Elevation (波束宽度 / 方位图 / 俯仰图)**：
+[已学] 天线方向图的关键数字与两张切面图。增益=能量重分配：高增益全向天线把"甜甜圈"压扁——水平更远、垂直（楼上楼下）更差。dBi（相对各向同性）= dBd（相对半波偶极子）+ 2.15（企课 2）。
+
+**VSWR (Voltage Standing Wave Ratio, 电压驻波比)**：
+[已学] 天线与馈线/电路的阻抗匹配度（1:1 完美，工程 &lt;1.5:1 好）。失配=功率反射。配套：馈线损耗（频率越高每米损耗越大）、连接器/IPEX（同轴微型连接器）松动是嵌入式"信号稳定地差"的头号硬件嫌疑（企课 2）。
+
+**CCI / ACI (Co-Channel / Adjacent-Channel Interference, 同信道 / 邻信道干扰)**：
+[已学] 信道设计的反直觉原则：<strong>宁可同频复用，不可邻频半重叠</strong>——同信道设备可被 CSMA/CA 协调（礼貌分时），半重叠信道互相当噪声且无法协调（企课 5）。
+
+**Cell Edge / Band Steering / Sticky Client (小区边缘 / 频段引导 / 粘性客户端)**：
+[已学] 设计三词：小区边缘按目标线画（语音 −67dBm（分贝毫瓦）/数据 −70dBm）；频段引导把双频终端赶去 5/6GHz；粘性客户端抱死弱信号 AP 不肯切换——"移动时卡"的高频原因（企课 5）。
+
+**Passive / Active / Validation Survey (被动 / 主动 / 验证勘测)**：
+[已学] 被动只听不连（画覆盖热图），主动真实关联（测吞吐/重传/漫游），验证在部署后按设计目标逐项核对出验收结论。AP-on-a-stick（杆上 AP）= 施工前临时架设验证。频谱分析仪看 Layer 1（物理层）非 Wi-Fi 干扰，协议分析仪看 Layer 2（链路层）帧级事实（企课 6）。
+
+**Split-MAC / CAPWAP (分离介质访问控制 / 无线接入点控制与配置协议)**：
+[已学] 控制器架构的分工与隧道：实时功能（Beacon（信标帧）/ACK（确认帧）/重传/加密）留 AP（接入点），全局决策（关联/漫游/RF（射频）调优）上收控制器；CAPWAP（RFC 5415）UDP（用户数据报协议）5246 控制（DTLS（数据报传输层安全）强制）/5247 数据（可选）（企课 4）。
+
+**PoE (Power over Ethernet, 以太网供电)**：
+[已学] 802.3af/at/bt = Type 1–4 = 15.4/30/60/90W（瓦）PSE（供电设备）端口输出；endspan（端接式，PoE 交换机）/midspan（中跨式，注入器）；PD（受电设备）经 LLDP（链路层发现协议）报功率等级。<strong>功率预算是总账；负载相关的 AP 重启先查供电（brownout 欠压复位）</strong>（企课 4）。
+
+**ZTP (Zero-Touch Provisioning, 零接触配置)**：
+[已学] 设备通电联网后自动拉取配置的部署方式——分支/远程办公室没有 IT 也能部署。
+
+**WIPS / Rogue AP / Evil Twin (无线入侵防御系统 / 非法接入点 / 恶魔双子)**：
+[已学] WIPS=传感器+分类（授权/邻居/流氓）+处置（抑制 rogue 也用 deauth（解除认证））。Evil Twin=同 SSID（服务集标识）假 AP 钓鱼。判攻击看"洪泛无差别"，PMF（受保护管理帧）网络可凭 MIC（消息完整性码）验伪（企课 7）。
+
+**EAP 家族 (EAP-TLS / PEAP / TTLS / FAST / SIM-AKA)**：
+[已学] 802.1X（基于端口的网络接入控制）认证方法：TLS（传输层安全）双证书金标准；PEAP/TTLS 服务端证书+隧道内第二道认证（PEAP 内层通常 MS-CHAPv2，TTLS 内层更灵活）；FAST 思科免证书（PAC）；SIM/AKA 把信任委托给手机卡（运营商 Wi-Fi）（企课 7）。
+
+**OWE (Opportunistic Wireless Encryption, 机会主义无线加密 / 增强开放)**：
+[已学] RFC 8110：开放网络免密码做 Diffie-Hellman（迪菲-赫尔曼）逐客户端加密——防窃听、不防假冒（无网络认证）；有过渡模式兼容老设备（企课 7）。
+
+**ANQP / Passpoint (接入网络查询协议 / 通行证认证)**：
+[已学] 802.11u+Hotspot 2.0 机制：手机关联前用 ANQP 问清"谁家的网/什么 EAP/收费吗"，凭据匹配自动连接认证（运营商配 EAP-SIM）；R2 的 OSU（在线注册）2023-06 起被 WFA（Wi-Fi 联盟）弃用（企课 7）。
+
+**ABR / Jitter Buffer (自适应码率 / 抖动缓冲)**：
+[已学] 视频拉流的应用层机制：HLS/DASH（基于 HTTP 的流媒体协议）分段下载+按缓冲水位升降码率档；抖动缓冲=播放器前端蓄水池。Wi-Fi 三种卡顿机理：吞吐不足（饥饿）/抖动（心律不齐）/瞬断（休克）——先分型再排查（企课 8）。
+
+**HaLow / DMG / EDMG (低频 Wi-Fi / 方向性千兆位 / 增强方向性千兆位)**：
+[已学] 频谱支线：11ah（sub-1GHz、信道 1–16MHz（兆赫）、公里级、原生 TCP/IP）=距离换带宽；11ad（60GHz、6×2.16GHz（吉赫）信道、波束赋形是生死线）/11ay（绑定至 8.64GHz）=带宽换距离（企课 3）。
 
 ---
 

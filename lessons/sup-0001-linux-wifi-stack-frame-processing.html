@@ -141,7 +141,7 @@
     <span class="callout-title">本课支点 / Core Insight</span>
     <p>Linux Wi-Fi 软件栈分<strong>四层</strong>，从下到上：</p>
     <ol>
-      <li><strong>固件 (Firmware)</strong> —— 跑在 Wi-Fi 芯片（"模组"）内部的小操作系统上，碰硬件寄存器、RF (射频)、DMA。对内核是个黑盒，通过驱动定义的命令接口（PCIe/SDIO/USB 上的厂商私有协议）通信。</li>
+      <li><strong>固件 (Firmware)</strong> —— 跑在 Wi-Fi 芯片（"模组"）内部的小操作系统上，碰硬件寄存器、RF (射频)、DMA（直接内存访问）。对内核是个黑盒，通过驱动定义的命令接口（PCIe/SDIO/USB 上的厂商私有协议）通信。</li>
       <li><strong>设备驱动 (Device driver)</strong> —— 内核态（<span class="mono">drivers/net/wireless/</span>），把固件接口"翻译"成 Linux 网络栈认得的形式。ath10k / iwlwifi / brcmfmac 等都是这一层。</li>
       <li><strong>mac80211 + cfg80211</strong> —— 内核态（<span class="mono">net/mac80211/</span> + <span class="mono">net/wireless/</span>），802.11 协议框架。mac80211 实现 MLME (MAC 子层管理实体)、帧封装、加密、聚合；cfg80211 是统一配置入口。</li>
       <li><strong>用户态 (Userspace)</strong> —— wpa_supplicant（STA (站点) 侧）、hostapd（AP (接入点) 侧），通过 nl80211 (netlink) 与内核通信。</li>
@@ -180,7 +180,7 @@
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From BT</span>
-    <p>BT 的分层你应该熟：<span class="mono">App → Host Stack (L2CAP/ATT/SM) → HCI → Controller 固件 → RF</span>。Wi-Fi 这边<strong>一一对应</strong>：<span class="mono">wpa_supplicant</span> ≈ 上层协议栈；<span class="mono">nl80211</span> ≈ <strong>HCI</strong>（用户态↔内核的控制通道）；<span class="mono">mac80211 + 驱动</span> ≈ <strong>Host Controller Driver</strong>；芯片固件 ≈ <strong>Controller 固件</strong>。最大的区别：<strong>BT 的 MLME 永远在 controller，Wi-Fi 的 MLME 可以在内核（SoftMAC）也可以在固件（FullMAC）</strong> —— 这就是下一节的分水岭。</p>
+    <p>BT 的分层你应该熟：<span class="mono">App → Host Stack (L2CAP/ATT/SM) → HCI → Controller 固件 → RF</span>。Wi-Fi 这边<strong>一一对应</strong>：<span class="mono">wpa_supplicant</span> ≈ 上层协议栈；<span class="mono">nl80211</span> ≈ <strong>HCI（主机控制器接口）</strong>（用户态↔内核的控制通道）；<span class="mono">mac80211 + 驱动</span> ≈ <strong>Host Controller Driver</strong>；芯片固件 ≈ <strong>Controller 固件</strong>。最大的区别：<strong>BT 的 MLME 永远在 controller，Wi-Fi 的 MLME 可以在内核（SoftMAC）也可以在固件（FullMAC）</strong> —— 这就是下一节的分水岭。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -329,7 +329,7 @@
 
   <h2>② 管理帧：内核 mac80211 的主战场</h2>
 
-  <p>管理帧是<strong>你做协议栈移植最直接对口</strong>的部分 —— 这正是 BT 协议栈状态机经验镜像迁移的地方。<strong>SoftMAC 驱动下，STA 模式的管理帧 MLME 在内核 mac80211 里跑</strong>（mac80211 官方文档原文："In mac80211 the MLME is done in the kernel for station mode (STA) and in userspace for AP mode (hostapd)."）。</p>
+  <p>管理帧是<strong>你做协议栈移植最直接对口</strong>的部分 —— 这正是 BT 协议栈状态机经验镜像迁移的地方。<strong>SoftMAC 驱动下，STA（站点）模式的管理帧 MLME（MAC 子层管理实体）在内核 mac80211 里跑</strong>（mac80211 官方文档原文："In mac80211 the MLME is done in the kernel for station mode (STA) and in userspace for AP mode (hostapd)."）。</p>
 
   <table class="frame-map">
     <thead>
@@ -391,7 +391,7 @@
 
   <h2>③ 控制帧：固件独占，内核几乎看不见</h2>
 
-  <p>这是新人最意外的一行：<strong>ACK、CTS、BlockAck 这些控制帧，内核基本完全看不到</strong>。原因是个硬物理约束：</p>
+  <p>这是新人最意外的一行：<strong>ACK（确认帧）、CTS（允许发送）、BlockAck（块确认）这些控制帧，内核基本完全看不到</strong>。原因是个硬物理约束：</p>
 
   <div class="callout key">
     <span class="callout-title">为什么控制帧必须在固件/硬件做</span>
@@ -438,7 +438,7 @@
 
   <h2>FullMAC 视角：管理帧也下沉到固件</h2>
 
-  <p>上面三节讲的是 <strong>SoftMAC（mac80211）路径</strong>。如果你将来做的是 FullMAC 驱动（比如某个 SDIO/USB Wi-Fi 模块移植），管理帧的处理位置会变：</p>
+  <p>上面三节讲的是 <strong>SoftMAC（mac80211）路径</strong>。如果你将来做的是 FullMAC（全 MAC）驱动（比如某个 SDIO/USB Wi-Fi 模块移植），管理帧的处理位置会变：</p>
 
   <table class="frame-map">
     <thead>
@@ -503,8 +503,8 @@
     <ul>
       <li><span class="mono">wpa_supplicant -ddd</span> —— 看用户态状态机和密钥流程</li>
       <li><span class="mono">dmesg / iw event</span> —— 看内核 cfg80211/mac80211/驱动的事件</li>
-      <li>monitor mode 抓包（<span class="mono">tcpdump</span> / Wireshark）—— 看<strong>真实空中帧</strong>（这是 FullMAC 黑盒调试的唯一外部视角）</li>
-      <li><span class="mono">iw dev wlan0 station dump</span> —— 看实时链路状态（MCS、信号、重传率）</li>
+      <li>monitor mode（监听模式）抓包（<span class="mono">tcpdump</span> / Wireshark）—— 看<strong>真实空中帧</strong>（这是 FullMAC 黑盒调试的唯一外部视角）</li>
+      <li><span class="mono">iw dev wlan0 station dump</span> —— 看实时链路状态（MCS（调制与编码方案）、信号、重传率）</li>
     </ul>
     <p>三路日志对时间戳，问题落在固件/驱动/mac80211/用户态哪一段，基本一眼定位。</p>
   </div>
@@ -515,7 +515,7 @@
 
   <div class="quiz" data-type="single"
        data-question="一个 SoftMAC Wi-Fi 驱动下，STA 的 802.11 认证/关联（State 1→2→3）在哪里跑？"
-       data-explain="SoftMAC 驱动下，STA 模式的 MLME (MAC 子层管理实体)（管理帧状态机）在内核 mac80211 里跑（net/mac80211/mlme.c）。wpa_supplicant 只发"connect"命令并等结果，真正的 Auth (802.11 认证帧)/Assoc (关联) 帧交换由 mac80211 完成。注意：AP 模式的 MLME 才在用户态 hostapd。这是 mac80211 官方文档的明确陈述。">
+       data-explain="SoftMAC 驱动下，STA 模式的 MLME (MAC 子层管理实体)（管理帧状态机）在内核 mac80211 里跑（net/mac80211/mlme.c）。wpa_supplicant 只发「connect」命令并等结果，真正的 Auth (802.11 认证帧)/Assoc (关联) 帧交换由 mac80211 完成。注意：AP 模式的 MLME 才在用户态 hostapd。这是 mac80211 官方文档的明确陈述。">
     <script type="application/json">
       [
         { "text": "内核 mac80211（mlme.c 状态机）",     "correct": true },
@@ -528,12 +528,12 @@
 
   <div class="quiz" data-type="single"
        data-question="ACK / CTS / BlockAck 这些控制帧，内核 mac80211 能不能看到它们？"
-       data-explain="控制帧是控制响应帧，必须在 SIFS (短帧间间隔)（~16 μs）内回，主机 CPU 根本来不及介入。所以它们完全在芯片 MAC (介质访问控制层) 硅片 + 固件里收发，内核看不到帧本身。mac80211 只看"后果"：读 TX 状态里的 ACK (确认帧) 成功位来决定重传，维护 BlockAck 的"会话"簿记（重排缓冲区），但帧本身从不上送内核。rx.c 注释印证：到管理帧处理器时"数据帧和控制帧已经被处理掉了"。">
+       data-explain="控制帧是控制响应帧，必须在 SIFS (短帧间间隔)（~16 μs）内回，主机 CPU 根本来不及介入。所以它们完全在芯片 MAC (介质访问控制层) 硅片 + 固件里收发，内核看不到帧本身。mac80211 只看「后果」：读 TX 状态里的 ACK (确认帧) 成功位来决定重传，维护 BlockAck 的「会话」簿记（重排缓冲区），但帧本身从不上送内核。rx.c 注释印证：到管理帧处理器时「数据帧和控制帧已经被处理掉了」。">
     <script type="application/json">
       [
-        { "text": "看不到，全在固件/硬件做",          "correct": true },
         { "text": "看得到，mac80211 解析它们",       "correct": false },
         { "text": "只有 BlockAck 能上送到内核",      "correct": false },
+        { "text": "看不到，全在固件/硬件做",          "correct": true },
         { "text": "看得到，wpa_supplicant 处理",     "correct": false }
       ]
     </script>
@@ -544,8 +544,8 @@
        data-explain="mac80211 在 TX 路径（ieee80211_tx）做三件事：① 把内核网络栈给的 802.3 以太网帧头转成 802.11 MAC 头（按 ToDS/FromDS 填地址，见第 6 课）；② 让速率控制算法选 MCS (调制与编码方案)；③ 软件加密/分片（若没硬件 offload）。然后把 sk_buff 交给驱动。A-MPDU 聚合、硬件加密、功率校准、RF (射频) 发射都在固件/硬件做。RF 调制是 PHY (物理层) 层，不在 mac80211 范畴。">
     <script type="application/json">
       [
-        { "text": "802.3→802.11 封装 + 选 MCS + 加密", "correct": true },
         { "text": "RF 调制（OFDM (正交频分复用) / QAM (正交幅度调制)）",             "correct": false },
+        { "text": "802.3→802.11 封装 + 选 MCS + 加密", "correct": true },
         { "text": "A-MPDU 聚合 + DMA",                  "correct": false },
         { "text": "4-Way Handshake 派生 PTK (成对临时密钥)",          "correct": false }
       ]
@@ -554,7 +554,7 @@
 
   <div class="quiz" data-type="single"
        data-question="ath10k / ath11k / iwlwifi 这些固件很重的驱动，是 SoftMAC 还是 FullMAC？"
-       data-explain="它们都是 SoftMAC —— MLME 仍走 mac80211，驱动实现 ieee80211_ops 注册到 mac80211。判断 SoftMAC/FullMAC 的依据不是"固件干了多少活"，而是"MLME 跑在哪、驱动注册走不走 mac80211"。ath11k 官方文档原文写"ath11k uses mac80211"。尽管这些固件做扫描 offload、加密 offload、聚合，但架构上管理帧状态机仍在内核。常见的 FullMAC 是 brcmfmac/mwifiex/ath6kl/qtnfmac 这类 SDIO/USB 模块驱动。">
+       data-explain="它们都是 SoftMAC —— MLME 仍走 mac80211，驱动实现 ieee80211_ops 注册到 mac80211。判断 SoftMAC/FullMAC 的依据不是「固件干了多少活」，而是「MLME 跑在哪、驱动注册走不走 mac80211」。ath11k 官方文档原文写「ath11k uses mac80211」。尽管这些固件做扫描 offload、加密 offload、聚合，但架构上管理帧状态机仍在内核。常见的 FullMAC 是 brcmfmac/mwifiex/ath6kl/qtnfmac 这类 SDIO/USB 模块驱动。">
     <script type="application/json">
       [
         { "text": "SoftMAC，MLME 仍走 mac80211",     "correct": true },
@@ -570,10 +570,10 @@
        data-explain="wpa_supplicant 通过 libnl 库构造 nl80211 netlink 消息发到内核 cfg80211。nl80211 是 cfg80211 对用户态的接口协议，取代了老的 Wireless Extensions (wext)。典型命令：NL80211_CMD_TRIGGER_SCAN（扫描）、NL80211_CMD_AUTHENTICATE/ASSOCIATE（关联）、NL80211_CMD_NEW_KEY（装密钥）。mac80211 不是一个用户态接口，它是内核里的 SoftMAC 框架；HCI 是蓝牙的接口，不用于 Wi-Fi。">
     <script type="application/json">
       [
-        { "text": "nl80211（基于 netlink）",  "correct": true },
         { "text": "mac80211 的系统调用",      "correct": false },
         { "text": "Wireless Extensions (wext)", "correct": false },
-        { "text": "HCI 命令",                 "correct": false }
+        { "text": "HCI 命令",                 "correct": false },
+        { "text": "nl80211（基于 netlink）",  "correct": true }
       ]
     </script>
   </div>

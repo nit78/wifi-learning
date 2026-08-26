@@ -101,9 +101,9 @@
 
   <h1>MU-MIMO + OFDMA —— Wi-Fi 6 多用户的两大支柱</h1>
 
-  <p>承接第 13 课的 SU-MIMO（所有流给一个 STA）。这课讲 Wi-Fi 6 真正的核心：<strong>怎么让 AP 同时服务多个 STA</strong>。两条技术路线——<strong>MU-MIMO</strong>（切空间）和 <strong>OFDMA</strong>（切频率）。它们是 Wi-Fi 5→6 的分水岭，也是高密度场景（多设备、IoT）的关键。</p>
+  <p>承接第 13 课的 SU-MIMO (单用户 MIMO)（所有流给一个 STA）。这课讲 Wi-Fi 6 真正的核心：<strong>怎么让 AP 同时服务多个 STA</strong>。两条技术路线——<strong>MU-MIMO (多用户 MIMO)</strong>（切空间）和 <strong>OFDMA (正交频分多址)</strong>（切频率）。它们是 Wi-Fi 5→6 的分水岭，也是高密度场景（多设备、IoT）的关键。</p>
 
-  <p>sup-0003 讲过 MIMO 把信道拆成多个独立空间模式。MU-MIMO 就是<strong>把这些模式分给不同 STA</strong>。OFDMA 则是另一个维度——把 OFDM 子载波<strong>分组</strong>分给不同 STA。两者互补，可叠加。</p>
+  <p>sup-0003 讲过 MIMO 把信道拆成多个独立空间模式。MU-MIMO 就是<strong>把这些模式分给不同 STA</strong>。OFDMA 则是另一个维度——把 OFDM (正交频分复用) 子载波<strong>分组</strong>分给不同 STA。两者互补，可叠加。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -114,7 +114,7 @@
     <p>Wi-Fi 6 之前，AP 一次只能服务一个 STA（SU-MIMO 所有流给它）。Wi-Fi 6 让 AP <strong>一次同时服务多个 STA</strong>，两条互补路线：</p>
     <ul>
       <li><strong>MU-MIMO (多用户 MIMO)</strong>：AP 的多个空间流<strong>分给不同 STA</strong>。切<strong>空间维度</strong>。适合<strong>大包高吞吐</strong>（视频、下载）。</li>
-      <li><strong>OFDMA (正交频分多址)</strong>：把信道在<strong>频域切成 RU</strong>，各 STA 占不同 RU。切<strong>频率维度</strong>。适合<strong>小包多设备</strong>（IoT、语音、聊天）。</li>
+      <li><strong>OFDMA (正交频分多址)</strong>：把信道在<strong>频域切成 RU (资源单元)</strong>，各 STA 占不同 RU。切<strong>频率维度</strong>。适合<strong>小包多设备</strong>（IoT、语音、聊天）。</li>
     </ul>
     <p>两者可组合（一个 RU 内做 MU-MIMO）。<strong>这是 Wi-Fi 6 高密度场景的两大支柱</strong>。</p>
   </div>
@@ -123,7 +123,7 @@
 
   <h2>① MU-MIMO：空间流分给不同 STA</h2>
 
-  <p>第 13 课的 SU-MIMO：AP 4 根天线，4 流全给一个 STA。MU-MIMO：4 流分给 4 个 STA，每 STA 1 流——<strong>同时服务 4 个设备</strong>。</p>
+  <p>第 13 课的 SU-MIMO：AP 4 根天线，4 流全给一个 STA。MU-MIMO (多用户 MIMO)：4 流分给 4 个 STA，每 STA 1 流——<strong>同时服务 4 个设备</strong>。</p>
 
   <table class="compare-table">
     <thead><tr><th>标准</th><th>MU-MIMO 方向</th><th>最多用户</th></tr></thead>
@@ -180,7 +180,7 @@
 
   <div class="callout key">
     <span class="callout-title">OFDMA 适合什么</span>
-    <p><strong>小包多设备</strong>：IoT 传感器、VoIP、聊天消息。这些包小但设备多，传统方式逐个发要付 N 次过路费（DIFS+backoff+ACK）。OFDMA 把它们<strong>塞进一次传输的不同 RU</strong>——一次过路费，N 个设备同时收发。<strong>这是 Wi-Fi 6 对 IoT 场景的核心价值</strong>。</p>
+    <p><strong>小包多设备</strong>：IoT 传感器、VoIP、聊天消息。这些包小但设备多，传统方式逐个发要付 N 次过路费（DIFS+backoff+ACK）。OFDMA (正交频分多址) 把它们<strong>塞进一次传输的不同 RU</strong>——一次过路费，N 个设备同时收发。<strong>这是 Wi-Fi 6 对 IoT 场景的核心价值</strong>。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -207,7 +207,7 @@
 
   <h2>④ 上行多用户：Wi-Fi 6 的真正突破</h2>
 
-  <p>802.11ac 只有<strong>下行</strong> MU-MIMO（AP 发给多 STA）。上行还是传统的——STA 各自竞争信道（CSMA/CA），不能同时发。802.11ax 加了<strong>上行多用户（UL OFDMA + UL MU-MIMO）</strong>，这才是真正的突破。</p>
+  <p>802.11ac 只有<strong>下行</strong> MU-MIMO（AP 发给多 STA）。上行还是传统的——STA 各自竞争信道（CSMA/CA (载波侦听多址接入 / 碰撞避免)），不能同时发。802.11ax 加了<strong>上行多用户（UL OFDMA + UL MU-MIMO）</strong>，这才是真正的突破。</p>
 
   <p>但有个根本问题：<strong>STA 不能自调度上行</strong>（CSMA/CA 是分布式的，STA 各自决定何时发，没法协调同时发）。所以 UL MU 必须由 AP <strong>显式触发</strong>——这就是 <strong>Trigger Frame (触发帧)</strong>：</p>
 
@@ -229,7 +229,7 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
     │                                  │        │
 </div>
 
-  <p><strong>Trigger Frame 携带的调度信息</strong>：每个 STA 的 RU 分配（占哪个 RU）、目标 RSSI（上行功率控制）、MCS、空间流数、PPDU 时长。STA 收到后用 <strong>HE TB PPDU (HE Trigger-Based PPDU, HE 触发基 PPDU)</strong> 在分配的资源里发。<strong>多个 STA 严格同时发，各占不同 RU，频域正交不碰撞</strong>。</p>
+  <p><strong>Trigger Frame 携带的调度信息</strong>：每个 STA 的 RU 分配（占哪个 RU）、目标 RSSI (接收信号强度指示)（上行功率控制）、MCS、空间流数、PPDU 时长。STA 收到后用 <strong>HE TB PPDU (HE Trigger-Based PPDU, HE 触发基 PPDU)</strong> 在分配的资源里发。<strong>多个 STA 严格同时发，各占不同 RU，频域正交不碰撞</strong>。</p>
 
   <p>这彻底改变了 Wi-Fi 上行——从"竞争式逐个发"变成"AP 调度同时发"。<strong>对密集 IoT 场景的延迟和效率提升巨大</strong>。</p>
 
@@ -241,7 +241,7 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
 
   <ul>
     <li>DL OFDMA 时，AP 发的 HE MU PPDU 的 HE-SIG-B 里<strong>列出每个 STA 的 RU 分配</strong>（AID + RU 位置 + MCS + 流数）。</li>
-    <li>STA 解 PHY 头时读 HE-SIG-B，找到自己的 AID，就知道"我的数据在哪个 RU、用什么 MCS 解"。</li>
+    <li>STA 解 PHY 头时读 HE-SIG-B，找到自己的 AID (关联标识符)，就知道"我的数据在哪个 RU、用什么 MCS 解"。</li>
     <li>UL OFDMA 时，<strong>Trigger Frame 承担这个角色</strong>（它本质是个特殊 PPDU，带同样的分配信息）。</li>
   </ul>
 
@@ -257,7 +257,7 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>这是 Wi-Fi 6 固件最复杂的部分，绝大部分在<strong>固件 + 硬件</strong>，驱动层看到的是接口：</p>
     <ul>
-      <li><strong>调度器（scheduler）</strong>：AP 模式的核心——决定每个 TXOP 用 MU-MIMO 还是 OFDMA、哪些 STA 参与谁占哪个 RU。这是<strong>性能差异的关键</strong>，各厂商固件在这里较劲。SoftMAC 的 mac80211 对 Wi-Fi 6 调度支持仍不完整，很多在厂商固件里。</li>
+      <li><strong>调度器（scheduler）</strong>：AP 模式的核心——决定每个 TXOP (传输机会) 用 MU-MIMO 还是 OFDMA、哪些 STA 参与谁占哪个 RU。这是<strong>性能差异的关键</strong>，各厂商固件在这里较劲。SoftMAC 的 mac80211 对 Wi-Fi 6 调度支持仍不完整，很多在厂商固件里。</li>
       <li><strong>Trigger Frame 收发</strong>：AP 模式构造发 Trigger；STA 模式识别 Trigger、按分配的资源用 HE TB PPDU 上行。<strong>UL OFDMA 调试的核心</strong>——Trigger 解析错或 RU 分配错，STA 发错地方 AP 收不到。</li>
       <li><strong>HE-SIG-B 解析</strong>：STA rx 路径要解 HE-SIG-B 找自己的 RU。字段解析 bug 会导致"收不到自己的数据"。</li>
       <li><strong>能力协商</strong>：STA 在 Association Request 里声明支持哪些 RU 尺寸、几流 MU-MIMO。AP 据此调度。<strong>能力位填错导致 AP 不给分配 OFDMA</strong>是常见问题。</li>
@@ -271,7 +271,7 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
 
   <div class="quiz" data-type="single"
        data-question="MU-MIMO 和 OFDMA 分别切哪个维度？各自适合什么业务？"
-       data-explain="MU-MIMO 切空间维度（空间流分给不同 STA），适合大包高吞吐（视频、下载）——每 STA 拿 1-2 流，吞吐高，但需要 sounding 开销大，用户数限 4-8。OFDMA 切频率维度（子载波分组 RU），适合小包多设备（IoT、语音、聊天）——一次过路费塞 N 个设备，用户数可达 9-74。两者互补可组合（一个 RU 内做 MU-MIMO）。">
+       data-explain="MU-MIMO (多用户 MIMO) 切空间维度（空间流分给不同 STA），适合大包高吞吐（视频、下载）——每 STA 拿 1-2 流，吞吐高，但需要 sounding 开销大，用户数限 4-8。OFDMA (正交频分多址) 切频率维度（子载波分组 RU），适合小包多设备（IoT、语音、聊天）——一次过路费塞 N 个设备，用户数可达 9-74。两者互补可组合（一个 RU 内做 MU-MIMO）。">
     <script type="application/json">
       [
         { "text": "MU-MIMO 切空间适合大包；OFDMA 切频率适合小包多设备", "correct": true },
@@ -284,12 +284,12 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
 
   <div class="quiz" data-type="single"
        data-question="为什么 UL OFDMA（上行多用户）必须用 Trigger Frame 触发，STA 不能自己调度？"
-       data-explain="CSMA/CA 是分布式的——STA 各自决定何时发，没法协调'同时发'。UL OFDMA 要求多 STA 严格同时发（各占不同 RU 频域正交不碰撞），这必须由 AP 集中调度。Trigger Frame 就是 AP 的调度指令：告诉每个 STA 占哪个 RU、用什么 MCS、什么功率、PPDU 多长。STA 收到后用 HE TB PPDU 响应。没有 Trigger，STA 不知道该在哪个 RU 发、和谁同时发，UL OFDMA 无从谈起。">
+       data-explain="CSMA/CA (载波侦听多址接入 / 碰撞避免) 是分布式的——STA 各自决定何时发，没法协调'同时发'。UL OFDMA 要求多 STA 严格同时发（各占不同 RU 频域正交不碰撞），这必须由 AP 集中调度。Trigger Frame 就是 AP 的调度指令：告诉每个 STA 占哪个 RU、用什么 MCS、什么功率、PPDU 多长。STA 收到后用 HE TB PPDU 响应。没有 Trigger，STA 不知道该在哪个 RU 发、和谁同时发，UL OFDMA 无从谈起。">
     <script type="application/json">
       [
-        { "text": "CSMA/CA 是分布式的，多 STA 同时发必须 AP 集中调度", "correct": true },
         { "text": "Trigger 用来加密上行数据",                           "correct": false },
         { "text": "没有 Trigger STA 不知道信道是否空闲",                 "correct": false },
+        { "text": "CSMA/CA 是分布式的，多 STA 同时发必须 AP 集中调度", "correct": true },
         { "text": "Trigger 是省电唤醒用的",                             "correct": false }
       ]
     </script>
@@ -297,7 +297,7 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
 
   <div class="quiz" data-type="single"
        data-question="一个 20MHz 信道用 OFDMA 最多能同时服务多少个 STA（用最小 RU）？"
-       data-explain="20MHz 信道有 256 个子载波，最小 RU 是 26-tone。256 ÷ 26 ≈ 9（还要扣掉保护子载波和直流子载波），实际标准定义 20MHz 最多 9 个 26-tone RU。所以一次 OFDMA 传输最多同时服务 9 个 STA（每 STA 占一个 26-tone RU ≈ 2MHz）。这是 IoT 场景的关键数字——9 个传感器可以一次上行。更大的信道（40/80/160MHz）RU 数更多。">
+       data-explain="20MHz 信道有 256 个子载波，最小 RU (资源单元) 是 26-tone。256 ÷ 26 ≈ 9（还要扣掉保护子载波和直流子载波），实际标准定义 20MHz 最多 9 个 26-tone RU。所以一次 OFDMA 传输最多同时服务 9 个 STA（每 STA 占一个 26-tone RU ≈ 2MHz）。这是 IoT 场景的关键数字——9 个传感器可以一次上行。更大的信道（40/80/160MHz）RU 数更多。">
     <script type="application/json">
       [
         { "text": "9 个（20MHz 切 9 个 26-tone RU）", "correct": true },
@@ -310,12 +310,12 @@ UL OFDMA 流程 (AP 调度多 STA 同时上行):
 
   <div class="quiz" data-type="single"
        data-question="STA 怎么知道 DL OFDMA 帧里属于自己的数据在哪个 RU？"
-       data-explain="靠 PHY 头里的 HE-SIG-B 字段。AP 发 HE MU PPDU 时，HE-SIG-B 列出每个 STA 的 RU 分配（AID + RU 位置 + MCS + 流数）。STA 解 PHY 头时读 HE-SIG-B，按 AID 找到自己的条目，就知道数据在哪个 RU、用什么 MCS 解。UL OFDMA 时这个角色由 Trigger Frame 承担（它带同样的分配信息）。HE-SIG-B 解析 bug 会导致 STA 找不到自己的数据。">
+       data-explain="靠 PHY 头里的 HE-SIG-B 字段。AP 发 HE MU PPDU 时，HE-SIG-B 列出每个 STA 的 RU 分配（AID + RU 位置 + MCS + 流数）。STA 解 PHY 头时读 HE-SIG-B，按 AID (关联标识符) 找到自己的条目，就知道数据在哪个 RU、用什么 MCS 解。UL OFDMA 时这个角色由 Trigger Frame 承担（它带同样的分配信息）。HE-SIG-B 解析 bug 会导致 STA 找不到自己的数据。">
     <script type="application/json">
       [
-        { "text": "解 PHY 头的 HE-SIG-B 字段，按 AID 找自己的 RU", "correct": true },
         { "text": "靠 Beacon 里的 TIM 位图",                        "correct": false },
         { "text": "靠 PS-Poll 帧向 AP 查询",                        "correct": false },
+        { "text": "解 PHY 头的 HE-SIG-B 字段，按 AID 找自己的 RU", "correct": true },
         { "text": "每个 STA 收整个信道再自己分",                     "correct": false }
       ]
     </script>

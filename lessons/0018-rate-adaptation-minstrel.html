@@ -81,7 +81,7 @@
 
   <h1>速率自适应 —— 谁在决定用哪个 MCS</h1>
 
-  <p>前面课里反复出现一句"信号差了就自动降到低 MCS"（第 13/15/16 课），但一直没回答：<strong>谁在选？怎么选？</strong>MCS 表有几十档（调制 × 码率 × 空间流），选高了丢包重传、选低了浪费吞吐——而且 Wi-Fi 没有基站指挥，<strong>发送端全靠自己猜</strong>。这课讲速率自适应 (Rate Adaptation / Rate Control)：从最朴素的 ARF 到 Linux 默认的 Minstrel-HT。</p>
+  <p>前面课里反复出现一句"信号差了就自动降到低 MCS"（第 13/15/16 课），但一直没回答：<strong>谁在选？怎么选？</strong>MCS（调制与编码方案）表有几十档（调制 × 码率 × 空间流），选高了丢包重传、选低了浪费吞吐——而且 Wi-Fi 没有基站指挥，<strong>发送端全靠自己猜</strong>。这课讲速率自适应 (Rate Adaptation / Rate Control)：从最朴素的 ARF（自动速率回退）到 Linux 默认的 Minstrel-HT。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -89,8 +89,8 @@
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
-    <p>蜂窝网里基站拿 CSI 指挥手机用什么 MCS；Wi-Fi 里<strong>没有这个指挥</strong>——发送端能拿到的唯一可靠反馈是 <strong>ACK 到没到</strong>（或者 Block ACK 里哪些帧到了，第 12 课）。速率自适应的本质：<strong>用"成功/失败"的统计去猜当前信道能扛多高的速率</strong>。</p>
-    <p>两大门派：<strong>盲试派</strong>（拿丢包统计试出来，ARF/Minstrel）和<strong>信道测量派</strong>（直接看 SNR/CSI 查表，固件里常见）。前者不依赖硬件校准、对干扰鲁棒；后者反应快但 SNR↔MCS 映射因芯片而异、校准成本高。</p>
+    <p>蜂窝网里基站拿 CSI（信道状态信息）指挥手机用什么 MCS（调制与编码方案）；Wi-Fi 里<strong>没有这个指挥</strong>——发送端能拿到的唯一可靠反馈是 <strong>ACK（确认帧）到没到</strong>（或者 Block ACK（块确认）里哪些帧到了，第 12 课）。速率自适应的本质：<strong>用"成功/失败"的统计去猜当前信道能扛多高的速率</strong>。</p>
+    <p>两大门派：<strong>盲试派</strong>（拿丢包统计试出来，ARF/Minstrel）和<strong>信道测量派</strong>（直接看 SNR（信噪比）/CSI 查表，固件里常见）。前者不依赖硬件校准、对干扰鲁棒；后者反应快但 SNR↔MCS 映射因芯片而异、校准成本高。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -113,25 +113,25 @@
  <span class="bad">→ 组合数成百上千, 还要随信号实时换</span>
 </div>
 
-  <p>11ax 的 MCS10/11（1024-QAM，第 15 课）再添两档。而且注意：<strong>速率是每个 STA 一份的</strong>——AP 对远处的 IoT 用 MCS2、对桌上的笔记本用 MCS9，同时进行（这才让 OFDMA/MU-MIMO 有意义）。</p>
+  <p>11ax 的 MCS10/11（1024-QAM，第 15 课）再添两档。而且注意：<strong>速率是每个 STA（站点）一份的</strong>——AP（接入点）对远处的 IoT 用 MCS2、对桌上的笔记本用 MCS9，同时进行（这才让 OFDMA（正交频分多址）/MU-MIMO（多用户 MIMO）有意义）。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>② 朴素算法：ARF / AARF</h2>
 
-  <p><strong>ARF (Auto Rate Fallback)</strong>，1997 年就有，规则简单到一行：</p>
+  <p><strong>ARF (Auto Rate Fallback，自动速率回退)</strong>，1997 年就有，规则简单到一行：</p>
 
   <div class="cca-diagram">
 ARF:
  连续 <span class="threshold">2 次</span>失败 → 降一档, 并设"定时器"
  定时器到 / 连续 <span class="threshold">10 次</span>成功 → 试探升一档
-   ↑ 升档失败? 立刻降回来, 定时器翻倍 (下次更晚再试)
+   ↑ 升档失败? 立刻降回来, 定时器重置 (下次再试)
 
 <span class="bad">问题: 阈值全是拍脑袋的常数 —— 信道好的时候升得太慢,
        信道抖的时候降得太晚, 静态信道里反复无谓试探</span>
 </div>
 
-  <p><strong>AARF (Adaptive ARF)</strong> 把"连续成功次数"改成自适应（试探失败就翻倍，成功后回到 10），减少无谓试探。它们是理解后续算法的基线：<strong>所有速率自适应都是在回答"什么时候降、什么时候升、升试探多少"这三个问题</strong>。</p>
+  <p><strong>AARF (Adaptive ARF，自适应自动速率回退)</strong> 把"连续成功次数"改成自适应（试探失败就翻倍，成功后回到 10），减少无谓试探。它们是理解后续算法的基线：<strong>所有速率自适应都是在回答"什么时候降、什么时候升、升试探多少"这三个问题</strong>。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -155,12 +155,12 @@ ARF:
   <p>几个精妙细节：</p>
 
   <ul>
-    <li><strong>重传链</strong>：Minstrel 还维护一张 retry chain——首发用 max_tp，失败后逐级降速重试（最后兜底到 max_prob），<strong>重传本身就是一次免费的探测</strong>。</li>
-    <li><strong>EWMA 忘得快</strong>：信道变了，旧统计迅速失效，几秒内换挡完成。</li>
+    <li><strong>重传链</strong>：Minstrel 还维护一张 retry chain（重传链）——首发用 max_tp，失败后逐级降速重试（最后兜底到 max_prob），<strong>重传本身就是一次免费的探测</strong>。</li>
+    <li><strong>EWMA（指数加权滑动平均）忘得快</strong>：信道变了，旧统计迅速失效，几秒内换挡完成。</li>
     <li><strong>吞吐而非成功率</strong>：一个 90% 成功的 MCS9 往往比 100% 成功的 MCS3 吞吐高（重传也划算）——ARF 类算法看不到这一点。</li>
   </ul>
 
-  <p><strong>Minstrel-HT</strong>（11n 时代重写）是 Linux mac80211 至今的默认算法：把整个 MCS×流数×带宽 组成一个三维速率组统一统计，加了对 A-MPDU 的修正（见下节）。你在 <span class="mono">/sys/kernel/debug/ieee80211/phy0/netdev:wlan0/stations/&lt;mac&gt;/rc_stats</span> 能直接看到每档的成功率/吞吐/采样计数——<strong>调试速率问题的第一现场</strong>。</p>
+  <p><strong>Minstrel-HT</strong>（11n 时代重写）是 Linux mac80211 至今的默认算法：把整个 MCS×流数×带宽 组成一个三维速率组统一统计，加了对 A-MPDU（聚合 MPDU）的修正（见下节）。你在 <span class="mono">/sys/kernel/debug/ieee80211/phy0/netdev:wlan0/stations/&lt;mac&gt;/rc_stats</span> 能直接看到每档的成功率/吞吐/采样计数——<strong>调试速率问题的第一现场</strong>。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -181,16 +181,16 @@ ARF:
  <span class="bad">麻烦3: 11ax 以后统计粒度更细 (每 RU/每用户), 固件里叫 per-peer rate table</span>
 </div>
 
-  <p>Minstrel-HT 的应对：统计单位改为<strong>聚合成功率</strong>（ampdu_success/ampdu_len），并按聚合长度修正期望吞吐。FullMAC 芯片的固件里，速率表和聚合长度通常是<strong>联合调优</strong>的一个状态机——这也是厂商固件真正下功夫的地方之一。</p>
+  <p>Minstrel-HT 的应对：统计单位改为<strong>聚合成功率</strong>（ampdu_success/ampdu_len），并按聚合长度修正期望吞吐。FullMAC（全 MAC）芯片的固件里，速率表和聚合长度通常是<strong>联合调优</strong>的一个状态机——这也是厂商固件真正下功夫的地方之一。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>⑤ 另一派：SNR 查表（固件的私房菜）</h2>
 
-  <p>芯片厂商固件常用<strong>信道测量派</strong>：收包时记 RSSI/SNR（甚至信道估计的 EVM），按出厂校准的 SNR→MCS 映射表直接选档，丢包统计只做兜底修正。</p>
+  <p>芯片厂商固件常用<strong>信道测量派</strong>：收包时记 RSSI（接收信号强度指示）/SNR（信噪比）（甚至信道估计的 EVM（误差向量幅度）），按出厂校准的 SNR→MCS（调制与编码方案）映射表直接选档，丢包统计只做兜底修正。</p>
 
   <ul>
-    <li><strong>优点</strong>：换挡快（一个包的 SNR 就够，不用等统计窗口）、上行选择更准（AP 对 STA 的链路质量在 AP 侧看包就知道）。</li>
+    <li><strong>优点</strong>：换挡快（一个包的 SNR 就够，不用等统计窗口）、上行选择更准（AP（接入点）对 STA（站点）的链路质量在 AP 侧看包就知道）。</li>
     <li><strong>缺点</strong>：SNR↔MCS 映射依赖射频链校准（每芯片每固件一份），干扰突发看不出（SNR 高但碰撞多），跨芯片不可比。</li>
     <li><strong>11ax 之后趋势</strong>：协议本身在补反馈通道——上行触发帧里 AP 可以指定 STA 用什么参数（AP 主导的调度），等于把蜂窝那套"网络指挥"慢慢搬进 Wi-Fi。速率自适应正从"纯猜测"走向"半指挥"。</li>
   </ul>
@@ -203,8 +203,8 @@ ARF:
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>速率控制在 Linux 栈的落点：</p>
     <ul>
-      <li><strong>SoftMAC：mac80211 的 RC API</strong>。算法实现为模块：<span class="mono">rc80211_minstrel_ht.c</span>（默认）、可插拔（<span class="mono">ieee80211_rate_control_ops</span> 注册）。驱动每发一帧回调 <span class="mono">get_rate()</span>，收 ACK 后上报 <span class="mono">tx_status()</span> 供统计。</li>
-      <li><strong>FullMAC：速率表在固件</strong>。驱动/host 只下发初始速率限制（比如 11b-only 的 IoT 场景锁 MCS0），选择逻辑全在固件——固件工程师写的就是 per-peer 速率状态机 + 聚合联动 +（可能有的）SNR 查表。</li>
+      <li><strong>SoftMAC（软件 MAC）：mac80211 的 RC（速率控制）API</strong>。算法实现为模块：<span class="mono">rc80211_minstrel_ht.c</span>（默认）、可插拔（<span class="mono">ieee80211_rate_control_ops</span> 注册）。驱动每发一帧回调 <span class="mono">get_rate()</span>，收 ACK（确认帧）后上报 <span class="mono">tx_status()</span> 供统计。</li>
+      <li><strong>FullMAC（全 MAC）：速率表在固件</strong>。驱动/host 只下发初始速率限制（比如 11b-only 的 IoT 场景锁 MCS0），选择逻辑全在固件——固件工程师写的就是 per-peer 速率状态机 + 聚合联动 +（可能有的）SNR 查表。</li>
       <li><strong>调试三板斧</strong>：① SoftMAC 看 <span class="mono">rc_stats</span>（每档成功率/吞吐/EWMA）；② <span class="mono">iw dev wlan0 station dump</span> 看 current rate/signal/重传统计；③ 抓包看实际 MCS 分布（Wireshark 的 Radiotap VHT/HE 字段）。"信号很好却跑在低 MCS"先看 rc_stats 是探测失败还是被限速。</li>
       <li><strong>常见 bug</strong>：ACK 状态上报丢（tx_status 缺失 → 统计失真 → 卡在低档）；聚合长度和速率不联动（高速率聚太长 → 尾帧全坏）；多天线场景空间流升降抖动（1 流↔2 流来回切）；sample 比例设太高导致延迟敏感业务抖动。</li>
     </ul>
@@ -232,9 +232,9 @@ ARF:
        data-explain="约 10%。如果永远只发当前最优速率，其他速率的统计会过期——信道变好后你永远不知道（没有样本就没法更新成功率）。这是典型的多臂老虎机权衡：~90% 利用当前最优（max_tp，保吞吐），~10% 探索其他速率（保信息）。探索比例太高浪费吞吐，太低反应迟钝，10% 是实测的平衡点。">
     <script type="application/json">
       [
-        { "text": "约 10%；不试探的话其他速率的统计会过期，信道变好就发现不了", "correct": true },
         { "text": "约 50%；一半试探才公平",                                     "correct": false },
         { "text": "0%；Minstrel 从不试探，只看 SNR",                             "correct": false },
+        { "text": "约 10%；不试探的话其他速率的统计会过期，信道变好就发现不了", "correct": true },
         { "text": "约 10%；法规要求留探测带宽",                                   "correct": false }
       ]
     </script>
@@ -258,8 +258,8 @@ ARF:
        data-explain="一好三难。好：一个 Block ACK 位图一次带回几十个样本，统计收敛极快。难：①聚合成功率≠单帧成功率，聚合对时间对齐敏感，速率高更容易坏尾部帧，统计要按聚合修正；②速率和聚合长度要联动（低速率聚合太长会占满 TXOP）；③11ax 后还有 per-RU/per-user 的粒度。Minstrel-HT 因此把统计单位改成了聚合成功率（ampdu_success/ampdu_len）。">
     <script type="application/json">
       [
-        { "text": "样本暴增收敛快，但聚合成功率/聚合长度联动/per-user 粒度都更难了", "correct": true },
         { "text": "没有影响，聚合只是 MAC 层的事",                                 "correct": false },
+        { "text": "样本暴增收敛快，但聚合成功率/聚合长度联动/per-user 粒度都更难了", "correct": true },
         { "text": "让速率自适应不再需要，Block ACK 里直接告诉你最优速率",           "correct": false },
         { "text": "只影响下行，上行速率还是靠猜",                                   "correct": false }
       ]
@@ -272,19 +272,19 @@ ARF:
 
   <p>学完这课，你脑子里应该有：</p>
   <ol>
-    <li><strong>问题本质</strong>：无指挥反馈信道，只能拿 ACK 统计试错；盲试派（ARF→Minstrel）vs 测量派（SNR 查表）</li>
+    <li><strong>问题本质</strong>：无指挥反馈信道，只能拿 ACK（确认帧）统计试错；盲试派（ARF（自动速率回退）→Minstrel）vs 测量派（SNR（信噪比）查表）</li>
     <li><strong>ARF/AARF</strong>：次数阈值升降档——所有算法的基线，三个问题：何时降、何时升、试探多少</li>
-    <li><strong>Minstrel</strong>：EWMA 成功率 + 期望吞吐最大化 + 90% 利用/10% 探索 + retry chain；Minstrel-HT 是 Linux 默认</li>
-    <li><strong>聚合纠缠</strong>：Block ACK 位图样本暴增，但聚合成功率≠单帧成功率，速率与聚合长度要联动</li>
-    <li><strong>趋势</strong>：11ax 起 AP 调度权增强，速率自适应从纯猜测走向半指挥</li>
+    <li><strong>Minstrel</strong>：EWMA（指数加权滑动平均）成功率 + 期望吞吐最大化 + 90% 利用/10% 探索 + retry chain（重传链）；Minstrel-HT 是 Linux 默认</li>
+    <li><strong>聚合纠缠</strong>：Block ACK（块确认）位图样本暴增，但聚合成功率≠单帧成功率，速率与聚合长度要联动</li>
+    <li><strong>趋势</strong>：11ax 起 AP（接入点）调度权增强，速率自适应从纯猜测走向半指挥</li>
   </ol>
 
   <p>你现在能做的：</p>
   <ul>
     <li>看 rc_stats 判断"信号好但速率低"是探测失败、被限速还是统计失真</li>
     <li>解释为什么手机走远后吞吐是逐渐降而不是断崖（EWMA 平滑 + retry chain 兜底）</li>
-    <li>理解 FullMAC 固件里 per-peer 速率状态机和聚合的联动设计</li>
-    <li>用 station dump + 抓包的 MCS 分布验证速率自适应行为</li>
+    <li>理解 FullMAC（全 MAC）固件里 per-peer 速率状态机和聚合的联动设计</li>
+    <li>用 station dump + 抓包的 MCS（调制与编码方案）分布验证速率自适应行为</li>
   </ul>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -306,7 +306,7 @@ ARF:
 
   <div class="lesson-foot">
     <p>
-      <strong>下一课方向</strong>（可选）：mac80211 驱动框架代码导读 / Wi-Fi 7 (MLO) / Beacon/IE 逐字段拆解 / 综合复盘。<br>
+      <strong>下一课方向</strong>（可选）：mac80211 驱动框架代码导读 / Wi-Fi 7 (MLO（多链路操作）) / Beacon（信标帧）/IE（信息元素）逐字段拆解 / 综合复盘。<br>
       <a href="./0017-roaming-fast-transition.html">← 第 17 课</a> ·
       <a href="../index.html">路线图</a> ·
       <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·

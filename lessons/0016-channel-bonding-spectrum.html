@@ -81,7 +81,7 @@
 
   <h1>信道绑定与频谱划分 —— 吞吐主线的地基</h1>
 
-  <p>第 12 课讲了聚合（一次发一大包）、第 14 课讲了 OFDMA（把信道切给多设备）——但有一块地基一直没铺：<strong>信道本身有多宽、怎么来的</strong>。Wi-Fi 的 "20/40/80/160 MHz" 不是天上掉下来的，是<strong>把相邻的 20MHz 信道绑在一起</strong>用。这课讲清楚：频谱怎么划分、信道怎么绑定、绑宽了付出什么代价。这是吞吐主线的最后一块拼图。</p>
+  <p>第 12 课讲了聚合（一次发一大包）、第 14 课讲了 OFDMA（正交频分多址，把信道切给多设备）——但有一块地基一直没铺：<strong>信道本身有多宽、怎么来的</strong>。Wi-Fi 的 "20/40/80/160 MHz" 不是天上掉下来的，是<strong>把相邻的 20MHz 信道绑在一起</strong>用。这课讲清楚：频谱怎么划分、信道怎么绑定、绑宽了付出什么代价。这是吞吐主线的最后一块拼图。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -89,7 +89,7 @@
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
-    <p>OFDM（第 2 课）的基本单位是 <strong>20MHz 信道</strong>：64 个 312.5kHz 子载波（11n/ac），或 256 个 78.125kHz 子载波（11ax，第 15 课）。要更高吞吐，最粗暴的一招是<strong>把两个相邻 20MHz 绑成一个 40MHz</strong>——子载波翻倍，理论速率直接翻倍。这就是<strong>信道绑定 (Channel Bonding)</strong>。</p>
+    <p>OFDM（正交频分复用，第 2 课）的基本单位是 <strong>20MHz 信道</strong>：64 个 312.5kHz 子载波（11n/ac），或 256 个 78.125kHz 子载波（11ax，第 15 课）。要更高吞吐，最粗暴的一招是<strong>把两个相邻 20MHz 绑成一个 40MHz</strong>——子载波翻倍，理论速率直接翻倍。这就是<strong>信道绑定 (Channel Bonding)</strong>。</p>
     <p>但天下没有免费的带宽：绑得越宽，<strong>噪声底越高（第 4 课：带宽翻倍，噪声底 +3dB）、需要空闲的频谱越多、被邻居干扰的面越大</strong>。信道绑定是"用干扰容忍度换吞吐"的交易。</p>
   </div>
 
@@ -140,7 +140,7 @@
  <span class="note">*=DFS 信道: 先听雷达(CAC 60s), 听到就让路</span>
 </div>
 
-  <p><strong>DFS（动态频率选择）</strong>：5GHz 的部分频段与气象/军用雷达共用，法规要求 AP 上电先做 <strong>CAC（信道可用性检查，通常 60 秒）</strong>确认没雷达才能用；用着用着检测到雷达脉冲必须立刻让路（切换信道）。这是企业网和调试时常见的"AP 突然换信道了"的原因。</p>
+  <p><strong>DFS（动态频率选择）</strong>：5GHz 的部分频段与气象/军用雷达共用，法规要求 AP（接入点）上电先做 <strong>CAC（信道可用性检查，通常 60 秒）</strong>确认没雷达才能用；用着用着检测到雷达脉冲必须立刻让路（切换信道）。这是企业网和调试时常见的"AP 突然换信道了"的原因。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -164,7 +164,7 @@
      <span class="note">→ 老 20MHz 设备听到也能正确设置 NAV, 不去撞辅信道</span>
 </div>
 
-  <p><strong>为什么这么设计</strong>：向后兼容。11n AP 带着一群 11a/b/g 老设备时，老设备只在主信道说话（它们不知道 40MHz 的存在）；靠主信道上的前导码重复，老设备也能"听到"40MHz 传输并退避。代价是<strong>一个 20MHz 老设备就能拖累整个 40MHz 小区</strong>——共存机制（20/40 Coexistence、Forty MHz Intolerant 位）允许老设备宣布"别绑了"，AP 退回 20MHz。2.4GHz 上这个机制几乎总是触发，<strong>所以 2.4GHz 实战中别指望 40MHz</strong>。</p>
+  <p><strong>为什么这么设计</strong>：向后兼容。11n AP（接入点）带着一群 11a/b/g 老设备时，老设备只在主信道说话（它们不知道 40MHz 的存在）；靠主信道上的前导码重复，老设备也能"听到"40MHz 传输并退避。代价是<strong>一个 20MHz 老设备就能拖累整个 40MHz 小区</strong>——共存机制（20/40 Coexistence、Forty MHz Intolerant 位）允许老设备宣布"别绑了"，AP 退回 20MHz。2.4GHz 上这个机制几乎总是触发，<strong>所以 2.4GHz 实战中别指望 40MHz</strong>。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -184,12 +184,12 @@
 
   <div class="callout key">
     <span class="callout-title">绑定不是免费的：三笔账</span>
-    <p><strong>第一笔，灵敏度账</strong>（第 4 课）：带宽翻倍 → 噪声底 +3dB → 相同 SNR 下可用 MCS 降一档。绑宽信道在<strong>远距离反而更慢</strong>——这是"我家 160MHz 怎么不如 80MHz"的头号原因。</p>
-    <p><strong>第二笔，CCA 账</strong>（第 5 课）：发 80MHz 帧要求主 20 + 辅 20 + 辅 40 + 辅 60 <strong>全部空闲</strong>。邻居越多、越宽的信道越难等到"全家空闲"——密集部署里 160MHz 的实际信道利用率常常惨不忍睹。</p>
-    <p><strong>第三笔，频谱账</strong>：5GHz 总共也就三四个不重叠的 160MHz。相邻两家 AP 都用 160 → 同信道复用 → 互相压 CCA。企业部署普遍用 20/40MHz 做频率规划，家宽才敢开 160。</p>
+    <p><strong>第一笔，灵敏度账</strong>（第 4 课）：带宽翻倍 → 噪声底 +3dB → 相同 SNR（信噪比）下可用 MCS（调制与编码方案）降一档。绑宽信道在<strong>远距离反而更慢</strong>——这是"我家 160MHz 怎么不如 80MHz"的头号原因。</p>
+    <p><strong>第二笔，CCA（信道空闲评估）账</strong>（第 5 课）：发 80MHz 帧要求主 20 + 辅 20 + 辅 40 + 辅 60 <strong>全部空闲</strong>。邻居越多、越宽的信道越难等到"全家空闲"——密集部署里 160MHz 的实际信道利用率常常惨不忍睹。</p>
+    <p><strong>第三笔，频谱账</strong>：5GHz 总共也就两个不重叠的 160MHz。相邻两家 AP（接入点）都用 160 → 同信道复用 → 互相压 CCA。企业部署普遍用 20/40MHz 做频率规划，家宽才敢开 160。</p>
   </div>
 
-  <p><strong>主信道位置也是部署变量</strong>：同一个 80MHz（如 ch36-48），主信道可以放在 ch36 也可以放在 ch44。相邻 AP 用<strong>相同 80MHz 但不同主 20MHz</strong>，能让各自的老设备/管理流量错开——这是企业频率规划的常规手法。</p>
+  <p><strong>主信道位置也是部署变量</strong>：同一个 80MHz（如 ch36-48），主信道可以放在 ch36 也可以放在 ch44。相邻 AP（接入点）用<strong>相同 80MHz 但不同主 20MHz</strong>，能让各自的老设备/管理流量错开——这是企业频率规划的常规手法。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -214,7 +214,7 @@ Preamble Puncturing (11ax):
         <span class="good">→ 接收方知道这段是干扰, 信道估计时绕开它</span>
 </div>
 
-  <p><strong>Preamble Puncturing（前导码打洞）</strong>：发送端在 HE 前导码（HE-SIG-A 的带宽/打洞字段）里声明"哪些 20/40MHz 段被打洞不用"，其余照常 OFDMA 发送。接收方做信道估计时跳过洞，等于<strong>在忙频谱里见缝插针</strong>。Wi-Fi 7 (802.11be) 进一步把它扩展成更细粒度的 20MHz 打洞。这和 BSS Color（第 15 课）是一对：BSS Color 解决"听见了要不要退避"，打洞解决"退不掉的洞能不能绕开"。</p>
+  <p><strong>Preamble Puncturing（前导码打洞）</strong>：发送端在 HE 前导码（HE-SIG-A 的带宽/打洞字段）里声明"哪些 20/40MHz 段被打洞不用"，其余照常 OFDMA（正交频分多址）发送。接收方做信道估计时跳过洞，等于<strong>在忙频谱里见缝插针</strong>。Wi-Fi 7 (802.11be) 进一步把它扩展成更细粒度的 20MHz 打洞。这和 BSS Color（基本服务集着色，第 15 课）是一对：BSS Color 解决"听见了要不要退避"，打洞解决"退不掉的洞能不能绕开"。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -223,10 +223,10 @@ Preamble Puncturing (11ax):
   <p>2020 年 FCC 开放 6GHz（5.925–7.125GHz，共 1200MHz）给免许可业务，Wi-Fi 6E/7 专用。它把本课所有痛点一次解决了一大半：</p>
 
   <ul>
-    <li><strong>频谱大</strong>：约等于 2.4G + 5G 之和，能塞下 7 个互不重叠的 160MHz——绑定不再是稀缺品。</li>
+    <li><strong>频谱大</strong>：比 2.4G + 5G 之和还多，能塞下 7 个互不重叠的 160MHz——绑定不再是稀缺品。</li>
     <li><strong>没有老设备</strong>：法规只许 HE (Wi-Fi 6) 及以上协议进入，不存在 11b/g/n 拖累，无需 20/40 共存机制。</li>
-    <li><strong>无需 DFS 等待</strong>（标准功率模式仍要 AFC 自动频率协调查数据库，但不是雷达检测那套）。</li>
-    <li><strong>信令简化</strong>：不需要兼容旧前导码，发现/绑定流程更干净（用新的 Neighbor Report / Fast Initial Link Setup 机制）。</li>
+    <li><strong>无需 DFS 等待</strong>（标准功率模式仍要 AFC（自动频率协调）查数据库，但不是雷达检测那套）。</li>
+    <li><strong>信令简化</strong>：不需要兼容旧前导码，发现/绑定流程更干净（用新的 Neighbor Report（邻居报告）/ Fast Initial Link Setup 机制）。</li>
   </ul>
 
   <p>代价：6GHz 穿墙衰减更大（频率越高越像光），实际覆盖半径比 5GHz 还小一圈——大频谱 + 小覆盖，6GHz 注定是<strong>同室高吞吐</strong>专用频段。</p>
@@ -239,10 +239,10 @@ Preamble Puncturing (11ax):
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>信道绑定和频谱管理在 Linux 栈里的落点：</p>
     <ul>
-      <li><strong>cfg80211 regulatory</strong>：频段/信道/功率的法规数据库（CRDA / Linux 内置 regdb），DFS 状态机也在这层。固件工程师移植时要对齐固件的信道表和内核法规域——两边不一致是经典 bug（固件能发 ch144，内核说 NO_IR，连不上）。</li>
-      <li><strong>mac80211 channel context (chanctx)</strong>：每个在用的"信道+带宽+主信道位置"是一个 chanctx，AP/STA 加入对应 context。带宽切换（20↔40↔80）= 重构 chanctx + 通知固件切射频。多信道并发（如一个 2.4G + 一个 5G）= 多 chanctx + 时分切射频（MCC）。</li>
-      <li><strong>主辅信道协商</strong>：AP 在 Beacon 的 HT/VHT Operation IE 里通告带宽和辅信道位置；STA 驱动读它配置射频。抓包看 Beacon IE 是排查"为什么只跑 20MHz"的第一步。</li>
-      <li><strong>DFS/CAC</strong>：AP 模式选到 DFS 信道要先 CAC（内核有 CAC 定时器、雷达检测回调 <span class="mono">ieee80211_radar_detected</span>）；雷达触发后整网换信道，所有 STA 跟着 Beacon 找新家。</li>
+      <li><strong>cfg80211 regulatory</strong>：频段/信道/功率的法规数据库（CRDA / Linux 内置 regdb），DFS（动态频率选择）状态机也在这层。固件工程师移植时要对齐固件的信道表和内核法规域——两边不一致是经典 bug（固件能发 ch144，内核说 NO_IR，连不上）。</li>
+      <li><strong>mac80211 channel context (chanctx)</strong>：每个在用的"信道+带宽+主信道位置"是一个 chanctx，AP（接入点）/STA（站点）加入对应 context。带宽切换（20↔40↔80）= 重构 chanctx + 通知固件切射频。多信道并发（如一个 2.4G + 一个 5G）= 多 chanctx + 时分切射频（MCC）。</li>
+      <li><strong>主辅信道协商</strong>：AP 在 Beacon（信标帧）的 HT/VHT Operation IE（信息元素）里通告带宽和辅信道位置；STA 驱动读它配置射频。抓包看 Beacon IE 是排查"为什么只跑 20MHz"的第一步。</li>
+      <li><strong>DFS/CAC</strong>：AP 模式选到 DFS 信道要先 CAC（信道可用性检查，内核有 CAC 定时器、雷达检测回调 <span class="mono">ieee80211_radar_detected</span>）；雷达触发后整网换信道，所有 STA 跟着 Beacon 找新家。</li>
       <li><strong>常见 bug</strong>：主信道被邻居占满导致吞吐塌方（辅信道闲也用不上）；带宽能力位声明错（STA 声明 160 但射频只支持 80）；DFS 信道雷达误报（微波炉/蓝牙脉冲被当雷达）频繁跳信道。</li>
     </ul>
   </div>
@@ -253,12 +253,12 @@ Preamble Puncturing (11ax):
 
   <div class="quiz" data-type="single"
        data-question="为什么 2.4GHz 实战中几乎用不了 40MHz 信道绑定？"
-       data-explain="三个原因叠加：① 频谱总共只有 83.5MHz，只能塞一个不重叠的 40MHz（1+6 绑起来就占了 2/3 频段，11 就没了）；② 老设备（11b/g/n 20MHz）极多，20/40 共存机制会检测到主辅信道上的 20MHz 设备并强制 AP 退回 20MHz；③ 还有蓝牙/微波炉在同频段捣乱。所以 2.4GHz 的正确姿势是固定 1/6/11 之一跑 20MHz。">
+       data-explain="三个原因叠加：① 频谱总共只有 83.5MHz，一个不重叠的 40MHz（如 1+5 或 3+7）就占去约一半，之后再也放不下第三个不重叠的 20MHz 信道；② 老设备（11b/g/n 20MHz）极多，20/40 共存机制会检测到主辅信道上的 20MHz 设备并强制 AP 退回 20MHz；③ 还有蓝牙/微波炉在同频段捣乱。所以 2.4GHz 的正确姿势是固定 1/6/11 之一跑 20MHz。">
     <script type="application/json">
       [
-        { "text": "频谱太窄 + 老设备触发 20/40 共存退回 + 干扰源多", "correct": true },
-        { "text": "2.4GHz 的芯片不支持 40MHz",                    "correct": false },
         { "text": "法规禁止 2.4GHz 使用信道绑定",                  "correct": false },
+        { "text": "2.4GHz 的芯片不支持 40MHz",                    "correct": false },
+        { "text": "频谱太窄 + 老设备触发 20/40 共存退回 + 干扰源多", "correct": true },
         { "text": "2.4GHz 的子载波间隔不兼容",                     "correct": false }
       ]
     </script>
@@ -269,8 +269,8 @@ Preamble Puncturing (11ax):
        data-explain="11ac 要求整个 80MHz（主 20 + 辅 20 + 辅 40 + 辅 60）全部 CCA 空闲才能绑定发送。ch44 属于辅 40 段，它忙 → 整个 80MHz 传输做不了，STA 只能退避、或只用主 20MHz 发。这正是 Preamble Puncturing 要解决的问题——11ax 可以在 ch44 打洞，用剩下的 60MHz 照发。">
     <script type="application/json">
       [
-        { "text": "整个 80MHz 绑定发送失败，退避（或只发主 20MHz）", "correct": true },
         { "text": "照发 80MHz，反正前导码在主信道上",                "correct": false },
+        { "text": "整个 80MHz 绑定发送失败，退避（或只发主 20MHz）", "correct": true },
         { "text": "自动打洞，用其余 60MHz 发",                        "correct": false },
         { "text": "发 RTS/CTS 把邻居赶走",                            "correct": false }
       ]
@@ -313,13 +313,13 @@ Preamble Puncturing (11ax):
     <li><strong>信道绑定</strong>：40/80/160 = 主 20MHz + 逐级递归的辅信道；信令永远在主信道；绑定发送要求全带宽空闲</li>
     <li><strong>三笔账</strong>：噪声底 +3dB/倍频、CCA 全家必须闲、频谱规划变挤——宽信道只在 SNR 富余 + 邻居少时划算</li>
     <li><strong>Preamble Puncturing</strong>：11ax 起可在前导码声明打洞，绕开忙频段见缝插针；与 BSS Color 是一对</li>
-    <li><strong>驱动落点</strong>：cfg80211 法规/DFS、mac80211 chanctx、Beacon 里 HT/VHT Operation IE 的带宽协商</li>
+    <li><strong>驱动落点</strong>：cfg80211 法规/DFS、mac80211 chanctx、Beacon（信标帧）里 HT/VHT Operation IE 的带宽协商</li>
   </ol>
 
   <p>你现在能做的：</p>
   <ul>
     <li>解释"为什么我家 160MHz 反而不如 80MHz 快"（噪声底 + CCA 两笔账）</li>
-    <li>看 Beacon 的 Operation IE 推出这个 BSS 的带宽和主信道位置</li>
+    <li>看 Beacon 的 Operation IE 推出这个 BSS（基本服务集）的带宽和主信道位置</li>
     <li>排查"STA 只跑 20MHz"：辅信道忙？老设备触发共存？能力位没开？</li>
     <li>理解 DFS 信道为什么 AP 上电要等一分钟（CAC）</li>
   </ul>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📖 CWNA-108 全书手册化导览 · 20 章速查</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .map-intro {
+    background: #fbf9f4;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.8rem 1rem;
+    font-size: 0.86rem;
+    line-height: 1.7;
+    margin: 1.2rem 0;
+  }
+  .map-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .map-table th, .map-table td {
+    padding: 0.5rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  .map-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    position: sticky;
+    top: 0;
+  }
+  .map-table tbody tr:last-child td { border-bottom: none; }
+  .map-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .map-table .ch { font-family: var(--mono); white-space: nowrap; font-weight: 700; color: var(--accent); }
+  .map-table .ch small { display: block; color: var(--ink-faint); font-weight: 400; }
+  .map-table a { color: var(--accent); text-decoration: none; }
+  .map-table a:hover { text-decoration: underline; }
+  .map-table .proto { background: #f0f7f2; }
+  .map-table .deploy { background: #faf5ee; }
+  .legend { font-size: 0.78rem; color: var(--ink-soft); margin: 0.6rem 0 0; }
+  .legend .proto-dot { display:inline-block; width:10px; height:10px; background:#5fa872; border-radius:2px; vertical-align:middle; margin:0 4px 0 12px;}
+  .legend .deploy-dot { display:inline-block; width:10px; height:10px; background:#d4a04a; border-radius:2px; vertical-align:middle; margin:0 4px 0 12px;}
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    📖 工具页 · CWNA-108（第 6 版）全书手册化导览 ·
+    <a href="./index.html">姊妹课程首页</a> ·
+    <a href="../index.html">主课程路线图</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="../GLOSSARY.md">术语表</a>
+  </div>
+
+  <h1>全书手册化导览 —— 20 章 × 速记 × 对应课 × 检索线</h1>
+
+  <p>这本页子的用法：<strong>遇到问题 → 在"遇到什么问题翻这章"列里找症状 → 点对应课复习 → 需要原始细节时翻书的对应章</strong>。书的 20 章、主课程 21 课 + 5 补充、姊妹课程 8 课，在这里合成一张网。</p>
+
+  <div class="map-intro">
+    <strong>全书一分为二</strong>：<span style="color:#2f6b42;font-weight:700">绿色行 = 协议与驱动半边</span>（主课程覆盖，含 RF/PHY/MAC/安全/Wi-Fi 6），<span style="color:#b8761c;font-weight:700">橙色行 = 部署与运营半边</span>（姊妹课程覆盖，含架构/设计/勘测/安全运营）。行内"企 N"= 姊妹课程第 N 课，"主 N"= 主课程第 N 课，"sup-N"= 补充课。
+  </div>
+
+  <table class="map-table">
+    <thead>
+      <tr>
+        <th style="width:16%">章</th>
+        <th style="width:30%">要点速记</th>
+        <th style="width:27%">对应课程</th>
+        <th style="width:27%">遇到什么问题翻这章</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="deploy">
+        <td class="ch">Ch1<small>标准与组织</small></td>
+        <td>ITU-R（国际电信联盟无线电通信部门）/监管机构/IEEE（电气电子工程师学会）/WFA（Wi-Fi 联盟）分层；通信基础回顾</td>
+        <td><a href="./0001-standards-organizations-amendments.html">企课 1</a> · 主 21</td>
+        <td>"这个特性是谁规定的？""认证名和标准名什么关系？"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch2<small>802.11 标准与修正案</small></td>
+        <td>修正案字母汤全景；defunct（已废止）；802.11-2020/2024 整合版；Wi-Fi 4/5/6/7 命名</td>
+        <td><a href="./0001-standards-organizations-amendments.html">企课 1</a></td>
+        <td>"11ax 条款去哪查？""11u 是干嘛的？"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch3<small>RF 基础</small></td>
+        <td>波/频率/波长；增益/损耗；反射散射衍射吸收；dB（分贝）数学</td>
+        <td><a href="../lessons/0003-rf-fundamentals.html">主课 3</a> · <a href="./0002-antenna-propagation.html">企课 2</a></td>
+        <td>"信号为什么有强有弱？""衰减怎么算？"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch4<small>RF 组件与测量</small></td>
+        <td>收发链组件；瓦/dBm（分贝毫瓦）换算；噪声底、SNR（信噪比）、RSSI（接收信号强度指示）、链路预算、灵敏度</td>
+        <td><a href="../lessons/0003-rf-fundamentals.html">主课 3</a> · <a href="../lessons/0004-noise-floor-snr.html">主课 4</a> · <a href="../reference/rf-math-cheatsheet.html">RF 数学速查表</a></td>
+        <td>"SNR 多少能跑 MCS 几？""链路预算怎么算？"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch5<small>天线概念</small></td>
+        <td>方位/俯仰图、波束宽度；全向/定向；dBi（各向同性分贝）/dBd（偶极子分贝）；极化；菲涅尔区 60%；VSWR（电压驻波比）/馈线</td>
+        <td><a href="./0002-antenna-propagation.html">企课 2</a></td>
+        <td>"信号呼吸/死点""换天线能不能救覆盖""楼上没信号"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch6<small>扩频与频段</small></td>
+        <td>FHSS（跳频扩频）/DSSS（直接序列扩频）/CCK（补码键控）/OFDM（正交频分复用）；2.4/5/6GHz 信道划分；吞吐 vs 带宽</td>
+        <td><a href="../lessons/0002-ofdm-orthogonality.html">主课 2</a> · <a href="../lessons/0016-channel-bonding-spectrum.html">主课 16</a> · <a href="./0003-spectrum-topology-completion.html">企课 3</a></td>
+        <td>"信道怎么叠的""11b 设备为什么拖累全网""60GHz/HaLow（低频 Wi-Fi）是什么"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch7<small>WLAN 拓扑</small></td>
+        <td>STA（站点）/BSS（基本服务集）/ESS（扩展服务集）/IBSS（独立基本服务集）；AP（接入点）模式；mesh（网状网）/WDS（无线分布式系统）</td>
+        <td><a href="../lessons/0006-mac-frame-structure.html">主课 6/7</a> · <a href="./0003-spectrum-topology-completion.html">企课 3</a></td>
+        <td>"扩展器/mesh 每跳为什么减速""SSID（服务集标识）是什么角色"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch8<small>介质访问</small></td>
+        <td>CSMA/CA（载波侦听多址接入/碰撞避免）；IFS（帧间间隔）/退避/竞争窗口；ACK（确认帧）；RTS/CTS（请求发送/允许发送）；EDCA（增强分布式信道访问）</td>
+        <td><a href="../lessons/0005-csma-ca-backoff.html">主课 5</a> · <a href="../lessons/0011-qos-edca.html">主课 11</a></td>
+        <td>"为什么会碰撞""语音为什么优先""airtime（空口时间）被谁吃了"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch9<small>802.11 MAC（介质访问控制）</small></td>
+        <td>三类帧/四地址；关联状态机；管理帧逐类；省电（PS-Poll（省电轮询）/TIM（流量指示图）/DTIM（传递流量指示图））</td>
+        <td><a href="../lessons/0006-mac-frame-structure.html">主课 6</a> · <a href="../lessons/0007-sta-association-flow.html">主课 7</a> · <a href="../lessons/0008-power-save-mode.html">主课 8</a></td>
+        <td>"连不上的流程卡在哪""省电为什么掉包""帧字段什么含义"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch10<small>MIMO：HT/VHT</small></td>
+        <td>空间流/分集/波束赋形；40MHz+；256-QAM（正交幅度调制）；11n/ac PPDU（物理层协议数据单元）；保护机制</td>
+        <td><a href="../lessons/0013-mimo-basics.html">主课 13</a> · <a href="../lessons/0014-mu-mimo-ofdma.html">主课 14</a> · sup-3/4/5</td>
+        <td>"MCS（调制与编码方案）怎么选""波束赋形要不要开""HT/VHT 字段怎么看"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch11<small>WLAN 架构</small></td>
+        <td>自治 AP → 控制器（CAPWAP（无线接入点控制与配置协议）/Split-MAC（分离介质访问控制））→ 云管理；管理/控制/数据三平面；专用基础设施</td>
+        <td><a href="./0004-wlan-architecture-poe.html">企课 4</a> · <a href="../lessons/sup-0001-linux-wifi-stack-frame-processing.html">sup-0001</a></td>
+        <td>"漫游谁在决策""数据走隧道还是本地""这网络是哪代架构"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch12<small>PoE（以太网供电）</small></td>
+        <td>802.3af/at/bt；Type 1–4（15.4/30/60/90W（瓦））；PSE（供电设备）/PD（受电设备）；midspan（中跨式）/endspan（端接式）；功率预算</td>
+        <td><a href="./0004-wlan-architecture-poe.html">企课 4</a></td>
+        <td>"AP（接入点）随机重启""负载高时掉线""交换机带得动几台 AP"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch13<small>设计概念</small></td>
+        <td>覆盖 vs 容量；−67/−70dBm（分贝毫瓦）目标线；信道复用（宁同频勿邻频）；漫游重叠；语音/视频/高密度设计；双 5GHz</td>
+        <td><a href="./0005-wlan-design-concepts.html">企课 5</a></td>
+        <td>"晚高峰卡""角落没信号""加 AP 还是加功率""多少设备一台 AP"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch14<small>勘测与验证</small></td>
+        <td>需求访谈；预测/被动/主动/AP-on-a-stick（杆上 AP）；验证流程；频谱仪 vs 协议仪；报告产出</td>
+        <td><a href="./0006-site-survey-validation.html">企课 6</a></td>
+        <td>"这环境能不能稳定拉流""要装几台 AP 装哪""SNR 差但邻居少找什么干扰"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch15<small>故障排查</small></td>
+        <td>分层方法论（一次改一个变量）；L1（物理层）/L2（链路层）排障；工具（iw/抓包/频谱）；多层症状定位</td>
+        <td><a href="../lessons/0020-debugging-toolbox.html">主课 20</a> · <a href="./0008-streaming-stability-playbook.html">企课 8</a> · 企课 6</td>
+        <td>"卡顿/掉线怎么系统排查""报 bug 要带什么证据"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch16<small>攻击与监测</small></td>
+        <td>攻击面（窃听/rogue（非法接入点）/evil twin（恶魔双子）/deauth（解除认证）泛洪）；WIPS（无线入侵防御系统）；策略</td>
+        <td><a href="./0007-security-operations-guest.html">企课 7</a></td>
+        <td>"是不是被攻击了""deauth 怎么判真伪""WIPS 怎么工作"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch17<small>安全架构</small></td>
+        <td>802.1X（基于端口的网络接入控制）/EAP（可扩展认证协议）；WPA2/WPA3/SAE（对等同步认证）；四次握手；PMF（受保护管理帧）；OWE（增强开放）</td>
+        <td><a href="../lessons/0009-wpa-security-4way-handshake.html">主课 9</a> · <a href="../lessons/0010-wpa2-wpa3-implementation-4way-details.html">主课 10</a> · 企课 7（EAP 家族）</td>
+        <td>"握手流程细节""WPA3 换了什么""PEAP（受保护的可扩展认证协议）和 TLS（传输层安全）选哪个"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch18<small>BYOD（自带设备）与访客</small></td>
+        <td>MDM（移动设备管理）；访客门户/隔离/分段；Hotspot 2.0/Passpoint（通行证认证）与 ANQP（接入网络查询协议）</td>
+        <td><a href="./0007-security-operations-guest.html">企课 7</a></td>
+        <td>"访客网怎么隔离""机场 Wi-Fi 怎么自动连的"</td>
+      </tr>
+      <tr class="proto">
+        <td class="ch">Ch19<small>802.11ax 高效</small></td>
+        <td>OFDMA（正交频分多址）/RU（资源单元）；MU-MIMO（多用户多入多出）上行；BSS Color（基本服务集着色）空间复用；TWT（目标唤醒时间）；1024-QAM；长符号</td>
+        <td><a href="../lessons/0014-mu-mimo-ofdma.html">主课 14</a> · <a href="../lessons/0015-bss-color-he-phy.html">主课 15</a></td>
+        <td>"Wi-Fi 6 到底好在哪""高密度怎么扛""TWT 省电怎么回事"</td>
+      </tr>
+      <tr class="deploy">
+        <td class="ch">Ch20<small>部署与垂直市场</small></td>
+        <td>企业/分支/桥接/WISP（无线互联网服务提供商）/教育/医疗/工业/仓储/零售等场景要点；IoT（物联网）</td>
+        <td>企课 5（场景设计线）· 本导览（按需开课）</td>
+        <td>"某行业部署有什么特殊要求"（按需再开课）</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="legend">
+    <span class="proto-dot"></span>协议/驱动半边（主课程 21 课 + 5 补充）
+    <span class="deploy-dot"></span>部署/运营半边（姊妹课程 8 课）
+  </p>
+
+  <div class="map-intro">
+    <strong>三条最常走的检索线</strong>：<br>
+    ① <strong>拉流卡顿/掉线</strong> → 直接去 <a href="./0008-streaming-stability-playbook.html">企课 8 速查表</a>（症状→原因→工具→课次一站到底）；<br>
+    ② <strong>某个协议机制</strong> → 主课程：<a href="../lessons/0021-capstone-full-journey-review.html">第 21 课时间线</a>是协议侧总索引；<br>
+    ③ <strong>环境/部署疑问</strong> → 本页橙色列 → 姊妹课程对应课。
+  </div>
+
+  <div class="lesson-foot">
+    <p>
+      <a href="./index.html">姊妹课程首页</a> ·
+      <a href="../index.html">主课程路线图</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a>
+    </p>
+    <p style="font-size:0.8rem;color:var(--ink-faint)">章节名对照 CWNA: Certified Wireless Network Administrator Study Guide（第 6 版，Exam CWNA-108，Sybex/Wiley 2021）。发现"翻这章"没覆盖的问题 → 回来说一声，加行或开课。</p>
+  </div>
+
+</main>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

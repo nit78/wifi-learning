@@ -88,12 +88,12 @@
       <li><strong>① 空间复用 (Spatial Multiplexing)</strong>：多天线<strong>同时传不同的数据流</strong> → 提吞吐。天线多=流多=带宽翻倍。</li>
       <li><strong>② 分集 (Diversity)</strong>：多天线<strong>传同一数据的冗余副本</strong> → 提可靠性/距离。天线多=副本多=信号更稳更远。</li>
     </ul>
-    <p>同样的多天线硬件，要吞吐还是要稳定，二选一（或动态切换）。<strong>这是 MIMO 所有变种的根本取舍</strong>。</p>
+    <p>同样的多天线硬件，要吞吐还是要稳定，二选一（或动态切换）。<strong>这是 MIMO (多入多出) 所有变种的根本取舍</strong>。</p>
   </div>
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From BT & sub-GHz</span>
-    <p>蓝牙和大部分 sub-GHz 设备是<strong>单天线</strong>（BLE 天线分集是切换式的接收分集，不是真 MIMO）。你之前没接触过"多天线同时传不同数据"——这是 Wi-Fi/蜂窝才有的高级 PHY。但"用冗余换可靠性"的思路你熟悉：sub-GHz 的 FEC/扩频就是单天线版的"分集"。MIMO 把这个思路搬到空间维度。</p>
+    <p>蓝牙和大部分 sub-GHz 设备是<strong>单天线</strong>（BLE 天线分集是切换式的接收分集，不是真 MIMO (多入多出)）。你之前没接触过"多天线同时传不同数据"——这是 Wi-Fi/蜂窝才有的高级 PHY。但"用冗余换可靠性"的思路你熟悉：sub-GHz 的 FEC/扩频就是单天线版的"分集"。MIMO 把这个思路搬到空间维度。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -166,7 +166,7 @@
   <div class="callout key">
     <span class="callout-title">STBC 的关键特点</span>
     <ul>
-      <li><strong>不需接收方反馈 CSI</strong>（盲发）——发射端不知道信道什么样，靠编码的正交性保证可解</li>
+      <li><strong>不需接收方反馈 CSI (信道状态信息)</strong>（盲发）——发射端不知道信道什么样，靠编码的正交性保证可解</li>
       <li><strong>代价：吞吐约减半</strong>——冗余占了一半"流资源"，本来能传 2 流的现在只传 1 流的数据</li>
       <li><strong>用途</strong>：SNR 差时保距离/可靠性。比如远距离 STA 或多径严重的环境</li>
       <li>802.11n/ac <strong>可选</strong>，不是所有芯片都实现</li>
@@ -334,7 +334,7 @@
     <p>MIMO 大部分在<strong>硬件/固件</strong>里做，驱动层看到的接口：</p>
     <ul>
       <li><strong>天线数 / 空间流数</strong>：芯片能力（capability），驱动注册时向 mac80211 声明（<span class="mono">ieee80211_hw</span> 的 <span class="mono">max_rx_chains/max_tx_chains</span>）。决定能做几流。</li>
-      <li><strong>rate adaptation</strong>：决定当前用几流、什么调制（MCS）。SoftMAC 用 minstrel / minstrel_ht；FullMAC 在固件里。<strong>SNR 好上多流，差退单流</strong>。</li>
+      <li><strong>rate adaptation</strong>：决定当前用几流、什么调制（MCS）。SoftMAC (软件 MAC) 用 minstrel / minstrel_ht；FullMAC (全 MAC) 在固件里。<strong>SNR 好上多流，差退单流</strong>。</li>
       <li><strong>波束成形 sounding</strong>：触发 NDP 交换、维护 CSI。这部分固件主导，驱动看到的是"波束成形已激活/失效"事件。</li>
       <li><strong>抓包看不到内部</strong>：MIMO 的空间流在 PHY 层，monitor mode 抓的是合并后的帧，看不到"这是几流"。但 VHT/HE PPDU 头里有空间流数字段，Wireshark 能读。</li>
       <li><strong>调试</strong>：吞吐低 → <span class="mono">iw dev wlan0 station dump</span> 看 tx bitrate 和 <span class="mono">tx bitrate flags</span>（会显示几流、什么调制）。距离近吞吐上不去 → 检查波束成形/sounding 是否正常、天线数配置是否对。</li>
@@ -360,12 +360,12 @@
 
   <div class="quiz" data-type="single"
        data-question="一个 AP 有 4 根天线，手机有 2 根天线，链路最多能做几条空间流？为什么？"
-       data-explain="空间流数 ≤ min(发天线数, 收天线数) = min(4, 2) = 2 流。链路两端都要多天线，取小的一边决定上限。所以手机是瓶颈——这就是为什么旗舰手机做 2x2 MIMO（两流），而路由器做 4x4/8x8（多天线主要为了 MU-MIMO 服务多个手机，下节课讲）。">
+       data-explain="空间流数 ≤ min(发天线数, 收天线数) = min(4, 2) = 2 流。链路两端都要多天线，取小的一边决定上限。所以手机是瓶颈——这就是为什么旗舰手机做 2x2 MIMO（两流），而路由器做 4x4/8x8（多天线主要为了 MU-MIMO (多用户 MIMO) 服务多个手机，下节课讲）。">
     <script type="application/json">
       [
-        { "text": "2 流，受 min(发天线, 收天线) 限制", "correct": true },
         { "text": "4 流，AP 天线数决定",               "correct": false },
         { "text": "6 流，两端天线数相加",               "correct": false },
+        { "text": "2 流，受 min(发天线, 收天线) 限制", "correct": true },
         { "text": "1 流，多天线不能同时用",             "correct": false }
       ]
     </script>
@@ -373,7 +373,7 @@
 
   <div class="quiz" data-type="single"
        data-question="STBC 和 MRC 都用多天线传冗余，它们的核心区别是什么？"
-       data-explain="做分集的端不同：STBC 是【发射端】分集——多根发射天线发正交编码的冗余副本（Alamouti 码），接收端合并。MRC 是【接收端】分集——接收机多根天线收到同一信号的多路副本，按 SNR 加权合并。另一个区别：STBC 需协议支持（802.11n/ac 可选），MRC 是纯接收端 DSP 标配。两者都不需 CSI 反馈。">
+       data-explain="做分集的端不同：STBC (空时块编码) 是【发射端】分集——多根发射天线发正交编码的冗余副本（Alamouti 码），接收端合并。MRC (最大比合并) 是【接收端】分集——接收机多根天线收到同一信号的多路副本，按 SNR 加权合并。另一个区别：STBC 需协议支持（802.11n/ac 可选），MRC 是纯接收端 DSP 标配。两者都不需 CSI (信道状态信息) 反馈。">
     <script type="application/json">
       [
         { "text": "STBC 发射端做，MRC 接收端做",       "correct": true },
@@ -389,9 +389,9 @@
        data-explain="波束成形要加权对齐多天线信号使其在接收方处相干叠加增强。要正确加权，发射方必须知道信道状态（CSI）——每个子载波的幅度/相位响应。Sounding 就是获取 CSI 的过程：发 NDP（已知内容的空数据包）→ 接收方测信道 → 反馈 CSI（压缩 V 矩阵）。没有 CSI 发射方没法加权，波束成形无从谈起。代价是 sounding 有协议开销，信道变化快时要反复探测。">
     <script type="application/json">
       [
-        { "text": "发射方要拿到 CSI 才能正确加权做波束成形", "correct": true },
         { "text": "sounding 用来加密数据帧",                 "correct": false },
         { "text": "sounding 用来协商空间流数",               "correct": false },
+        { "text": "发射方要拿到 CSI 才能正确加权做波束成形", "correct": true },
         { "text": "sounding 是省电机制的一部分",             "correct": false }
       ]
     </script>
@@ -428,7 +428,7 @@
     <p>MIMO 基础打完，第 14 课进 <strong>MU-MIMO + OFDMA</strong>——这是 Wi-Fi 6 PHY 的真正核心：</p>
     <ul>
       <li><strong>MU-MIMO</strong>（802.11ac Wave 2 / 11ax）：AP 的多空间流<strong>分给不同 STA</strong>，同时服务多设备</li>
-      <li><strong>OFDMA</strong>（802.11ax 独有）：把子载波<strong>分组（RU）</strong>分给不同 STA，AP 一次下行同时发多设备、上行多 STA 同时发</li>
+      <li><strong>OFDMA</strong>（802.11ax 独有）：把子载波<strong>分组（RU (资源单元)）</strong>分给不同 STA，AP 一次下行同时发多设备、上行多 STA 同时发</li>
     </ul>
     <p>这俩是 Wi-Fi 6「高密度场景」（多设备、IoT）的核心，也是你做 Wi-Fi 6 固件绕不开的 PHY 特性。</p>
   </div>

@@ -89,7 +89,7 @@
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
-    <p>第 5 课讲 CSMA/CA：STA 发前先听（CCA），信道忙就退避。问题在<strong>密集部署</strong>（企业/家庭多 AP）：你家的 STA 能听到邻居 AP 的信号，于是退避——但<strong>那其实是邻居 BSS 的传输，跟你无关</strong>，你完全可以同时发（空间上隔得够开）。传统 CCA 分不清"自己的 BSS"还是"邻居的 BSS"，一律退避，吞吐白白浪费。</p>
+    <p>第 5 课讲 CSMA/CA (载波侦听多址接入 / 碰撞避免)：STA 发前先听（CCA (信道空闲评估)），信道忙就退避。问题在<strong>密集部署</strong>（企业/家庭多 AP）：你家的 STA 能听到邻居 AP 的信号，于是退避——但<strong>那其实是邻居 BSS (基本服务集) 的传输，跟你无关</strong>，你完全可以同时发（空间上隔得够开）。传统 CCA 分不清"自己的 BSS"还是"邻居的 BSS"，一律退避，吞吐白白浪费。</p>
     <p><strong>BSS Color 就是给每个 BSS 一个编号</strong>，让 STA 能分辨"这是邻居还是自己人"，邻居的弱信号可以忽略（提高 CCA 阈值继续发）。<strong>这叫空间复用 (Spatial Reuse)</strong>。</p>
   </div>
 
@@ -133,7 +133,7 @@ HE-SIG-A 字段里的 BSS Color:
 
   <div class="callout key">
     <span class="callout-title">OBSS_PD 阈值的核心</span>
-    <p>OBSS (Overlapping BSS) 的 CCA 阈值叫 <strong>OBSS_PD</strong>，比 intra-BSS 的 -82 dBm <strong>高 20 dB 左右</strong>（可到 -62 dBm）。意思是：<strong>邻居信号只要弱于 -62 dBm，我就当没听见继续发</strong>。</p>
+    <p>OBSS (Overlapping BSS，交叠基本服务集) 的 CCA 阈值叫 <strong>OBSS_PD</strong>，比 intra-BSS 的 -82 dBm <strong>高 20 dB 左右</strong>（可到 -62 dBm）。意思是：<strong>邻居信号只要弱于 -62 dBm，我就当没听见继续发</strong>。</p>
     <p>这在密集部署里收益巨大——多个 AP/STA 在同信道上<strong>真的能同时传</strong>，不再互相拖累。前提是邻居信号确实够弱（物理上隔得够远），强邻居还是得退避。</p>
   </div>
 
@@ -156,7 +156,7 @@ HE-SIG-A 字段里的 BSS Color:
 
   <h2>④ HE PHY 的其他改进：四倍长符号 + 1024-QAM</h2>
 
-  <p>BSS Color 之外，802.11ax 的 HE PHY 还有三个底层改进，都和 OFDM 有关（回看第 2、13 课）：</p>
+  <p>BSS Color 之外，802.11ax 的 HE PHY 还有三个底层改进，都和 OFDM (正交频分复用) 有关（回看第 2、13 课）：</p>
 
   <table class="compare-table">
     <thead>
@@ -196,7 +196,7 @@ HE-SIG-A 字段里的 BSS Color:
     <p>为什么 Wi-Fi 6 选更窄子载波？换来的是<strong>更细的频域粒度</strong>——20MHz 能切成 256 个子载波（vs ac 的 64 个），OFDMA 的 RU 才能切得细（26/52/106... tone）。第 14 课的 OFDMA 多用户就建立在 256 子载波的基础上。</p>
   </div>
 
-  <p><strong>1024-QAM</strong>（第 3 课讲过 QAM）：每个符号传 10 bit（vs 256-QAM 的 8 bit），峰值速率提升约 25%。代价：星座点更密，需要<strong>更高 SNR</strong>（~30+ dB）和更好的 EVM（第 4 课）。只有近距离、好信号才能用 1024-QAM，远了自动降回 256/64/16-QAM（rate adaptation，第 13 课）。</p>
+  <p><strong>1024-QAM</strong>（第 3 课讲过 QAM）：每个符号传 10 bit（vs 256-QAM 的 8 bit），峰值速率提升约 25%。代价：星座点更密，需要<strong>更高 SNR</strong>（~30+ dB）和更好的 EVM (误差向量幅度)（第 4 课）。只有近距离、好信号才能用 1024-QAM，远了自动降回 256/64/16-QAM（rate adaptation，第 13 课）。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -226,11 +226,11 @@ HE-SIG-A 字段里的 BSS Color:
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>BSS Color 和 HE PHY 改进的落点：</p>
     <ul>
-      <li><strong>BSS Color 协商</strong>：AP 在 Beacon 通告自己颜色；STA 关联时读。颜色冲突检测（两个邻居 BSS 同色）由 AP 间自动重选（BSS Color 随机化 + 冲突检测）。SoftMAC 在 mac80211；FullMAC 在固件。</li>
+      <li><strong>BSS Color 协商</strong>：AP 在 Beacon 通告自己颜色；STA 关联时读。颜色冲突检测（两个邻居 BSS 同色）由 AP 间自动重选（BSS Color 随机化 + 冲突检测）。SoftMAC (软件 MAC) 在 mac80211；FullMAC (全 MAC) 在固件。</li>
       <li><strong>OBSS_PD 动态调整</strong>：驱动/固件根据 BSS Color 判断 + 信号强度，动态调 CCA 阈值寄存器。<strong>这是芯片级功能</strong>，驱动看到的是配置接口。调太激进撞、太保守无效——厂商在这里调优。</li>
       <li><strong>1024-QAM 能力位</strong>：STA 在 Association 声明是否支持 1024-QAM；rate adaptation 算法在 SNR 足够时选 MCS10/11（1024-QAM）。</li>
       <li><strong>调试</strong>：<span class="mono">iw dev wlan0 info</span> 看 HE 能力位；抓包看 HE-SIG-A 的 BSS Color 字段；密集部署吞吐低 → 检查 BSS Color 是否启用、OBSS_PD 策略。<strong>很多消费级 AP 默认关 BSS Color</strong>（怕老设备兼容问题）。</li>
-      <li><strong>常见 bug</strong>：BSS Color 冲突未检测（两邻居同色）→ OBSS 判断错乱；OBSS_PD 设太激进导致碰撞重传激增；1024-QAM 在 SNR 不够时硬用导致 PER 飙升。</li>
+      <li><strong>常见 bug</strong>：BSS Color 冲突未检测（两邻居同色）→ OBSS 判断错乱；OBSS_PD 设太激进导致碰撞重传激增；1024-QAM 在 SNR 不够时硬用导致 PER (包错误率) 飙升。</li>
     </ul>
   </div>
 
@@ -240,7 +240,7 @@ HE-SIG-A 字段里的 BSS Color:
 
   <div class="quiz" data-type="single"
        data-question="BSS Color 核心解决什么问题？"
-       data-explain="解决密集部署里"被邻居 BSS 拖累"的问题。传统 CCA 只有一个阈值（-82dBm），听到任何 802.11 信号就退避——但邻居 BSS 的传输跟你无关，你完全可以同时发（空间隔得够开）。BSS Color 给每个 BSS 编号，STA 能分辨"自己人"和"邻居"，对邻居用更高的 OBSS_PD 阈值（-62dBm），弱邻居信号当没听见继续发——空间复用。">
+       data-explain="解决密集部署里「被邻居 BSS 拖累」的问题。传统 CCA 只有一个阈值（-82dBm），听到任何 802.11 信号就退避——但邻居 BSS 的传输跟你无关，你完全可以同时发（空间隔得够开）。BSS Color 给每个 BSS 编号，STA 能分辨「自己人」和「邻居」，对邻居用更高的 OBSS_PD 阈值（-62dBm），弱邻居信号当没听见继续发——空间复用。">
     <script type="application/json">
       [
         { "text": "密集部署里不被邻居 BSS 的信号拖累退避",  "correct": true },
@@ -256,9 +256,9 @@ HE-SIG-A 字段里的 BSS Color:
        data-explain="-70 dBm 大于 intra 阈值 -82，但小于 OBSS_PD 阈值 -62。因为这是邻居帧（OBSS），用 OBSS_PD 判断：-70 < -62，信号低于阈值 → 判闲 → 继续发！这就是空间复用——邻居信号弱到一定程度就当没听见。如果是自己人（intra），-70 > -82 就得退避。如果邻居信号是 -55 dBm（强于 -62），那才退避——因为强邻居会真干扰到你。">
     <script type="application/json">
       [
-        { "text": "判闲，继续发（OBSS_PD 空间复用）", "correct": true },
         { "text": "判忙，退避（因为 -70 > -82）",      "correct": false },
         { "text": "发 Deauth 把邻居踢掉",              "correct": false },
+        { "text": "判闲，继续发（OBSS_PD 空间复用）", "correct": true },
         { "text": "切换到别的信道",                     "correct": false }
       ]
     </script>
@@ -266,7 +266,7 @@ HE-SIG-A 字段里的 BSS Color:
 
   <div class="quiz" data-type="single"
        data-question="为什么 802.11ax 把子载波间隔从 312.5 kHz 缩到 78.125 kHz，OFDM 符号时长就自动从 3.2μs 涨到 12.8μs？"
-       data-explan="OFDM 正交铁律：Δf = 1/T（第 2 课）。子载波间隔和符号时长是倒数关系。Δf 缩 4 倍（312.5→78.125），T 必然涨 4 倍（3.2→12.8）。这不是两个独立改进，是同一个选择的两个面。选更窄子载波的目的：换更细的频域粒度（20MHz 256 子载波 vs 64），让 OFDMA 的 RU 切分更灵活（第 14 课基础）。长符号的额外好处：GI 占比下降，更抗多径，户外场景友好。">
+       data-explain="OFDM 正交铁律：Δf = 1/T（第 2 课）。子载波间隔和符号时长是倒数关系。Δf 缩 4 倍（312.5→78.125），T 必然涨 4 倍（3.2→12.8）。这不是两个独立改进，是同一个选择的两个面。选更窄子载波的目的：换更细的频域粒度（20MHz 256 子载波 vs 64），让 OFDMA 的 RU 切分更灵活（第 14 课基础）。长符号的额外好处：GI 占比下降，更抗多径，户外场景友好。">
     <script type="application/json">
       [
         { "text": "OFDM 正交铁律 Δf = 1/T，两者倒数绑定", "correct": true },
@@ -279,12 +279,12 @@ HE-SIG-A 字段里的 BSS Color:
 
   <div class="quiz" data-type="single"
        data-question="Wi-Fi 6 (HE) 相比 Wi-Fi 5 (VHT) 的设计哲学转变是什么？"
-       data-explan="Wi-Fi 5 追求单链路峰值速率（256-QAM、80/160MHz 宽信道）。Wi-Fi 6 转向"高密度效率"（OFDMA、MU-MIMO、BSS Color 让多设备/多 AP 同时工作）和"多场景适应"（TWT 给 IoT 续航、长符号给户外）。这就是 HE = High Efficiency 的含义——不是单纯更快，是在密集多设备环境里更高效。这也是为什么 Wi-Fi 6 在 IoT、企业高密、户外场景比 Wi-Fi 5 优势明显，而单设备峰值提升其实没那么夸张。">
+       data-explain="Wi-Fi 5 追求单链路峰值速率（256-QAM、80/160MHz 宽信道）。Wi-Fi 6 转向「高密度效率」（OFDMA、MU-MIMO、BSS Color 让多设备/多 AP 同时工作）和「多场景适应」（TWT (目标唤醒时间) 给 IoT 续航、长符号给户外）。这就是 HE = High Efficiency 的含义——不是单纯更快，是在密集多设备环境里更高效。这也是为什么 Wi-Fi 6 在 IoT、企业高密、户外场景比 Wi-Fi 5 优势明显，而单设备峰值提升其实没那么夸张。">
     <script type="application/json">
       [
-        { "text": "从单链路峰值转向高密度效率和多场景适应", "correct": true },
         { "text": "完全放弃峰值速率，只追求省电",            "correct": false },
         { "text": "从 OFDM 回到单载波",                      "correct": false },
+        { "text": "从单链路峰值转向高密度效率和多场景适应", "correct": true },
         { "text": "放弃兼容性，只服务新设备",                "correct": false }
       ]
     </script>

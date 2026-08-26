@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>第 5 课 · CSMA/CA 退避 —— 分布式竞争怎么不打架</title>
+<title>第 5 课 · CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避 —— 分布式竞争怎么不打架</title>
 <link rel="stylesheet" href="../assets/style.css">
 <style>
   .timeline {
@@ -79,13 +79,13 @@
 <main>
 
   <div class="lesson-meta">
-    第 5 课 / Lesson 0005 · CSMA/CA 退避 · 协议主线 ·
+    第 5 课 / Lesson 0005 · CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避 · 协议主线 ·
     <a href="../MISSION.md">使命</a> ·
     <a href="../GLOSSARY.md">术语表</a> ·
     <a href="./0004-noise-floor-snr.html">← 第 4 课</a>
   </div>
 
-  <h1>CSMA/CA 退避 —— 分布式竞争怎么不打架</h1>
+  <h1>CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避 —— 分布式竞争怎么不打架</h1>
 
   <p>RF (射频) 数学告一段落，进入<strong>协议主线</strong> —— 这是你的强项区。第 1 课埋了一根钉子：「Wi-Fi 是分布式竞争，不像蓝牙的调度式 TDMA (时分多址)」。那课只讲了<strong>范式</strong>，这课讲<strong>机制</strong>：分布式竞争具体怎么操作，靠什么尽量避免碰撞。</p>
 
@@ -101,7 +101,7 @@
   </div>
 
   <span class="sidenote">
-    和 BT 的根本对照：BT 由 master 分配 slot，<strong>时间表是定的</strong>；Wi-Fi 没有 master 发时刻表，每个 STA（站点）<strong>自己算一个随机时间</strong>等。这就是「调度式 vs 竞争式」在 MAC 层的具体兑现。
+    和 BT 的根本对照：BT 由 master 分配 slot，<strong>时间表是定的</strong>；Wi-Fi 没有 master 发时刻表，每个 STA（站点）<strong>自己算一个随机时间</strong>等。这就是「调度式 vs 竞争式」在 MAC (介质访问控制层) 的具体兑现。
   </span>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -137,15 +137,15 @@ STA 想发数据
   <p>三个要点，记牢：</p>
   <ol>
     <li><strong>DIFS (DCF 帧间间隔) 是「准入门槛」</strong>：必须先连续空闲 DIFS（34 μs），才有资格进入 backoff (退避)。这一步过滤掉「刚刚有人发完」的时段。</li>
-    <li><strong>backoff 是「随机错峰」</strong>：从 [0, CW (竞争窗口)] 里随机选一个数，按 slot 递减。多个 STA 即使同时通过 DIFS，<strong>随机数不同</strong>，大概率不会同时发。</li>
-    <li><strong>SIFS (短帧间间隔) 比 DIFS 短</strong>：所以 ACK（用 SIFS）<strong>一定比</strong>新数据（用 DIFS）先抢到信道。进行中的对话优先级高于新对话。</li>
+    <li><strong>backoff 是「随机错峰」</strong>：从 [0, CW (竞争窗口)] 里随机选一个数，按 slot 递减。多个 STA (站点) 即使同时通过 DIFS (DCF 帧间间隔)，<strong>随机数不同</strong>，大概率不会同时发。</li>
+    <li><strong>SIFS (短帧间间隔) 比 DIFS (DCF 帧间间隔) 短</strong>：所以 ACK (确认帧)（用 SIFS）<strong>一定比</strong>新数据（用 DIFS）先抢到信道。进行中的对话优先级高于新对话。</li>
   </ol>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>IFS (帧间间隔) 家族：用时间间隔做优先级</h2>
 
-  <p>上面的 DIFS、SIFS 都是 IFS（Interframe Space，帧间间隔）。802.11 用<strong>不同长度的 IFS 实现优先级</strong> —— 短 IFS = 高优先级。这是协议栈工程师应该觉得眼熟的设计（类似中断优先级）。</p>
+  <p>上面的 DIFS (DCF 帧间间隔)、SIFS (短帧间间隔) 都是 IFS（Interframe Space，帧间间隔）。802.11 用<strong>不同长度的 IFS 实现优先级</strong> —— 短 IFS = 高优先级。这是协议栈工程师应该觉得眼熟的设计（类似中断优先级）。</p>
 
   <table class="num-table">
     <thead>
@@ -182,7 +182,7 @@ STA 想发数据
     <li><strong>按 slot 递减</strong>：每过一个空闲 slot（9 μs），计数 −1。信道忙时<strong>冻结</strong>，不递减。</li>
     <li><strong>计数到 0 → 发送</strong>。</li>
     <li><strong>收到 ACK (确认帧) → 成功</strong>，CW 重置回 CWmin = 15。</li>
-    <li><strong>没收到 ACK（超时）→ 判定碰撞</strong>，CW 翻倍，重选 backoff，重试。</li>
+    <li><strong>没收到 ACK (确认帧)（超时）→ 判定碰撞</strong>，CW (竞争窗口) 翻倍，重选 backoff (退避)，重试。</li>
   </ol>
 
   <span class="formula">
@@ -245,7 +245,7 @@ STA 想发数据
 
   <div class="callout">
     <span class="callout-title">缓解：RTS/CTS (请求发送 / 允许发送) 握手</span>
-    <p>802.11 为隐藏节点设计了 <strong>RTS/CTS</strong>。A 想发数据前，先发一个短的 RTS (请求发送) 给 AP (接入点)；AP 回 CTS（用 SIFS (短帧间间隔)，高优先级）。CTS 是<strong>广播</strong>的，A 和 C 都能听到。C 听到 AP 说「我要收 A 的数据」，就知道该退避。代价：每次发送多了两个控制帧，小数据不划算，所以通常<strong>只对大数据帧启用</strong>（有阈值 RTS threshold）。</p>
+    <p>802.11 为隐藏节点设计了 <strong>RTS/CTS (请求发送 / 允许发送)</strong>。A 想发数据前，先发一个短的 RTS (请求发送) 给 AP (接入点)；AP 回 CTS (允许发送)（用 SIFS (短帧间间隔)，高优先级）。CTS 是<strong>广播</strong>的，A 和 C 都能听到。C 听到 AP 说「我要收 A 的数据」，就知道该退避。代价：每次发送多了两个控制帧，小数据不划算，所以通常<strong>只对大数据帧启用</strong>（有阈值 RTS threshold）。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -254,12 +254,12 @@ STA 想发数据
 
   <div class="callout firmware">
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
-    <p>这套 CSMA/CA (载波侦听多址接入 / 碰撞避免) 机制大部分在<strong>固件/硬件</strong>里实现（CCA (信道空闲评估)、backoff 计时、SIFS (短帧间间隔) 响应都是微秒级，软件来不及），驱动栈层面你主要打交道的是：</p>
+    <p>这套 CSMA/CA (载波侦听多址接入 / 碰撞避免) 机制大部分在<strong>固件/硬件</strong>里实现（CCA (信道空闲评估)、backoff (退避) 计时、SIFS (短帧间间隔) 响应都是微秒级，软件来不及），驱动栈层面你主要打交道的是：</p>
     <ul>
-      <li><strong>tx 路径</strong>：把帧交给固件排队，固件按 DCF (分布式协调函数) 规则发送。你看到的是「提交后等多久 TX 状态回来」—— 这个延迟里就包含 DIFS + backoff。</li>
+      <li><strong>tx 路径</strong>：把帧交给固件排队，固件按 DCF (分布式协调函数) 规则发送。你看到的是「提交后等多久 TX 状态回来」—— 这个延迟里就包含 DIFS (DCF 帧间间隔) + backoff (退避)。</li>
       <li><strong>重传与 retry count</strong>：没收到 ACK (确认帧) 时，固件按 BEB (二进制指数退避) 重试，达到 retry limit 上报失败。驱动层看到的「重传次数」反映信道拥塞程度。</li>
-      <li><strong>QoS (服务质量) / WMM（EDCA）</strong>：不同 AC（语音/视频/尽力而为/背景）用不同 AIFS (任意帧间间隔) 和 CW (竞争窗口) 范围。驱动按业务类型分队列，固件按 AIFS 接入。这是 802.11e 的内容，后续课展开。</li>
-      <li><strong>调试信号</strong>：连续 high retry count / 低 ACK 率 → 信道拥挤或隐藏节点；高 PER + 正常 retry → RF (射频) 问题（回看第 4 课 SNR (信噪比)）。</li>
+      <li><strong>QoS (服务质量) / WMM (Wi-Fi 多媒体)（EDCA (增强分布式信道接入)）</strong>：不同 AC（语音/视频/尽力而为/背景）用不同 AIFS (仲裁帧间间隔) 和 CW (竞争窗口) 范围。驱动按业务类型分队列，固件按 AIFS 接入。这是 802.11e 的内容，后续课展开。</li>
+      <li><strong>调试信号</strong>：连续 high retry count / 低 ACK (确认帧) 率 → 信道拥挤或隐藏节点；高 PER (包错误率) + 正常 retry → RF (射频) 问题（回看第 4 课 SNR (信噪比)）。</li>
     </ul>
   </div>
 
@@ -268,7 +268,7 @@ STA 想发数据
   <h2>自检：协议主线立稳了吗</h2>
 
   <div class="quiz" data-type="single"
-       data-question="802.11a 中，普通数据帧发送前必须先连续空闲多久（DIFS）？"
+       data-question="802.11a 中，普通数据帧发送前必须先连续空闲多久（DIFS，DCF 帧间间隔）？"
        data-explain="DIFS (DCF 帧间间隔) = SIFS (短帧间间隔) + 2×SlotTime = 16 + 2×9 = 34 μs（802.11a/5 GHz）。这是「准入门槛」—— 必须连续空闲这么久，才有资格进入 backoff (退避)。">
     <script type="application/json">
       [
@@ -285,17 +285,17 @@ STA 想发数据
        data-explain="BEB (二进制指数退避) 公式：CW = 2ⁿ·(CWmin+1) − 1。n=2, CWmin=15：2²·(15+1) − 1 = 4·16 − 1 = 63。所以 CW=63，随机取值范围 [0, 63]。碰撞越多窗口越大。">
     <script type="application/json">
       [
-        { "text": "63",   "correct": true },
         { "text": "31",   "correct": false },
         { "text": "127",  "correct": false },
+        { "text": "63",   "correct": true },
         { "text": "15",   "correct": false }
       ]
     </script>
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="ACK 为什么用 SIFS 而不是 DIFS？"
-       data-explain="SIFS 比 DIFS 短（16 μs vs 34 μs），所以 ACK 一定比任何新数据帧先抢到信道。这保证了「进行中的对话（DATA→ACK）优先级高于新对话」，避免一次帧交换被打断。这就是 IFS (帧间间隔) 用长度做优先级的核心。">
+       data-question="ACK (确认帧) 为什么用 SIFS (短帧间间隔) 而不是 DIFS (DCF 帧间间隔)？"
+       data-explain="SIFS (短帧间间隔) 比 DIFS (DCF 帧间间隔) 短（16 μs vs 34 μs），所以 ACK (确认帧) 一定比任何新数据帧先抢到信道。这保证了「进行中的对话（DATA→ACK）优先级高于新对话」，避免一次帧交换被打断。这就是 IFS (帧间间隔) 用长度做优先级的核心。">
     <script type="application/json">
       [
         { "text": "SIFS 短，保证 ACK 先于新数据抢到信道",          "correct": true },
@@ -307,14 +307,14 @@ STA 想发数据
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="隐藏节点问题为什么 CSMA/CA 无法解决？"
+       data-question="隐藏节点问题为什么 CSMA/CA (载波侦听多址接入 / 碰撞避免) 无法解决？"
        data-explain="隐藏节点是「两个 STA (站点) 互相听不到，但都能到 AP (接入点)」。CSMA/CA (载波侦听多址接入 / 碰撞避免) 靠「先听」，但听不到对方恰恰就是问题所在 —— CCA (信道空闲评估) 判断信道闲，实际 AP 处会有碰撞。必须靠 RTS/CTS (请求发送 / 允许发送) 让 AP 广播「我在收」，周围 STA 才知道退避。">
     <script type="application/json">
       [
-        { "text": "两个 STA 互相听不到，CCA 判断不出会撞", "correct": true },
         { "text": "退避窗口不够大，随机数撞了",            "correct": false },
         { "text": "DIFS 太短，STA 来不及退避",             "correct": false },
-        { "text": "ACK 丢失导致重传，加剧拥塞",            "correct": false }
+        { "text": "ACK 丢失导致重传，加剧拥塞",            "correct": false },
+        { "text": "两个 STA 互相听不到，CCA 判断不出会撞", "correct": true }
       ]
     </script>
   </div>
@@ -334,7 +334,7 @@ STA 想发数据
   <p>你应该现在能在脑子里回答：</p>
   <ul>
     <li>一次成功发送的完整时序（DIFS (DCF 帧间间隔) → backoff (退避) → DATA → SIFS (短帧间间隔) → ACK (确认帧)）</li>
-    <li>为什么 ACK 用 SIFS（短 IFS (帧间间隔) = 高优先级，保护进行中的对话）</li>
+    <li>为什么 ACK (确认帧) 用 SIFS（短 IFS (帧间间隔) = 高优先级，保护进行中的对话）</li>
     <li>BEB (二进制指数退避) 怎么随碰撞增长（CW (竞争窗口) 倍增，封顶 1023）</li>
     <li>两个碰撞原因（退避撞车 + 隐藏节点）和 RTS/CTS (请求发送 / 允许发送) 的作用</li>
   </ul>
@@ -364,7 +364,7 @@ STA 想发数据
       💡 <strong>学完请回来反馈</strong> —— 例如：<br>
       • 「四道自检题答对了，进帧结构」<br>
       • 「BEB (二进制指数退避) 公式想再算几个例子巩固」<br>
-      • 「QoS (服务质量)/EDCA (增强分布式信道接入) 的 AIFS 能展开讲吗？」<br>
+      • 「QoS (服务质量)/EDCA (增强分布式信道接入) 的 AIFS (仲裁帧间间隔) 能展开讲吗？」<br>
       • 「RTS/CTS (请求发送 / 允许发送) 阈值在驱动里怎么配？什么时候开？」<br>
       • 「这套时序在 mac80211 代码里对应哪些函数？」<br>
       你的反馈决定下一课切入点。

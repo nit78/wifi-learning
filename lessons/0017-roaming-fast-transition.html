@@ -81,7 +81,7 @@
 
   <h1>漫游与 Fast Transition —— 换 AP 不掉线是怎么做到的</h1>
 
-  <p>这是路线图第 6 步（连接维护）挂账已久的缺口。第 7 课讲了 STA 怎么<strong>连上</strong>一个 AP，但真实世界 STA 是<strong>移动的</strong>：拿着手机从客厅走到卧室，信号变差，得换到更近的 AP——<strong>漫游 (Roaming)</strong>。朴素的做法是"断开重连"，那要几百毫秒、语音/视频直接断流。这课讲漫游的完整拼图：<strong>802.11r（快换）、802.11k（邻居报告）、802.11v（网络指路）</strong>。</p>
+  <p>这是路线图第 6 步（连接维护）挂账已久的缺口。第 7 课讲了 STA（站点）怎么<strong>连上</strong>一个 AP（接入点），但真实世界 STA 是<strong>移动的</strong>：拿着手机从客厅走到卧室，信号变差，得换到更近的 AP——<strong>漫游 (Roaming)</strong>。朴素的做法是"断开重连"，那要几百毫秒、语音/视频直接断流。这课讲漫游的完整拼图：<strong>802.11r（快换）、802.11k（邻居报告）、802.11v（网络指路）</strong>。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -89,8 +89,8 @@
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
-    <p>漫游分两半：<strong>决策</strong>（什么时候走、走去哪——由 <strong>STA 自己</strong>说了算，Wi-Fi 没有基站指挥）和<strong>执行</strong>（在新 AP 上重建连接）。慢就慢在执行：朴素漫游要在新 AP 上把第 7/9 课的流程<strong>整个重来一遍</strong>——扫描、认证、关联、<strong>完整 4-Way Handshake</strong>、再拿组播密钥。其中 4-Way（EAPOL 四帧往返）动辄上百毫秒，语音呼叫早就断了。</p>
-    <p><strong>802.11r 的核心思路：如果新 AP 和老 AP 认识（同一个 Mobility Domain），密钥可以提前算好摊给所有 AP，漫游时只做一次轻量握手</strong>——把几百毫秒压到几十毫秒以内。</p>
+    <p>漫游分两半：<strong>决策</strong>（什么时候走、走去哪——由 <strong>STA（站点）自己</strong>说了算，Wi-Fi 没有基站指挥）和<strong>执行</strong>（在新 AP（接入点）上重建连接）。慢就慢在执行：朴素漫游要在新 AP 上把第 7/9 课的流程<strong>整个重来一遍</strong>——扫描、认证、关联、<strong>完整 4-Way Handshake（四次握手）</strong>、再拿组播密钥。其中 4-Way（EAPOL（局域网上的 EAP）四帧往返）动辄上百毫秒，语音呼叫早就断了。</p>
+    <p><strong>802.11r 的核心思路：如果新 AP 和老 AP 认识（同一个 Mobility Domain（移动域）），密钥可以提前算好摊给所有 AP，漫游时只做一次轻量握手</strong>——把几百毫秒压到几十毫秒以内。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -116,9 +116,9 @@
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>② 802.11k (RRM)：AP 告诉你邻居在哪</h2>
+  <h2>② 802.11k RRM（无线资源管理）：AP（接入点）告诉你邻居在哪</h2>
 
-  <p>802.11k = <strong>Radio Resource Measurement</strong>，一套"测量与报告"框架。漫游相关的核心是 <strong>Neighbor Report</strong>：</p>
+  <p>802.11k = <strong>Radio Resource Measurement</strong>，一套"测量与报告"框架。漫游相关的核心是 <strong>Neighbor Report（邻居报告）</strong>：</p>
 
   <div class="cca-diagram">
 STA → AP:  <span class="threshold">Neighbor Report Request</span>   "附近有哪些 AP?"
@@ -132,26 +132,26 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
  <span class="good">扫描范围从"全部信道"缩到"清单上的三四个" → 扫描时间砍 80%+</span>
 </div>
 
-  <p>AP 怎么知道邻居？企业 AP 之间有有线侧的通信（或者自己做邻居扫描）。802.11k 还定义了 Beacon 测量、信道负载报告等——都是给 STA 的漫游决策<strong>喂料</strong>。</p>
+  <p>AP（接入点）怎么知道邻居？企业 AP 之间有有线侧的通信（或者自己做邻居扫描）。802.11k 还定义了 Beacon（信标帧）测量、信道负载报告等——都是给 STA 的漫游决策<strong>喂料</strong>。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>③ 802.11v：网络反过来指挥 STA</h2>
 
-  <p>802.11v = BSS Transition Management。11k 是"STA 问、AP 答"，11v 是 <strong>"AP 主动建议"</strong>：</p>
+  <p>802.11v = BSS Transition Management（BSS 过渡管理）。11k 是"STA（站点）问、AP（接入点）答"，11v 是 <strong>"AP 主动建议"</strong>：</p>
 
   <ul>
-    <li><strong>BSS Transition Request</strong>：AP 觉得你该走了（负载均衡、信道要关、你信号太差影响别人），<strong>主动发帧建议 STA 漫游到指定 BSSID 列表</strong>。STA 可以听也可以不听——最终决定权仍在 STA。</li>
+    <li><strong>BSS Transition Request（BSS 过渡请求）</strong>：AP 觉得你该走了（负载均衡、信道要关、你信号太差影响别人），<strong>主动发帧建议 STA（站点）漫游到指定 BSSID（基本服务集标识）列表</strong>。STA 可以听也可以不听——最终决定权仍在 STA。</li>
     <li>还附带一些网络管理杂项：多 BSSID 集合通告（6GHz 用它代替被动扫描）、休眠时间协商等。</li>
   </ul>
 
-  <p>k + v 合起来把"决策"这一半打磨好：STA 知道邻居在哪（少扫）、网络能给建议（少猜）。剩下的硬骨头是"执行"——密钥。</p>
+  <p>k + v 合起来把"决策"这一半打磨好：STA（站点）知道邻居在哪（少扫）、网络能给建议（少猜）。剩下的硬骨头是"执行"——密钥。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>④ 802.11r (FT)：快就快在密钥不用现算</h2>
+  <h2>④ 802.11r FT（快速转换）：快就快在密钥不用现算</h2>
 
-  <p>回顾第 9 课密钥层级：PSK/802.1X → PMK → 每次关联做 4-Way 算出 PTK。<strong>慢的根源是 PMK→PTK 的握手必须每次现场做</strong>。802.11r (Fast BSS Transition, Wi-Fi 联盟叫 <strong>802.11r</strong> / Passpoint 里的 "FT") 重构了层级：</p>
+  <p>回顾第 9 课密钥层级：PSK（预共享密钥）/802.1X → PMK（成对主密钥）→ 每次关联做 4-Way（四次握手）算出 PTK（成对临时密钥）。<strong>慢的根源是 PMK→PTK 的握手必须每次现场做</strong>。802.11r (Fast BSS Transition, Wi-Fi 联盟叫 <strong>802.11r</strong> / Passpoint 里的 "FT") 重构了层级：</p>
 
   <div class="cca-diagram">
 普通 WPA2 (第 9 课):                    802.11r FT 密钥层级:
@@ -161,13 +161,13 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
  (每次漫游都重来!)                          ↓ (派发)
                                           <span class="good">PMK-R1</span> (预摊/按需发给所有 AP 的 R1KH)
                                             ↓ (漫游时一次轻量握手)
-                                          <span class="good">PTK</span> (只需 SNE/星型 2 帧往返)
+                                          <span class="good">PTK</span> (只需 SNonce/ANonce 2 帧往返)
 
  MDIE (Mobility Domain IE): AP 在 Beacon 里通告 "我们是一个家族, domain id = X"
  <span class="note">R0KH/R1KH = Key Holder, AP 之间(或经控制器)用有线分发 PMK-R1</span>
 </div>
 
-  <p><strong>漫游时发生什么</strong>：STA 认出新 AP 的 Beacon 里有相同的 MDIE（同一家族），直接发 <strong>FT Reassociation Request，里面带上 SNonce 和 PMK-R1 标识</strong>。新 AP 拿着自己手里的 PMK-R1 现算 PTK，回一帧带 ANonce 的 Response——<strong>两帧搞定密钥</strong>，原来的 4-Way 整个消失。GTK 也随 Response 一起带上（又省两帧）。</p>
+  <p><strong>漫游时发生什么</strong>：STA（站点）认出新 AP（接入点）的 Beacon（信标帧）里有相同的 MDIE（移动域信息元素，同一家族），直接发 <strong>FT Authentication Request，里面带上 SNonce 和 R0KH 标识（新 AP 凭它取到 PMK-R1）</strong>。新 AP 拿着自己手里的 PMK-R1 现算 PTK，回一帧带 ANonce 的 Authentication Response——<strong>两帧搞定密钥</strong>，原来的 4-Way 整个消失。随后的 Reassociation Request/Response（重关联请求/响应）只带 MIC（消息完整性码）确认，GTK（组临时密钥）也随 Reassociation Response 一起带上（又省两帧）。</p>
 
   <p><strong>两种漫游方式</strong>：</p>
 
@@ -183,8 +183,8 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
       <tr>
         <td class="num">Over-the-DS</td>
         <td>STA 先通过<strong>老 AP</strong>（当前连接）转发 FT 请求给新 AP，再切过去</td>
-        <td class="mono">更低</td>
-        <td>切换前不掉线，但实现复杂、用得少</td>
+        <td class="mono">相近</td>
+        <td>切换前经老 AP 转发不断流，但实现复杂、用得少</td>
       </tr>
     </tbody>
   </table>
@@ -194,10 +194,10 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
     <p>把三个修正案叠起来，现代漫游的完整时间线：</p>
     <ul>
       <li><strong>决策快</strong>：11k Neighbor Report 缩小扫描范围 + 11v 网络主动建议 → 扫描从几百 ms 降到几十 ms</li>
-      <li><strong>执行快</strong>：11r FT 两帧握手替代 4-Way + GTK 随带 → 认证关联从 100ms+ 降到 ~20ms</li>
+      <li><strong>执行快</strong>：11r FT 两帧握手替代 4-Way + GTK（组临时密钥）随带 → 认证关联从 100ms+ 降到 ~20ms</li>
       <li><strong>总量</strong>：朴素 300-800ms → 11k/v/r 全开 <strong>&lt;50ms</strong>，语音无忧</li>
     </ul>
-    <p>顺带一提更早的优化：<strong>PMK Caching (OKC, Opportunistic Key Caching)</strong>——11r 之前的方案，STA 漫游回"连过的 AP"时复用缓存的 PMK 跳过 802.1X。仍要做 4-Way，但省掉了最慢的 EAP 认证。11r 是它的彻底版。</p>
+    <p>顺带一提更早的优化：<strong>PMK Caching (OKC, Opportunistic Key Caching，机会性密钥缓存)</strong>——11r 之前的方案，STA 漫游回"连过的 AP"时复用缓存的 PMK（成对主密钥）跳过 802.1X。仍要做 4-Way，但省掉了最慢的 EAP（可扩展认证协议）认证。11r 是它的彻底版。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -207,10 +207,10 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
   <p>决策没有标准答案（协议不管），典型策略：</p>
 
   <ul>
-    <li><strong>信号阈值</strong>：当前 AP RSSI 掉到阈值（如 -70dBm）以下，触发扫描邻居。</li>
+    <li><strong>信号阈值</strong>：当前 AP（接入点）RSSI（接收信号强度指示）掉到阈值（如 -70dBm）以下，触发扫描邻居。</li>
     <li><strong>滞后 (Hysteresis)</strong>：新 AP 必须比老 AP 好 <strong>若干 dB（如 6-8dB）</strong>才切——防止在两个 AP 信号相近的边界上来回横跳（ping-pong 漫游）。</li>
-    <li><strong>负载/重传因素</strong>：信号还行但 PER 高（AP 太忙），也该走。高级固件会综合丢包率、重传率、负载。</li>
-    <li><strong>粘性客户端 (Sticky Client) 问题</strong>：很多 STA 策略保守，信号烂到 -80dBm 还死赖在老 AP 上，拖垮自己和小区。11v 的主动建议就是给网络"劝退"这类 STA 的手段。</li>
+    <li><strong>负载/重传因素</strong>：信号还行但 PER（包错误率）高（AP 太忙），也该走。高级固件会综合丢包率、重传率、负载。</li>
+    <li><strong>粘性客户端 (Sticky Client) 问题</strong>：很多 STA（站点）策略保守，信号烂到 -80dBm 还死赖在老 AP 上，拖垮自己和小区。11v 的主动建议就是给网络"劝退"这类 STA 的手段。</li>
   </ul>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -222,10 +222,10 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
     <p>漫游在 Linux 栈的落点（对照 sup-0001 的分层）：</p>
     <ul>
       <li><strong>决策在 wpa_supplicant</strong>：bgscan 模块（背景扫描）+ roaming 策略。阈值扫描 (bgscan simple: 信号差时提高扫描频率) 是常见配置。</li>
-      <li><strong>SoftMAC 执行在 mac80211</strong>：<span class="mono">ieee80211_mgd_assoc/reassoc</span> 走 MLME 状态机；11r 的 FT 帧处理在 mlme.c + <span class="mono">wpa_supplicant ft.c</span>（FT 协议主体其实跑在 supplicant，因为它管密钥）。</li>
-      <li><strong>FullMAC 漫游在固件</strong>：固件自己扫描、决策、执行漫游，驱动只收 roam 事件上报。手机芯片几乎都是这派——固件工程师写的就是这块：扫描调度、候选排序、FT 握手时序、漫游失败回退。</li>
-      <li><strong>调试</strong>：<span class="mono">wpa_cli signal_poll</span> 看当前 RSSI；<span class="mono">iw dev wlan0 link</span>；抓包看 Reassoc Request 里的 Mobility Domain IE / FTIE 是否出现——<strong>没有就说明 11r 没协商上</strong>，走的是慢路径。</li>
-      <li><strong>常见 bug</strong>：ping-pong 漫游（滞后阈值太小）；11r 协商失败静默回退 4-Way（STA 和 AP 能力位/MDIE 不匹配）；漫游到 11r 不兼容的 AP 导致掉线；扫描期间上层业务未感知导致报错。</li>
+      <li><strong>SoftMAC（软件 MAC）执行在 mac80211</strong>：<span class="mono">ieee80211_mgd_assoc</span>（重关联走同一状态机）；11r 的 FT 帧处理在 mlme.c + <span class="mono">wpa_supplicant ft.c</span>（FT 协议主体其实跑在 supplicant，因为它管密钥）。</li>
+      <li><strong>FullMAC（全 MAC）漫游在固件</strong>：固件自己扫描、决策、执行漫游，驱动只收 roam 事件上报。手机芯片几乎都是这派——固件工程师写的就是这块：扫描调度、候选排序、FT 握手时序、漫游失败回退。</li>
+      <li><strong>调试</strong>：<span class="mono">wpa_cli signal_poll</span> 看当前 RSSI（接收信号强度指示）；<span class="mono">iw dev wlan0 link</span>；抓包看 Reassoc Request 里的 Mobility Domain IE / FTIE（快速转换信息元素）是否出现——<strong>没有就说明 11r 没协商上</strong>，走的是慢路径。</li>
+      <li><strong>常见 bug</strong>：ping-pong 漫游（滞后阈值太小）；11r 协商失败静默回退 4-Way（STA（站点）和 AP（接入点）能力位/MDIE（移动域信息元素）不匹配）；漫游到 11r 不兼容的 AP 导致掉线；扫描期间上层业务未感知导致报错。</li>
     </ul>
   </div>
 
@@ -238,8 +238,8 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
        data-explain="扫描和 4-Way Handshake。扫描：STA 要离开当前信道去逐个探测候选信道，被动扫描每信道至少听 100ms 的 Beacon 间隔，主动扫描也要 10-30ms，十几个信道累积几百 ms；4-Way：重新关联后要完整做一次 EAPOL 四帧往返算 PTK（如果还有 802.1X 认证更慢）。802.11k 砍扫描，802.11r 砍握手，两者分工明确。">
     <script type="application/json">
       [
-        { "text": "全信道扫描 + 完整 4-Way Handshake", "correct": true },
         { "text": "Association + GTK 更新",            "correct": false },
+        { "text": "全信道扫描 + 完整 4-Way Handshake", "correct": true },
         { "text": "Deauth + 等待 Beacon",              "correct": false },
         { "text": "DHCP 重新获取地址",                   "correct": false }
       ]
@@ -264,10 +264,10 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
        data-explain="看 Beacon/Probe Response 里的 MDIE（Mobility Domain Information Element）：包含 Mobility Domain ID 和 FT Policy。同一个 Mobility Domain 的 AP 之间才能做 FT 漫游。STA 在 Reassociation Request 里也带上 MDIE 和 FTIE（含 SNonce），新 AP 匹配 MDID 才走 FT 快路径；不匹配就静默回退到普通 4-Way。调试时抓 Beacon 找 MDIE 是确认 11r 是否开启的直接手段。">
     <script type="application/json">
       [
-        { "text": "Beacon 里的 MDIE（Mobility Domain IE）携带相同的 Domain ID", "correct": true },
         { "text": "AP 的 SSID 相同就说明同家族",                              "correct": false },
         { "text": "BSSID 前三字节相同",                                        "correct": false },
-        { "text": "新 AP 发 Deauth 邀请帧",                                    "correct": false }
+        { "text": "新 AP 发 Deauth 邀请帧",                                    "correct": false },
+        { "text": "Beacon 里的 MDIE（Mobility Domain IE）携带相同的 Domain ID", "correct": true }
       ]
     </script>
   </div>
@@ -291,17 +291,17 @@ AP  → STA: <span class="good">Neighbor Report Response</span>   一张邻居�
 
   <p>学完这课，你脑子里应该有：</p>
   <ol>
-    <li><strong>漫游两半</strong>：决策（STA 自己定，无基站指挥）+ 执行（重建连接）；朴素执行要扫描+重关联+完整 4-Way，300-800ms</li>
-    <li><strong>11k</strong>：Neighbor Report 给邻居清单，扫描范围大缩</li>
-    <li><strong>11v</strong>：AP 主动 BSS Transition Request 劝 STA 走（治粘性客户端）</li>
-    <li><strong>11r</strong>：PMK-R0/R1 密钥层级预摊，漫游两帧出 PTK，4-Way 消失；MDIE 认家族；Over-the-Air vs Over-the-DS</li>
-    <li><strong>决策要点</strong>：RSSI 阈值 + 滞后防 ping-pong；OKC 是 11r 前的过渡方案</li>
+    <li><strong>漫游两半</strong>：决策（STA 自己定，无基站指挥）+ 执行（重建连接）；朴素执行要扫描+重关联+完整 4-Way（四次握手），300-800ms</li>
+    <li><strong>11k</strong>：Neighbor Report（邻居报告）给邻居清单，扫描范围大缩</li>
+    <li><strong>11v</strong>：AP 主动 BSS Transition Request（BSS 过渡请求）劝 STA 走（治粘性客户端）</li>
+    <li><strong>11r</strong>：PMK-R0/R1（两级密钥缓存）密钥层级预摊，漫游两帧出 PTK（成对临时密钥），4-Way 消失；MDIE（移动域信息元素）认家族；Over-the-Air vs Over-the-DS</li>
+    <li><strong>决策要点</strong>：RSSI（接收信号强度指示）阈值 + 滞后防 ping-pong；OKC 是 11r 前的过渡方案</li>
   </ol>
 
   <p>你现在能做的：</p>
   <ul>
     <li>解释"打电话走两步就断"的原因（朴素漫游 4-Way 太慢，&gt;50ms 语音就断）</li>
-    <li>抓包看 Reassoc 请求里的 MDIE/FTIE，判断 11r 有没有协商上</li>
+    <li>抓包看 Reassoc 请求里的 MDIE/FTIE（快速转换信息元素），判断 11r 有没有协商上</li>
     <li>设计漫游决策策略（阈值 + 滞后 + 负载）并知道 ping-pong 怎么防</li>
     <li>说出 FullMAC 固件里漫游模块要做的四件事：扫描调度、候选排序、FT 握手、失败回退</li>
   </ul>

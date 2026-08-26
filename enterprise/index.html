@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CWNA 企业部署实战篇 · 姊妹课程</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .ent-hero { margin: 1.5rem 0 1rem; }
+  .ent-hero p { font-size: 0.95rem; line-height: 1.75; }
+  .ent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 0.9rem;
+    margin: 1.4rem 0;
+  }
+  .ent-card {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 0.9rem 1.05rem;
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color .15s, box-shadow .15s;
+    position: relative;
+  }
+  .ent-card:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.06); }
+  .ent-card .num {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+  .ent-card h3 { margin: 0.25rem 0 0.35rem; font-size: 1rem; line-height: 1.45; }
+  .ent-card p { margin: 0; font-size: 0.8rem; color: var(--ink-soft); line-height: 1.55; }
+  .ent-card .book {
+    display: inline-block;
+    margin-top: 0.5rem;
+    font-size: 0.68rem;
+    font-family: var(--mono);
+    color: var(--ink-faint);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.05rem 0.4rem;
+  }
+  .ent-card.map { background: #f3efe6; }
+  .ent-note {
+    background: #fbf9f4;
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.8rem 1rem;
+    font-size: 0.86rem;
+    line-height: 1.7;
+    margin: 1.2rem 0;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">📶 姊妹课程 · CWNA 企业部署实战篇 ·
+    <a href="../index.html">← 主课程路线图</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a>
+  </div>
+
+  <h1>企业部署实战篇 —— 把 CWNA-108 熟悉成手册</h1>
+
+  <div class="ent-hero">
+    <p><strong>主课程（21 课 + 5 补充）覆盖了书的协议与驱动那一半</strong>：RF、PHY、MAC、安全、聚合、速率、mac80211、调试。本姊妹课程补齐<strong>另一半——企业部署与环境侧</strong>：标准组织与修正案家谱、天线与传播、架构与 PoE（以太网供电）、设计概念、勘测验证、安全运营与访客。</p>
+    <p>两门课合起来 = <strong>CWNA-108 全书 20 章逐章有对应</strong>。收官的<a href="./cwna-book-map.html">全书手册化导览</a>给你"遇到问题 → 翻哪章/看哪课"的检索表；第 8 课把你最关心的<strong>拉流异常与稳定性异常排查</strong>串成实战手册。</p>
+  </div>
+
+  <div class="ent-note">
+    <strong>怎么用这门课</strong>：每课页脚都标注对应的书章（如 "对应 Ch13"）。学习节奏建议每周 1–2 课——本篇偏"建立印象 + 检索能力"，不像主课那样每课都有重数学；但每课仍带 4 道自检题（检索练习）和"对驱动工程师的意义"。协议细节一律链接回主课程对应课，不重复讲。
+  </div>
+
+  <div class="ent-grid">
+    <a class="ent-card" href="./0001-standards-organizations-amendments.html">
+      <span class="num">企课 1</span>
+      <h3>标准、组织与修正案字母汤</h3>
+      <p>ITU/IEEE/WFA 三层各管什么；11a→bf 家谱全景；哪些已并入 802.11-2020/2024；defunct 的 11F/11T；Wi-Fi 4/5/6/7 命名</p>
+      <span class="book">对应书 Ch1 + Ch2</span>
+    </a>
+    <a class="ent-card" href="./0002-antenna-propagation.html">
+      <span class="num">企课 2</span>
+      <h3>天线与传播：信号为什么会"呼吸"</h3>
+      <p>传播六行为；天线类型/波束宽度/极化；菲涅尔区 60% 准则；VSWR（电压驻波比）与馈线——拉流信号波动的物理根源</p>
+      <span class="book">对应书 Ch3 + Ch5</span>
+    </a>
+    <a class="ent-card" href="./0003-spectrum-topology-completion.html">
+      <span class="num">企课 3</span>
+      <h3>频谱与拓扑补完：冷门 PHY 与 mesh</h3>
+      <p>DSSS/CCK（直接序列扩频/补码键控）历史 PHY；60GHz ad/ay；sub-1GHz ah HaLow（对标你的 sub-GHz 背景）；mesh/WDS/中继</p>
+      <span class="book">对应书 Ch6 + Ch7 剩余</span>
+    </a>
+    <a class="ent-card" href="./0004-wlan-architecture-poe.html">
+      <span class="num">企课 4</span>
+      <h3>WLAN 架构与 PoE</h3>
+      <p>自治 AP → 控制器（CAPWAP）→ 云管理演进；管理/控制/数据三平面；PoE（以太网供电）802.3af/at/bt 功率等级——AP 掉电重启红鲱鱼</p>
+      <span class="book">对应书 Ch11 + Ch12</span>
+    </a>
+    <a class="ent-card" href="./0005-wlan-design-concepts.html">
+      <span class="num">企课 5</span>
+      <h3>WLAN 设计概念</h3>
+      <p>覆盖 vs 容量；信道/漫游/SSID（服务集标识）设计原则；语音/视频设计目标值；高密度；6GHz 设计要点——晚高峰卡顿的环境根源</p>
+      <span class="book">对应书 Ch13</span>
+    </a>
+    <a class="ent-card" href="./0006-site-survey-validation.html">
+      <span class="num">企课 6</span>
+      <h3>勘测与验证</h3>
+      <p>需求访谈 → AP-on-a-stick 被动/主动勘测 → 验证流程；频谱分析仪 vs 协议分析仪；怎么评估"这环境能不能稳定拉流"</p>
+      <span class="book">对应书 Ch14</span>
+    </a>
+    <a class="ent-card" href="./0007-security-operations-guest.html">
+      <span class="num">企课 7</span>
+      <h3>安全运营与访客</h3>
+      <p>攻击面（deauth 泛洪/evil twin）与 WIPS（无线入侵防御系统）；EAP（可扩展认证协议）方法族；OWE（增强开放）；访客接入与 Hotspot 2.0</p>
+      <span class="book">对应书 Ch16 + Ch17/18 节选</span>
+    </a>
+    <a class="ent-card" href="./0008-streaming-stability-playbook.html">
+      <span class="num">企课 8 · 收官</span>
+      <h3>拉流与稳定性排查实战</h3>
+      <p>视频拉流流量模型（ABR/缓冲）；三种卡顿机理；掉线原因链；"症状→原因→工具→书章/课次"速查表；案例走查——两门课的综合应用</p>
+      <span class="book">综合 Ch13/14/15/16 + 主课全篇</span>
+    </a>
+    <a class="ent-card map" href="./cwna-book-map.html">
+      <span class="num">工具页</span>
+      <h3>📖 CWNA-108 全书手册化导览</h3>
+      <p>20 章 × 三列：每章要点速记 | 对应课程 | 遇到什么问题翻这章。遇到问题就有印象的检索载体</p>
+      <span class="book">全书 20 章</span>
+    </a>
+  </div>
+
+  <div class="lesson-foot">
+    <p>
+      <a href="../index.html">← 主课程路线图（协议 + 驱动篇）</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="../MISSION.md">使命</a>
+    </p>
+    <p style="font-size:0.8rem;color:var(--ink-faint)">本篇为姊妹课程：主课程 21 课覆盖协议/驱动侧（CWNA Ch2–10/15/17/19），本篇 8 课补齐部署/环境侧（Ch1/3/5/6/7/11–14/16/18/20），合并覆盖全书。</p>
+  </div>
+
+</main>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

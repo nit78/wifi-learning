@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企课 6 · 勘测与验证 —— 怎么判断"这环境行不行"</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    企课 6 / Enterprise 0006 · 勘测与验证 · 对应书 Ch14 ·
+    <a href="./0005-wlan-design-concepts.html">← 企课 5</a> ·
+    <a href="./index.html">本课程首页</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="../index.html">主课程路线图</a>
+  </div>
+
+  <h1>勘测与验证 —— 怎么判断"这环境行不行"</h1>
+
+  <p>企课 5 讲了设计<strong>应该</strong>长什么样；这课讲怎么<strong>测量现实</strong>：专业的勘测方法论（书的 Ch14）+ 你用主课第 20 课工具就能做的<strong>迷你验证</strong>。对你的直接价值：面对"这个环境能不能稳定拉流"的问题，你有一套可复现的测量动作，而不是凭感觉。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：先问清楚要什么，再动手测量</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>勘测的 80% 在动手之前：<strong>需求访谈</strong>定标准（多少用户、什么应用、语音还是视频、漫游范围），<strong>标准决定测什么、目标线画哪</strong>（企课 5 的 −67dBm（分贝毫瓦）/SNR（信噪比）25dB 那张表）。没有目标的测量只是收集数据，不是勘测。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 四种勘测，四个用途</h2>
+
+  <table class="compare-table">
+    <thead><tr><th>类型</th><th>怎么做</th><th>得到什么</th><th>局限</th></tr></thead>
+    <tbody>
+      <tr><td>预测勘测<br><span class="mono">Predictive</span></td><td>软件建模（Ekahau 等画图纸放虚拟 AP）</td><td>设计蓝图（AP 位置/功率/信道建议）</td><td>模型≠现实（建材、干扰未知）</td></tr>
+      <tr><td>被动勘测<br><span class="mono">Passive</span></td><td>勘测网卡<strong>只听不连</strong>，走场记录信号分布</td><td>信号/SNR 热图、邻居 AP 清单</td><td>测不到真实吞吐/重传/漫游</td></tr>
+      <tr><td>主动勘测<br><span class="mono">Active</span></td><td>客户端<strong>真实关联</strong> AP 走场，边走边测</td><td>实际吞吐/重传率/漫游行为</td><td>改变环境（自己就是流量）</td></tr>
+      <tr><td>验证勘测<br><span class="mono">Validation</span></td><td>部署完成后按设计目标逐项核对</td><td>"验收单"：达标/不达标</td><td>要等施工完成</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>AP-on-a-stick（杆上 AP）</strong>：施工前把 AP 绑在杆子上临时架到设计位置，人扛着杆验证覆盖——预测与被动/主动勘测的混搭，专业勘测的标准动作。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 两只仪表：频谱仪 vs 协议仪</h2>
+
+  <div class="cca-diagram">
+<span class="threshold">频谱分析仪 (Spectrum Analyzer) — 看"物理世界"</span>
+  频谱瀑布图: 每个频率上的能量
+  专抓非 Wi-Fi 干扰: 微波炉(2.4G 宽脉冲)/蓝牙(跳频毛刺)/无线鼠标/坏镇流器
+  <span class="good">问题形态: "SNR 差但邻居不多" → 上频谱仪</span>
+
+<span class="threshold">协议分析仪 (Protocol Analyzer) — 看"协议世界"</span>
+  抓 802.11 帧 (主课 20 的 monitor(监听)+Wireshark(网络协议分析器) 就是桌面版)
+  看帧级事实: 重传率/管理帧时序/漫游过程/保护机制开销
+  <span class="good">问题形态: "信号好但就是卡" → 上协议仪数帧</span>
+
+口诀: <span class="threshold">Layer 1(物理层)用频谱仪, Layer 2(链路层)用协议仪</span> —— 拉流排查两把都要会(企课 8)
+</div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 你的迷你验证流程（不买专业工具版）</h2>
+
+  <div class="cca-diagram">
+<span class="good">目标: 评估"这环境能不能稳定拉流" (按企课 5 目标线验收)</span>
+① 环境: iw dev wlan0 scan         → 邻居 AP/信道占用清单 (2.4G 半重叠?)
+② 走场: iw dev wlan0 link + station dump
+        在"常卡的位置"采点: signal / tx bitrate / retries 三要素
+③ 空口: monitor 抓 60s, Wireshark 过滤
+        wlan.fc.retry==1 占比 (&gt;15% = 空口竞争/干扰红牌)
+        CU(信道利用率)代理指标: beacon 间隔抖动/重传统计
+④ 吞吐: iperf3 打点 (走场前后各一次, 看波动幅度)
+⑤ 判定: 对照企课5表: signal&gt;-70dBm? SNR&gt;=25dB? retry&lt;15%?
+        任何一项持续超标 → 环境问题, 不是设备问题
+<span class="note">整套动作 30 分钟, 这就是"迷你验证勘测"</span>
+</div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 专业勘测的产出（见到要认识）</h2>
+
+  <ul>
+    <li><strong>覆盖热图（heatmap）</strong>：信号/SNR 按位置的着色地图（红绿黄）。</li>
+    <li><strong>信道规划图</strong>：每个 AP 的信道/功率/安装位置表。</li>
+    <li><strong>干扰清单</strong>：非 Wi-Fi 干扰源位置与频段占用。</li>
+    <li><strong>验证报告</strong>：设计目标逐项打勾（−67dBm 达标区域百分比、漫游测试轨迹）。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动工程师：勘测思维的两个迁移</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <ul>
+      <li><strong>整机预认证就是"设备级勘测"</strong>：OTA（空口）测试（TRP（总辐射功率）/TIS（总各向灵敏度），企课 2）在不同方向的走场 = 你的产品在"天线维度"的验证勘测。</li>
+      <li><strong>复现客户的"环境问题"</strong>：客户现场卡顿 → 拉回实验室复现不了？用本课的迷你验证在客户现场采集三件套（scan/station dump/抓包）——环境证据带得回来，问题才修得了。这正是主课 20"报 bug 三件套"的企业版。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：勘测与验证吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="被动勘测和主动勘测的本质区别是什么？"
+       data-explain="被动勘测的客户端只听不连：能画信号/SNR（信噪比）分布热图、列邻居，但测不到任何「连上之后」的行为（吞吐/重传/漫游）。主动勘测真实关联 AP（接入点）：拿到实际性能数据，但自己就是流量的一部分。所以专业勘测常两者混做：被动画覆盖、主动测性能。「>
+    <script type="application/json">
+      [
+        { "text": "被动不关联只听（测覆盖分布），主动真实关联（测吞吐/重传/漫游）", "correct": false },
+        { "text": "被动用手机、主动用电脑", "correct": false },
+        { "text": "主动勘测才真实关联 AP，能测吞吐/重传/漫游；被动只听不连，只画信号分布", "correct": true },
+        { "text": "被动不需要到场，用软件建模", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="现场信号强、邻居也不多，但 SNR（信噪比）上不去、丢包奇怪。该上哪只仪表、找什么？"
+       data-explain="信号强 + SNR 差 = 噪声/干扰侧问题，且邻居 AP 少 → 嫌疑转向非 Wi-Fi 干扰：微波炉（2.4GHz 宽带脉冲）、蓝牙（跳频毛刺）、无线外设、劣质电源——它们不说话（协议仪看不见），只在物理层抬噪声。<strong>频谱分析仪</strong>看频谱瀑布图找形状是唯一正解。这是「Layer 1（物理层）用频谱仪」口诀的典型场景。「>
+    <script type="application/json">
+      [
+        { "text": "协议分析仪，数一数重传帧", "correct": false },
+        { "text": "频谱分析仪，找微波炉/蓝牙等非 Wi-Fi 干扰的频谱形状", "correct": true },
+        { "text": "换一台路由器试试", "correct": false },
+        { "text": "万用表，测供电电压", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="AP-on-a-stick（杆上 AP）解决什么问题？"
+       data-explain="正式安装前验证设计：把 AP 绑杆上临时架到「图纸位置」（天花板高度），走场测量覆盖是否达标——不用等综合布线施工完成就能发现「设计图上这个位置不行」。它是预测勘测与现场实测的桥梁，专业勘测的标准动作。「>
+    <script type="application/json">
+      [
+        { "text": "施工前临时架设验证覆盖，不等布线完成就能核对设计", "correct": false },
+        { "text": "给 AP 更好的接地，防雷击", "correct": false },
+        { "text": "施工前把 AP 绑在杆上临时架到设计位置走场验证，提前发现设计问题", "correct": true },
+        { "text": "把 AP 架高以增大覆盖半径的正式部署方式", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="验证勘测（validation）与部署前勘测的本质区别是？"
+       data-explain="验证勘测在部署完成后进行，任务是拿<strong>设计目标</strong>逐项核对现实：−67dBm（分贝毫瓦）达标区域占比、SNR（信噪比）≥25dB、重试率 &lt;15%、漫游轨迹不断流——产出「验收结论」。部署前勘测是「为设计服务」，验证勘测是「为验收服务」。合同场景里它是甲乙方共同的验收依据，所以报告格式和测量方法都要求可复现。「>
+    <script type="application/json">
+      [
+        { "text": "验证勘测部署后按设计目标逐项核对出验收结论，前勘测为设计服务", "correct": false },
+        { "text": "没有区别，只是换个名字", "correct": false },
+        { "text": "部署后按设计目标（信号/SNR/重试/漫游）逐项核对产出验收结论——为验收服务", "correct": true },
+        { "text": "验证勘测只用预测软件完成", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：先访谈、四勘测、两只表</h2>
+  <ol>
+    <li><strong>先访谈定标准</strong>：用户/应用/漫游需求 → 决定测什么和目标线（企课 5 那张表）</li>
+    <li><strong>四勘测</strong>：预测（建模）→ 被动（听覆盖）→ 主动（连性能）→ 验证（对目标）；AP-on-a-stick（杆上 AP）是施工前桥梁</li>
+    <li><strong>两只表</strong>：Layer 1（物理层）频谱仪找非 Wi-Fi 干扰，Layer 2（链路层）协议仪看帧级事实——拉流排查两把都要</li>
+    <li><strong>迷你验证 30 分钟</strong>：scan 环境清单 → 走场三要素 → 抓包数重传 → iperf3（网络测速工具）打点 → 对照目标线判定</li>
+    <li><strong>产出</strong>：热图/信道规划/干扰清单/验收报告——见到要认识</li>
+  </ol>
+
+  <p>你现在能做的：对自己的常卡位置做一次迷你验证；把结论写成"三件套 + 判定"格式——企课 8 的排查手册直接用得上。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课</strong>：<a href="./0007-security-operations-guest.html">企课 7 · 安全运营与访客</a><br>
+      <a href="./0005-wlan-design-concepts.html">← 企课 5</a> ·
+      <a href="./index.html">本课程首页</a> ·
+      <a href="../index.html">主课程路线图</a>
+    </p>
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，继续企课 7」<br>
+      • 「带我做一次实际环境的迷你验证」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://www.ekahau.com/blog/channel-planning-best-practices-for-better-wi-fi/">Ekahau — Channel Planning Best Practices</a>（勘测与信道规划实务）</li>
+    <li><a href="https://www.netally.com/tech-tips/understand-noise-with-wi-fi-snr/">NetAlly — Wi-Fi SNR/干扰诊断</a>（频谱与协议分析的分工场景）</li>
+    <li><a href="https://www.cwnp.com/uploads/cwna-108-2020-objectives.pdf">CWNP — CWNA-108 考纲</a>（勘测/验证流程的目标域定义）</li>
+    <li><a href="https://www.cisco.com/c/en/us/td/docs/wireless/controller/technotes/8-7/b_wireless_high_client_density_design_guide.html">Cisco — High Client Density Design Guide</a>（验证指标实务）</li>
+    <li>CWNA-108 Study Guide, Ch.14（本课骨架；按课程规则不要求阅读）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

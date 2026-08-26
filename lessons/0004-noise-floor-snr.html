@@ -108,7 +108,7 @@
 
   <h1>噪声底与 SNR（信噪比）—— 为什么 Wi-Fi 灵敏度比蓝牙差</h1>
 
-  <p>上一课你掌握了 dB/dBm 和链路预算，能算出 RSSI（接收信号功率）。但这只回答了「信号有多强」，<strong>没回答「够不够」</strong>。够不够，要对照的不仅是灵敏度表 —— 更深层的问题是<strong>「背景有多吵」</strong>。这就是噪声底。</p>
+  <p>上一课你掌握了 dB/dBm 和链路预算，能算出 RSSI（接收信号强度指示）。但这只回答了「信号有多强」，<strong>没回答「够不够」</strong>。够不够，要对照的不仅是灵敏度表 —— 更深层的问题是<strong>「背景有多吵」</strong>。这就是噪声底。</p>
 
   <p>这课从你刚掌握的 dB 工具出发，补上 RF (射频) 链路预算的另一半：<strong>RSSI (接收信号强度指示) → SNR (信噪比) → MCS (调制与编码方案)</strong>。然后用一个具体问题把它焊死 ——</p>
 
@@ -220,7 +220,7 @@
       <tr><td class="num">MCS3</td>  <td>16-QAM (正交幅度调制) 1/2</td> <td class="num">~9 dB</td>   <td>中速</td></tr>
       <tr><td class="num">MCS7</td>  <td>64-QAM (正交幅度调制) 3/4</td> <td class="num">~21 dB</td>  <td>高速，需清晰信号</td></tr>
       <tr><td class="num">MCS9</td>  <td>256-QAM (正交幅度调制) 5/6</td><td class="num">~29 dB</td>  <td>Wi-Fi 5 最高速，需很强 SNR (信噪比)</td></tr>
-      <tr><td class="num">MCS11</td> <td>1024-QAM (正交幅度调制) 3/4</td><td class="num">~36 dB</td> <td>Wi-Fi 6 最高速，需极强 SNR (信噪比)</td></tr>
+      <tr><td class="num">MCS11</td> <td>1024-QAM (正交幅度调制) 5/6</td><td class="num">~36 dB</td> <td>Wi-Fi 6 最高速，需极强 SNR (信噪比)</td></tr>
     </tbody>
   </table>
 
@@ -233,7 +233,7 @@
   <p>现在把第 3 课 + 本课的所有东西串成一条完整的算式。场景换成远距离，感受 SNR (信噪比) 怎么决定一切：</p>
 
   <div class="worked">
-    <span class="label">完整链路预算 + SNR (信噪比) + MCS (调制与编码方案) 判定（5 GHz, 40 m, 20 MHz）</span>
+    <span class="label">完整链路预算 + SNR (信噪比) + MCS (调制与编码方案) 判定（2.4 GHz, 40 m, 20 MHz）</span>
 
     <span class="step">── 第 3 课：算 RSSI ──</span>
     <span class="step">① 发射功率       +15 dBm</span>
@@ -247,13 +247,13 @@
 
     <span class="step">── 判定 MCS ──</span>
     <span class="step">   SNR 47 dB > MCS11 需求 36 dB → <span class="result">可用 MCS11（1024-QAM (正交幅度调制)）</span></span>
-    <span class="step">   结论：40 m 仍能跑最高速（5 GHz 短距离、无遮挡时）</span>
+    <span class="step">   结论：40 m 仍能跑最高速（2.4 GHz 短距离、无遮挡时）</span>
   </div>
 
   <p>再算一个远距离 + 干扰的场景，感受 SNR (信噪比) 怎么掉下来：</p>
 
   <div class="worked">
-    <span class="label">弱信号场景（5 GHz, 30 m, 隔一堵墙, 20 MHz）</span>
+    <span class="label">弱信号场景（2.4 GHz, 30 m, 隔一堵墙, 20 MHz）</span>
 
     <span class="step">① 发射功率       +15 dBm</span>
     <span class="step">② 路径损耗 FSPL  −70 dB   <span style="color:var(--ink-faint)">墙再吃 12 dB</span></span>
@@ -283,14 +283,14 @@
 
   <ul>
     <li><strong>SNR (信噪比) 高时</strong>（近距离）：加宽带宽 → 吞吐暴涨（噪声底升高也够用）</li>
-    <li><strong>SNR 低时</strong>（远距离）：缩窄带宽 → 噪声底降低 → 保住 SNR → 维持连接</li>
+    <li><strong>SNR (信噪比) 低时</strong>（远距离）：缩窄带宽 → 噪声底降低 → 保住 SNR → 维持连接</li>
   </ul>
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From sub-GHz</span>
     <p>你做 sub-GHz LoRa 时一定调过两个独立参数：<strong>BW（带宽）</strong>和 <strong>SF（扩频因子）</strong>。注意这俩是不同的东西，别搞混（我自己上一版课件就搞混过，见下方纠错框）。</p>
-    <p>真正和 Wi-Fi「信道宽度自适应」对口的，是 <strong>BW</strong>：LoRa 缩 BW → 噪声底降 → 灵敏度涨但速率掉，这正是上面热噪声公式的直接应用。Wi-Fi 也是同样的权衡，只是方向常被设成「尽量宽」。</p>
-    <p>而 <strong>SF</strong> 是 LoRa 特有的扩频增益机制（chirp 持续时间 = 2^SF / BW，SF 越大积分越长 → 处理增益越高 → 灵敏度越好）。这部分<strong>在 Wi-Fi 里没有对应物</strong> —— Wi-Fi 用 OFDM (正交频分复用) 子载波 + 编码增益，不用 chirp 扩频。所以 SF 的权衡经验不能直接迁移到 Wi-Fi，只有 BW 的权衡经验能迁移。</p>
+    <p>真正和 Wi-Fi「信道宽度自适应」对口的，是 <strong>BW (带宽)</strong>：LoRa 缩 BW → 噪声底降 → 灵敏度涨但速率掉，这正是上面热噪声公式的直接应用。Wi-Fi 也是同样的权衡，只是方向常被设成「尽量宽」。</p>
+    <p>而 <strong>SF (扩频因子)</strong> 是 LoRa 特有的扩频增益机制（chirp 持续时间 = 2^SF / BW，SF 越大积分越长 → 处理增益越高 → 灵敏度越好）。这部分<strong>在 Wi-Fi 里没有对应物</strong> —— Wi-Fi 用 OFDM (正交频分复用) 子载波 + 编码增益，不用 chirp 扩频。所以 SF 的权衡经验不能直接迁移到 Wi-Fi，只有 BW 的权衡经验能迁移。</p>
   </div>
 
   <div class="callout key">
@@ -324,9 +324,9 @@
        data-explain="带宽差异。LoRa 125 kHz 噪声底 −123 dBm，Wi-Fi 20 MHz 噪声底 −101 dBm，差 22 dB；加上 Wi-Fi 解调更高阶调制需更高 SNR (信噪比)，总差距约 30 dB。根因是宽带系统天生噪声底高，不是接收机技术差。">
     <script type="application/json">
       [
-        { "text": "Wi-Fi 带宽宽，热噪声底天然高约 22 dB", "correct": true },
         { "text": "Wi-Fi 接收机硬件质量不如 LoRa 芯片",   "correct": false },
         { "text": "Wi-Fi 工作频率高，路径损耗更大",       "correct": false },
+        { "text": "Wi-Fi 带宽宽，热噪声底天然高约 22 dB", "correct": true },
         { "text": "Wi-Fi 用 OFDM (正交频分复用)，LoRa 用 FSK，调制差异",  "correct": false }
       ]
     </script>
@@ -334,13 +334,13 @@
 
   <div class="quiz" data-type="single"
        data-question="某场景 RSSI (接收信号强度指示) = −80 dBm，20 MHz 信道。SNR (信噪比) 是多少？最可能用哪个 MCS (调制与编码方案)？"
-       data-explain="SNR (信噪比) = −80 − (−101) = +21 dB。对照表，21 dB 刚好够 MCS7（64-QAM 3/4）。MCS9 需 29 dB 不够。所以选 MCS7。这是中等信号、中等速率的典型场景。">
+       data-explain="SNR (信噪比) = −80 − (−101) = +21 dB。对照表，21 dB 刚好够 MCS7（64-QAM (正交幅度调制) 3/4）。MCS9 需 29 dB 不够。所以选 MCS7。这是中等信号、中等速率的典型场景。">
     <script type="application/json">
       [
-        { "text": "SNR 约 21 dB，MCS7（64-QAM (正交幅度调制)）", "correct": true },
         { "text": "SNR 约 21 dB，MCS0（BPSK (二进制相移键控)）",   "correct": false },
         { "text": "SNR 约 21 dB，MCS11（1024-QAM (正交幅度调制)）","correct": false },
-        { "text": "SNR 约 80 dB，MCS11 (调制与编码方案)",          "correct": false }
+        { "text": "SNR 约 80 dB，MCS11 (调制与编码方案)",          "correct": false },
+        { "text": "SNR 约 21 dB，MCS7（64-QAM (正交幅度调制)）", "correct": true }
       ]
     </script>
   </div>
@@ -358,11 +358,11 @@
   <div class="callout key">
     <span class="callout-title">RF (射频) 工具箱（实体） / The RF Toolbox</span>
     <p><a href="../reference/rf-math-cheatsheet.html">📋 RF (射频) 数学速查表</a> —— 第 3、4 课所有公式和常用值的压缩版。</p>
-    <p>里面有：① 核心公式（dB/dBm/噪声底/SNR (信噪比)/FSPL）② dB 比值速记 8 个 ③ dBm↔mW 对照 ④ 按带宽的噪声底 ⑤ SNR→MCS 对照 ⑥ 链路预算流水线 ⑦ 工作算例 ⑧ RSSI (接收信号强度指示) 实战读数档位。</p>
+    <p>里面有：① 核心公式（dB/dBm/噪声底/SNR (信噪比)/FSPL (自由空间路径损耗)）② dB 比值速记 8 个 ③ dBm↔mW 对照 ④ 按带宽的噪声底 ⑤ SNR→MCS 对照 ⑥ 链路预算流水线 ⑦ 工作算例 ⑧ RSSI (接收信号强度指示) 实战读数档位。</p>
     <p><strong>以后算 RF (射频) 不用翻课件，直接查这张表。</strong>后续 PHY (物理层) 课（频偏、EVM (误差向量幅度)、功率校准）也会往这张表里加新条目。</p>
   </div>
 
-  <p><strong>至此 RF (射频) 数学地基成型，可以转向协议主线了。</strong>下一课（第 5 课）回到第 1 课埋的「分布式竞争」线，讲 <strong>CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避机制</strong>（backoff / CW / 二进制指数退避 / DIFS-SIFS / 隐藏节点 + RTS/CTS (请求发送 / 允许发送)）。那是你做驱动协议栈时的强项区 —— 帧时序、状态机、退避逻辑，正好用上你的协议栈经验。两根钉子（OFDM (正交频分复用) + CSMA/CA）都立起来后，PHY (物理层)/MAC (介质访问控制层)/介质访问三条主线就串完了。</p>
+  <p><strong>至此 RF (射频) 数学地基成型，可以转向协议主线了。</strong>下一课（第 5 课）回到第 1 课埋的「分布式竞争」线，讲 <strong>CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避机制</strong>（backoff (退避) / CW (竞争窗口) / 二进制指数退避 / DIFS-SIFS (帧间间隔) / 隐藏节点 + RTS/CTS (请求发送 / 允许发送)）。那是你做驱动协议栈时的强项区 —— 帧时序、状态机、退避逻辑，正好用上你的协议栈经验。两根钉子（OFDM (正交频分复用) + CSMA/CA）都立起来后，PHY (物理层)/MAC (介质访问控制层)/介质访问三条主线就串完了。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -378,7 +378,7 @@
 
   <div class="lesson-foot">
     <p>
-      <strong>下一课预告</strong>：第 5 课 — CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避机制（backoff / CW / 二进制指数退避 / DIFS-SIFS / 隐藏节点 + RTS/CTS (请求发送 / 允许发送)）。协议主线，你的强项区。<br>
+      <strong>下一课预告</strong>：第 5 课 — CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避机制（backoff (退避) / CW (竞争窗口) / 二进制指数退避 / DIFS-SIFS (帧间间隔) / 隐藏节点 + RTS/CTS (请求发送 / 允许发送)）。协议主线，你的强项区。<br>
       <a href="./0003-rf-fundamentals.html">← 第 3 课</a> ·
       <a href="../GLOSSARY.md">术语表</a> ·
       <a href="../MISSION.md">使命</a>

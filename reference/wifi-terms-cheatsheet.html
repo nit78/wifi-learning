@@ -1365,8 +1365,8 @@
   <div class="term">
     <div class="term-head">
       <span class="term-abbr">AIFSN / AIFS</span>
-      <span class="term-full">Arbitrary IFS</span>
-      <span class="term-cn">· 任意帧间间隔</span>
+      <span class="term-full">Arbitration IFS</span>
+      <span class="term-cn">· 仲裁帧间间隔</span>
     </div>
     <div class="term-body">
       <p>802.11e 可变 IFS：<strong>AIFS[AC] = SIFS + AIFSN[AC] × SlotTime</strong>，AIFSN ≥ 2。802.11a/g 默认：VO/VI=2、BE=3、BK=7。</p>
@@ -1434,6 +1434,251 @@
   </div>
 
   <!-- ══════════════════════════════════════════════ -->
+  <h2>信道绑定与频谱</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Channel Bonding</span>
+      <span class="term-full">信道绑定</span>
+    </div>
+    <div class="term-body">
+      <p>把多个 20MHz 基础信道捆成宽信道（40/80/160MHz）。<strong>吞吐近似随带宽线性翻倍</strong>，代价：占频谱、抗干扰差、易被邻居挤回窄带宽。第 16 课。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Primary / Secondary</span>
+      <span class="term-full">主信道 / 辅信道</span>
+    </div>
+    <div class="term-body">
+      <p>绑定信道里的<strong>主信道</strong>是发 Beacon（信标）、跑传统 20MHz 交互的锚点；<strong>辅信道</strong>是捆上来的额外带宽。STA（站点）先在主信道对齐再扩宽。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Puncturing</span>
+      <span class="term-full">Preamble Puncturing · 前导码打洞</span>
+    </div>
+    <div class="term-body">
+      <p>802.11ax：宽信道里某 20MHz 段被邻居占住时<strong>抠掉那一段、其余照用</strong>——不必整条退回窄带宽。高密度保带宽的解法。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">6GHz / 6E</span>
+      <span class="term-full">Wi-Fi 6E 专属频段</span>
+    </div>
+    <div class="term-body">
+      <p>1.2GHz 连续干净频谱、最多 7 个不重叠 160MHz、只有 11ax 设备无传统拖累；代价是频率高路径损耗大、覆盖变小。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>漫游与快速切换（802.11k/v/r）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Roaming</span>
+      <span class="term-full">漫游 · 决策 + 执行</span>
+    </div>
+    <div class="term-body">
+      <p>同一 ESS（扩展服务集）内换 AP（接入点）。<strong>决策</strong>＝什么时候走（信号/重传/延迟阈值），<strong>执行</strong>＝怎么走得快（k/v/r 三个 amendment 修的都是执行）。第 17 课。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">802.11k</span>
+      <span class="term-full">RRM / Neighbor Report · 邻居报告</span>
+    </div>
+    <div class="term-body">
+      <p>"AP 告诉你邻居在哪"——AP 把周边 AP 列表（信道/能力）发给 STA，免去全信道扫描，<strong>砍掉漫游决策阶段的大头时间</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">802.11v</span>
+      <span class="term-full">BSS Transition Management · BSS 过渡管理</span>
+    </div>
+    <div class="term-body">
+      <p>"网络反过来指挥 STA"——AP 主动建议 STA 换去哪个 AP（负载均衡/引导离开拥挤信道）。决策从单方猜变成网络参与。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">802.11r</span>
+      <span class="term-full">FT (Fast Transition) · 快速转换</span>
+    </div>
+    <div class="term-body">
+      <p>"快在密钥不用现算"——Mobility Domain（移动域）内预建 PMK-R0/R1（两级密钥缓存），漫游时新 AP 直接派生 PTK（成对临时密钥），重关联一个往返完成切换，<strong>几百毫秒 → 几十毫秒</strong>。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>速率自适应（Rate Adaptation）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Rate Control</span>
+      <span class="term-full">Rate Adaptation · 速率自适应/控制</span>
+    </div>
+    <div class="term-body">
+      <p>无基站指挥的 Wi-Fi 里，发送端<strong>用 ACK（确认帧）/Block ACK（块确认）统计猜信道能扛多高 MCS</strong>（调制与编码方案）。两派：盲试派（ARF/Minstrel）vs 测量派（SNR（信噪比）查表，固件常见）。第 18 课。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ARF / AARF</span>
+      <span class="term-full">(Adaptive) Auto Rate Fallback · 自动速率回退</span>
+    </div>
+    <div class="term-body">
+      <p>基线算法：<span class="term-val">2 次失败降档</span> <span class="term-val">10 次成功试探升档</span>（AARF 把阈值自适应翻倍）。回答"何时降/何时升/试探多少"的鼻祖。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Minstrel-HT</span>
+      <span class="term-full">Linux 默认速率算法</span>
+    </div>
+    <div class="term-body">
+      <p>每档速率维护 EWMA（指数加权滑动平均）成功率与期望吞吐 T(r)=P(r)×理论速率；每 100ms：<strong>~90% 用 max_tp</strong>（最高吞吐）<strong>+ ~10% sample</strong>（试探别的档），重传兜底 <strong>max_prob</strong>（最高成功率）。统计单位是 A-MPDU（聚合协议数据单元）聚合成功率。多臂老虎机：利用+探索。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Retry Chain</span>
+      <span class="term-full">重传链</span>
+    </div>
+    <div class="term-body">
+      <p>一帧的多次尝试速率序列：首发 max_tp → 失败逐级降速 → 兜底 max_prob。<strong>重传本身就是免费的速率探测</strong>。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>驱动框架 API（mac80211 代码级）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ieee80211_ops</span>
+      <span class="term-full">驱动操作回调表</span>
+    </div>
+    <div class="term-body">
+      <p>框架与驱动的<strong>唯一契约</strong>：一张函数指针表——.tx（发送）/ .set_key（装密钥）/ .ampdu_action（建聚合）/ .sta_state（站点状态）/ .bss_info_changed（BSS 参数）/ .hw_scan（硬扫）。读驱动的第一入口。第 19 课。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">alloc_hw / register_hw</span>
+      <span class="term-full">ieee80211_alloc_hw() / ieee80211_register_hw()</span>
+    </div>
+    <div class="term-body">
+      <p>注册三步曲：<strong>alloc（分配 hw 对象+绑 ops）→ 填能力（队列/频段/MCS）→ register（注册）</strong>。hw（硬件抽象对象）内嵌 wiphy（无线物理设备）与 hw->priv 私有区。对应蓝牙 hci_alloc_dev/hci_register_dev。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ieee80211_rx()</span>
+      <span class="term-full">接收入口（含 rx_ni 进程态变体）</span>
+    </div>
+    <div class="term-body">
+      <p>驱动收帧交回框架：先填 <strong>skb（套接字缓冲区）->cb</strong> 里的 <strong>ieee80211_rx_status</strong>（band（频段）/freq（频率）/signal（信号）/rate_idx（速率）/RX_FLAG_DECRYPTED），再调 ieee80211_rx()。对应蓝牙 hci_recv_frame()。注意 cb 区域收发两向结构不同——混用是常见崩溃源。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ieee80211_tx_status()</span>
+      <span class="term-full">发送完成回报</span>
+    </div>
+    <div class="term-body">
+      <p>发完帧（拿到/没拿到 ACK）后回报框架：填实际尝试速率，喂速率控制 tx_status() 统计——第 18 课闭环的代码落点。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">mt76</span>
+      <span class="term-full">联发科驱动家族（入门首选阅读）</span>
+    </div>
+    <div class="term-body">
+      <p>共享层（dma.c/pci.c/usb.c/sdio.c）+ 芯片子目录（mt7915/ 的 main.c/mac.c/dma.c/mcu.c…）。现代驱动 = <strong>寄存器/DMA（直接内存访问）数据面 + MCU（微控制器）消息配置面</strong>的混合体。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">txq / chanctx</span>
+      <span class="term-full">每站点发送队列 / 信道上下文</span>
+    </div>
+    <div class="term-body">
+      <p><strong>txq/txqi</strong>：每站点每 AC（访问类别）的发送队列，airtime（空口时间）公平调度的单位。<strong>chanctx</strong>：多虚拟接口共享射频时的信道资源抽象。mac80211 黑话双雄。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>调试工具（Debugging Toolbox）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">iw</span>
+      <span class="term-full">无线配置工具（nl80211 客户端）</span>
+    </div>
+    <div class="term-body">
+      <p>三板斧：<span class="term-val">link</span> 链路现状 <span class="term-val">scan</span> 邻居环境 <span class="term-val">station dump</span> 站点三要素（signal 信号/bitrate 速率/retries 重传）。对象分 <strong>phy</strong>（物理射频设备）和 <strong>dev</strong>（网络接口）。第 20 课。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Monitor Mode</span>
+      <span class="term-full">监听模式</span>
+    </div>
+    <div class="term-body">
+      <p>旁听电波里所有帧的接口模式：<span class="term-val">iw phy phy0 interface add mon0 type monitor</span> → 钉信道 → tcpdump 抓包。FullMAC（全硬件）芯片常不支持。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">radiotap</span>
+      <span class="term-full">无线捕获元数据头</span>
+    </div>
+    <div class="term-body">
+      <p>抓包文件里附在每个 802.11 帧前的元数据头（非帧一部分）：dBm_antsignal（天线信号强度）、信道、MCS/VHT/HE 速率字段——驱动 RX（接收）元数据的用户态镜像。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Display Filter</span>
+      <span class="term-full">Wireshark 显示过滤器</span>
+    </div>
+    <div class="term-body">
+      <p>用字段名过滤帧：<span class="term-val">wlan.fc.type==0/1/2</span> 管理/控制/数据 <span class="term-val">type_subtype==0x0008</span> Beacon（信标）<span class="term-val">eapol</span> 四次握手 <span class="term-val">wlan.fc.retry==1</span> 重传 <span class="term-val">radiotap.dbm_antsignal&lt;-75</span> 弱信号。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">rc_stats</span>
+      <span class="term-full">debugfs（内核调试文件系统）速率统计</span>
+    </div>
+    <div class="term-body">
+      <p>路径 <span class="term-val">/sys/kernel/debug/ieee80211/phyN/netdev:wlan0/stations/&lt;MAC&gt;/rc_stats</span>：每档 MCS 的成功率/期望吞吐/EWMA/采样计数。前提 CONFIG_MAC80211_DEBUGFS + 已连接站点；<strong>FullMAC 没有它（速率控制在固件）——存在与否可判断卡型</strong>。</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
   <h2>蓝牙对照术语（桥梁）</h2>
 
   <div class="term">
@@ -1458,11 +1703,114 @@
     </div>
   </div>
 
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>企业部署与排障（姊妹课程）</h2>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Fresnel Zone</span>
+      <span class="term-full">菲涅尔区 · 60% 净空准则</span>
+    </div>
+    <div class="term-body">
+      <p>视距链路周围的净空管道：<span class="term-val">r = 17.32×√(d₁d₂/(f·D))</span>（km/GHz→m）。障碍侵入第一菲涅尔区 60% 以内即引入额外损耗——"没挡视线"≠没损耗。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">dBi / dBd / VSWR</span>
+      <span class="term-full">天线增益基准 · 电压驻波比</span>
+    </div>
+    <div class="term-body">
+      <p><span class="term-val">dBi = dBd + 2.15</span>；增益=能量重分配（高增益全向压扁垂直覆盖）。VSWR（电压驻波比）&lt;1.5:1 算匹配良好——IPEX（同轴微型连接器）松动/馈线损耗是嵌入式"信号稳定地差"头号硬件嫌疑。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CCI / ACI</span>
+      <span class="term-full">同信道 / 邻信道干扰</span>
+    </div>
+    <div class="term-body">
+      <p>信道设计反直觉原则：<strong>宁可同频复用（CSMA/CA 可协调），不可邻频半重叠（互当噪声不可协调）</strong>。2.4GHz 只有 1/6/11 三个干净位置。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">设计目标值</span>
+      <span class="term-full">Design Targets</span>
+    </div>
+    <div class="term-body">
+      <p><span class="term-val">语音边缘 −67dBm（分贝毫瓦）</span> <span class="term-val">数据 −70dBm</span> <span class="term-val">SNR（信噪比）≥25dB</span> <span class="term-val">重试 &lt;15%</span> <span class="term-val">漫游重叠 15–20%</span>。信号差加 AP（接入点）不加功率（上行不对称/容量摊薄/干扰扩大三连）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">Survey 三型</span>
+      <span class="term-full">Passive / Active / Validation · 勘测三型</span>
+    </div>
+    <div class="term-body">
+      <p>被动只听（画覆盖）、主动真连（测吞吐/漫游）、验证对照目标出验收。AP-on-a-stick（杆上 AP）=施工前临时架设。<strong>Layer 1（物理层）用频谱仪找非 Wi-Fi 干扰，Layer 2（链路层）用协议仪看帧</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">CAPWAP / Split-MAC</span>
+      <span class="term-full">无线接入点控制与配置协议 / 分离介质访问控制</span>
+    </div>
+    <div class="term-body">
+      <p>控制器架构：实时功能（Beacon（信标帧）/ACK（确认帧）/重传/加密）留 AP，全局决策（关联/漫游/RF（射频）调优）上收。<span class="term-val">UDP（用户数据报协议） 5246 控制（DTLS（数据报传输层安全）强制）/ 5247 数据</span>（RFC 5415）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">PoE</span>
+      <span class="term-full">Power over Ethernet · 以太网供电</span>
+    </div>
+    <div class="term-body">
+      <p><span class="term-val">af=15.4W</span> <span class="term-val">at=30W</span> <span class="term-val">bt=60/90W</span>（Type 1–4，PSE（供电设备）端口输出）；endspan（端接式，PoE 交换机）/midspan（中跨式，注入器）。<strong>功率预算是总账；负载相关 AP 重启先查供电</strong>。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">EAP 家族</span>
+      <span class="term-full">TLS / PEAP / TTLS / FAST / SIM-AKA</span>
+    </div>
+    <div class="term-body">
+      <p>EAP-TLS（传输层安全）双证书=金标准；PEAP/TTLS=服务端证书+隧道内第二道认证（PEAP 内层通常 MS-CHAPv2（微软质询握手协议第二版），TTLS 内层更灵活）；FAST 思科免证书；SIM/AKA 手机卡凭据（运营商 Wi-Fi）。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">OWE / WIPS</span>
+      <span class="term-full">增强开放 / 无线入侵防御系统</span>
+    </div>
+    <div class="term-body">
+      <p>OWE（RFC 8110）：免密码逐客户端加密——防窃听、不防假冒。WIPS=传感器+分类（授权/邻居/流氓 rogue（非法接入点））+处置；判 deauth（解除认证）攻击看<strong>洪泛无差别</strong>，PMF（受保护管理帧）网络可验伪。</p>
+    </div>
+  </div>
+
+  <div class="term">
+    <div class="term-head">
+      <span class="term-abbr">ABR / Jitter Buffer</span>
+      <span class="term-full">自适应码率 / 抖动缓冲</span>
+    </div>
+    <div class="term-body">
+      <p>HLS/DASH（基于 HTTP 的流媒体协议）分段拉流+按缓冲水位升降码率档；抖动缓冲=播放器蓄水池。<strong>卡顿三病分型：吞吐不足（饥饿）/抖动（心律不齐）/瞬断（休克）——先分型再排查</strong>。</p>
+    </div>
+  </div>
+
   <hr style="margin: 2rem 0 1rem;">
 
   <p style="font-family: var(--sans); font-size: 0.78rem; color: var(--ink-faint);">
     📋 本速查表随课程进度持续更新。有新术语讲透后会加入。
-    正式定义见 <a href="../GLOSSARY.md">GLOSSARY.md</a>，RF 公式见 <a href="rf-math-cheatsheet.html">RF 数学速查表</a>。
+    正式定义见 <a href="../GLOSSARY.md">GLOSSARY.md</a>，RF 公式见 <a href="rf-math-cheatsheet.html">RF 数学速查表</a>，全书章节对照见 <a href="../enterprise/cwna-book-map.html">手册化导览</a>。
   </p>
 
 </main>

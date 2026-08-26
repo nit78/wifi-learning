@@ -95,8 +95,8 @@
   <h1>Wi-Fi 学习路线图</h1>
   <p>从蓝牙固件工程师视角，按「一次 Wi-Fi 连接从生到死」拆解。下面是 10 个阶段的全景图——你随时能回来对照「我在哪、下一站去哪」。</p>
 
-  <div class="progress-text">主线进度：<strong>9 / 10 阶段完成（查漏补缺三连交付，仅剩驱动实战）</strong> · 已交付 18 课</div>
-  <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: 92%"></div></div>
+  <div class="progress-text">主线进度：<strong>10 / 10 阶段全部完成 🎓 课程收官</strong> · 已交付 21 课 + 5 补充课</div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width: 100%"></div></div>
 
   <div class="roadmap-intro">
     <strong>怎么看这张图</strong>：Wi-Fi 一次连接走 10 步——<strong>① 射频（信号是什么）→ ② PHY（信号↔比特）→ ③ MAC 抢信道 → ④ 帧长啥样 → ⑤ 怎么连上 → ⑥ 连上后维护 → ⑦ 加密 → ⑧ 提速 → ⑨ PHY 深水（Wi-Fi 6）→ ⑩ 驱动实战</strong>。每阶段对应若干课，绿色=完成、橙色=部分、灰色=待开。<strong>红框「下一站」</strong>是接下来的课。
@@ -194,14 +194,14 @@
       <div class="stage-status">✓ 完成</div>
     </a>
 
-    <a class="stage next" href="lessons/0015-bss-color-he-phy.html">
+    <a class="stage done" href="lessons/0019-mac80211-driver-code-walkthrough.html">
       <div class="stage-num">10</div>
       <div class="stage-body">
-        <div class="stage-title">驱动实战（下一站）</div>
-        <div class="stage-desc">mac80211 代码导读、调试实战、综合复盘——路线图最后一步（查漏补缺三连 16-18 已交付）</div>
-        <div class="stage-lessons">→ 第 19+ 课（收尾）</div>
+        <div class="stage-title">驱动实战 · 代码 + 调试 + 复盘 ✓ 收官</div>
+        <div class="stage-desc">mac80211 代码导读（19，蓝牙对照桥）+ 调试三层工具箱（20）+ 综合复盘/全景串讲（21）<strong>——路线图完成</strong></div>
+        <div class="stage-lessons">第 19、20、21 课</div>
       </div>
-      <div class="stage-status">→ 下一站</div>
+      <div class="stage-status">✓ 完成</div>
     </a>
 
   </div>
@@ -236,6 +236,10 @@
       <h3>📝 完整术语表</h3>
       <p>GLOSSARY.md · 中英对照单一真相源</p>
     </a>
+    <a class="home-card" href="enterprise/index.html" style="border-color:#d4a04a">
+      <h3>🏢 姊妹课程 · 企业部署实战篇</h3>
+      <p>8 课补齐部署/环境侧 + 全书 20 章手册化导览 + 拉流与稳定性排查手册</p>
+    </a>
   </div>
 
 </main>
@@ -264,6 +268,9 @@ var FALLBACK_LESSONS = [
   { href: 'lessons/0016-channel-bonding-spectrum.html', title: '第 16 课 · 信道绑定与频谱划分 —— 吞吐主线的地基' },
   { href: 'lessons/0017-roaming-fast-transition.html', title: '第 17 课 · 漫游与 Fast Transition —— 换 AP 不掉线是怎么做到的' },
   { href: 'lessons/0018-rate-adaptation-minstrel.html', title: '第 18 课 · 速率自适应 —— 谁在决定用哪个 MCS' },
+  { href: 'lessons/0019-mac80211-driver-code-walkthrough.html', title: '第 19 课 · mac80211 代码导读 —— 驱动框架怎么搭' },
+  { href: 'lessons/0020-debugging-toolbox.html', title: '第 20 课 · 调试实战 —— 把不可见变可见' },
+  { href: 'lessons/0021-capstone-full-journey-review.html', title: '第 21 课 · 综合复盘 —— 一条时间线串起全部课程' },
   { href: 'lessons/sup-0001-linux-wifi-stack-frame-processing.html', title: '课外补充 1 · Linux Wi-Fi 栈 —— 三类帧各在哪一层处理' },
   { href: 'lessons/sup-0002-fact-audit-where-the-course-is-wrong.html', title: '课外补充 2 · 事实核查 —— 课件哪里写错了' },
   { href: 'lessons/sup-0003-mimo-matrix-decoupling.html', title: '课外补充 3 · MIMO 矩阵解耦 —— 为什么两流不干扰' },

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 21 课 · 综合复盘 —— 一条时间线串起全部课程</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .neighbor { color: #b8761c; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 21 课 / Lesson 0021 · 收官复盘 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0020-debugging-toolbox.html">← 第 20 课</a> ·
+    <a href="../index.html">路线图</a>
+  </div>
+
+  <h1>综合复盘 —— 一条时间线串起全部课程</h1>
+
+  <p>毕业课。不教新东西——把 21 节主线课 + 5 节补充课<strong>串成一条线</strong>。你之前说 PHY（物理层）看得迷迷糊糊，所以 ② 整节就是 PHY 全景串讲：从"一比特怎么上天"走到"Wi-Fi 6 为什么高效"，每一环挂在具体课次上，迷糊哪环就回哪课。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：全部知识 = 一条链路的一生</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>Wi-Fi 的知识不是清单，是<strong>剧本</strong>：一块网卡从上电找网、认网领身份、埋头干活、到省电和搬家（漫游），一生都在同一套电波竞争规则下进行。记住剧本主线，每个机制都能自己"对号入座"——这比背 21 个孤立知识点牢固得多。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 时间线：一块 STA（站点）的一生</h2>
+
+  <div class="cca-diagram">
+<span class="threshold">[0] 出身 —— 为什么 2.4GHz（吉赫兹）上有两个巨头</span>
+    第 1 课: BT 蓝牙=低速率跳频, Wi-Fi=高速率宽信道; 第 19 课: 协议深度决定驱动复杂度
+
+<span class="threshold">[1] 找网 —— 电波里谁在喊</span>
+    第 3 课: RF 射频/频段/功率     第 4 课: 噪声底/SNR（信噪比）→ 链路能跑多快的前提
+    第 16 课: 信道绑定 20/40/80/160MHz（兆赫兹）+ 6GHz
+    扫描: AP（接入点）周期广播 Beacon（信标帧）[第 5/7 课], STA 主动 Probe（探测）
+
+<span class="threshold">[2] 认网 —— 关联状态机</span>
+    第 6 课: 帧格式三类型(管理/控制/数据) — 一切的词汇表
+    第 7 课: Auth（认证）→ Assoc（关联）状态机; 帧里的能力协商(速率/信道/带宽)
+
+<span class="threshold">[3] 身份 —— 密钥协商</span>
+    第 9 课: PMK（成对主密钥）→PTK（成对临时密钥）派生 + 4-Way（四次握手）M1-M4
+    第 10 课: WPA2(PBKDF2/802.1X) vs WPA3(SAE 不可重算, 前向安全)
+    第 19 课: 握手完成 → .set_key 把密钥装进硬件加密引擎
+
+<span class="threshold">[4] 干活 —— 数据面(高频路径)</span>
+    抢信道: CSMA/CA（载波侦听多址接入/碰撞避免）退避 [第 5 课]
+    排优先: EDCA（增强分布式信道接入）4 个 AC（接入类别）[第 11 课]
+    打包:   A-MPDU（聚合协议数据单元）+ Block ACK（块确认）[第 12 课]
+    选速率: ARF→Minstrel-H(利用/探索) [第 18 课]
+
+<span class="threshold">[5] 载体 —— PHY 把比特送上电波(→见②)</span>
+    OFDM（正交频分复用）→ MIMO（多入多出）→ MU-MIMO（多用户 MIMO）/OFDMA（正交频分多址） → BSS Color（基本服务集颜色）
+
+<span class="threshold">[6] 维生 —— 省电与搬家</span>
+    第 8 课: PS（省电）三代 legacy→U-APSD（非调度自动省电投递）→TWT（目标唤醒时间）
+    第 17 课: 漫游决策+802.11k/v(去哪)/r(快切, FT 快速转换)
+
+<span class="threshold">[7] 落地 —— 代码与工具</span>
+    sup-0001: 四层软件栈, 三类帧各在哪层处理
+    第 19 课: ieee80211_ops（驱动回调表）+ 两条数据路径
+    第 20 课: iw/monitor/Wireshark/debugfs（调试文件系统）三层可见性
+</div>
+
+  <p>用法：遮住右边课次，自己给每个环节"报出处"；报不出的环节，就是你该回去复习的那课。<strong>检索练习（recall）比重读（reread）牢固</strong>——这正是自检题存在的意义。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② PHY（物理层）全景串讲：一比特怎么上天</h2>
+
+  <p>从最底层往上走，八步串完。每步一句话 + 出自哪课：</p>
+
+  <div class="cca-diagram">
+<span class="good">STEP 1  比特 → 符号 (调制)</span>
+  101101 → 按 MCS（调制与编码方案）查表 → QAM（正交幅度调制）星座上一个点
+  1024-QAM = 每符号 10 bit, 但 SNR（信噪比）要求极高 [第 15 课]
+
+<span class="good">STEP 2  符号 → 并行子载波 (OFDM)</span>
+  高速串行变低速并行: 64→256 个子载波同时各带一个符号 [第 2 课]
+  正交条件: 子载波间隔 Δf = 1/符号时间, 积分一个符号周期互相抵消 [第 2 课]
+
+<span class="good">STEP 3  抗多径: 加保护间隔 GI（保护间隔）</span>
+  符号间留空隙(GI), 多径副本落在 GI 里不污染下一个符号 [第 2 课]
+  <span class="note">代价: GI 占空比 → 11n 起用短 GI 0.4μs（微秒）</span>
+
+<span class="good">STEP 4  时频缩放规律 (一条倒数绑定)</span>
+  Wi-Fi 6: Δf 312.5kHz→78.125kHz (÷4) ⇒ 符号 3.2→12.8μs (×4)
+  慢符号 = 更抗多径/更稳, 同带宽下子载波更多 (256/20MHz) [第 15 课]
+
+<span class="good">STEP 5  多天线: 空间复用 (MIMO)</span>
+  N 条空间流 = N 份并行数据, y=H·x+n 矩阵信道 [第 13 课 + sup-3]
+  上限: min(发/收天线数); 解耦靠 SVD（奇异值分解）预编码 [sup-3]
+
+<span class="good">STEP 6  预编码的情报: Sounding（信道探测）</span>
+  NDPA（空数据包公告）→ NDP（空数据包）→ 反馈 V 矩阵 → 发端预编码 [sup-5]
+  波束赋形/STBC（空时块编码, Alamouti 全速率）也吃这份 CSI（信道状态信息）[sup-4]
+
+<span class="good">STEP 7  多用户: 空间分 + 频率分</span>
+  MU-MIMO（多用户 MIMO）: 空间分给 4-8 人, 大包合算, 需 sounding [第 14 课]
+  OFDMA（正交频分多址）: 频率切成 RU（资源单元,26-996 音调), 小包合算, 9-74 人 [第 14 课]
+  上行靠 Trigger（触发帧）调度, HE TB（高效基于触发的）PPDU（物理层协议数据单元）[第 14 课]
+
+<span class="good">STEP 8  高密度共存: BSS Color（基本服务集颜色）</span>
+  6 bit 颜色标记"谁的包"; 邻居的门限可放宽到 -62dBm（分贝毫瓦）→ 空间复用 [第 15 课]
+  Wi-Fi 6 哲学: 单链路峰值 → 高密度效率 (HE=High Efficiency 高效) [第 15 课]
+</div>
+
+  <p>一句话演进史，把五步代际串起来：<strong>11a</strong> 定下 OFDM 基本盘（STEP 1–3）→ <strong>11n</strong> 加 MIMO+40MHz（STEP 5）→ <strong>11ac</strong> 加宽到 160MHz+256-QAM+MU-MIMO 下行（STEP 1/5/7）→ <strong>11ax</strong> 全面转向效率：OFDMA、TWT、BSS Color、长符号（STEP 4/7/8）。<strong>每一代只回答一个问题：怎么在"人和包越来越多"的电波里继续传得快、传得稳。</strong></p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 综合自检：六道跨课检索题</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="OFDM（正交频分复用）子载波「互相正交」的必要条件是什么？"
+       data-explain="子载波间隔 Δf 必须等于符号时长的倒数（Δf=1/T，如 312.5kHz 对 3.2μs），这样在积分一个符号周期时，其他子载波的波形恰好积分为零、互不干扰——这是第 2 课的钉子。也是第 15 课的基础：Wi-Fi 6 把 Δf 缩小 4 倍，符号时间就自动变长 4 倍（同一条倒数绑定），换来更强的抗多径能力。">
+    <script type="application/json">
+      [
+        { "text": "各子载波发射功率完全相同", "correct": false },
+        { "text": "子载波间隔等于符号时长的倒数，积分周期内互相抵消", "correct": true },
+        { "text": "相邻子载波使用不同的调制方式", "correct": false },
+        { "text": "所有子载波必须同相位发射", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="CSMA/CA（载波侦听多址接入/碰撞避免）退避中，两个 STA（站点）恰好同时数到 0，接下来会发生什么？"
+       data-explain="两个都发射、碰撞（都收不到 ACK（确认帧）），然后各自重新抽随机退避数再等下一轮——重传次数越多抽的范围越大（指数扩展），所以「下次再撞」的概率越来越低。随机抽签就是为了让竞争者错开，抽到同一个数的小概率碰撞是协议设计接受的代价。见第 5 课。">
+    <script type="application/json">
+      [
+        { "text": "按 MAC（介质访问控制）地址小的优先发送", "correct": false },
+        { "text": "AP（接入点）仲裁，指定谁先发", "correct": false },
+        { "text": "两个都发射导致碰撞，之后各自重新随机退避（范围随失败次数扩大）", "correct": false },
+        { "text": "两个都发、都失败，各自重抽随机退避数再竞争，退避范围随失败指数扩大", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="WPA3-SAE（对等同步认证）下，抓包者录下全部握手帧，为什么算不出 PMK（成对主密钥）？"
+       data-explain="SAE 的 PMK 由 PWE（密码元素，从密码+椭圆曲线群运算导出）和双方一次性随机数共同决定——观察者没有私钥随机数，要从公开的点反推标量等于解椭圆曲线离散对数难题（ECDLP）。这就是前向安全：会话密钥不依赖任何可被事后算出的长期秘密。对比 WPA2-PSK：PMK=PBKDF2（基于密码的密钥派生函数）只由密码+SSID（服务集标识）决定，抓包可离线爆破。见第 10 课。">
+    <script type="application/json">
+      [
+        { "text": "因为 M3（第三个握手消息）之后的帧才明文，之前全是密文", "correct": false },
+        { "text": "因为 PMK 依赖双方一次性随机数，反推它等于解椭圆曲线离散对数难题", "correct": false },
+        { "text": "因为握手帧有 MIC（消息完整性校验）保护", "correct": false },
+        { "text": "PMK 派生依赖双方的一次性随机私钥，窃听者反推相当于解椭圆曲线离散对数", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="MU-MIMO（多用户 MIMO）和 OFDMA（正交频分多址）的核心区别，下面哪个说法是对的？"
+       data-explain="MU-MIMO 用「空间」区分用户（同一时刻同一频率，靠预编码把不同用户的数据沿不同空间流发送），适合大包、用户少（4–8），需要 sounding（信道探测）拿到 CSI；OFDMA 用「频率」区分用户（把子载波切成大小不一的 RU 分给不同用户），适合小包、高密度（一帧里 9–74 个用户）。两者可叠加。见第 14 课。">
+    <script type="application/json">
+      [
+        { "text": "MU-MIMO 空间分适合大包，OFDMA 频率分适合小包高密度，可叠加使用", "correct": true },
+        { "text": "OFDMA 是 MU-MIMO 的下一代替代品，Wi-Fi 6 已弃用 MU-MIMO", "correct": false },
+        { "text": "两者都要求每个用户至少两条天线", "correct": false },
+        { "text": "MU-MIMO 不需要任何信道信息，OFDMA 才需要", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Wi-Fi 6 把子载波间隔从 312.5kHz 缩到 78.125kHz，符号时间从 3.2μs 变成 12.8μs。这换来了什么、付出了什么？"
+       data-explain="换来：符号时间×4 → 多径延迟的容忍度大增（长符号+更长 CP（循环前缀）对抗户外/反射环境），同带宽子载波数×4（20MHz 有 256 个），OFDMA 可以切更细的 RU；还有每符号承载更多、1024-QAM 提峰值。付出：单个符号时间变长，小包的时延结构改变、调度更「笨重」，所以要靠 OFDMA 把多个用户的小包拼进同一个长符号来补。这是「吞吐峰值换高密度效率」哲学的物理根源。见第 15 课。">
+    <script type="application/json">
+      [
+        { "text": "换来四倍峰值速率，没有任何代价", "correct": false },
+        { "text": "换来发射功率降低，代价是覆盖变小", "correct": false },
+        { "text": "换来更强的抗多径与更细的 OFDMA 资源切分，代价是符号变长、小包调度更依赖聚合", "correct": false },
+        { "text": "换来抗多径更强、子载波更多、RU 切分更细；代价是符号变长，小包要靠 OFDMA 拼帧来补", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="mac80211 框架和驱动（第 19 课）的分工，下面哪个说法是对的？"
+       data-explain="mac80211 包揽协议：管理帧解析、关联状态机、加密装载调度、聚合会话管理、速率控制统计；驱动只是硬件抽象层，通过一张 ieee80211_ops（驱动操作回调表）被框架调用（.tx/.set_key/.ampdu_action…），收帧时填好 ieee80211_rx_status（接收元数据）交回 ieee80211_rx()。协议解析不归驱动管——这也是蓝牙驱动（LMP 在固件里）和 Wi-Fi 驱动最大的深度差异。">
+    <script type="application/json">
+      [
+        { "text": "框架管协议（管理帧/密钥/聚合/速率统计），驱动只做硬件抽象、填回调表", "correct": false },
+        { "text": "驱动负责解析管理帧，框架只负责把数据帧递给网络栈", "correct": false },
+        { "text": "框架包揽协议主体，驱动实现 ieee80211_ops 回调做硬件抽象", "correct": true },
+        { "text": "两者没有分工，各写各的完整协议栈", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 毕业对照：MISSION（使命）的每条标准，你达标了吗</h2>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>MISSION.md 成功标准</th><th>能力来自</th><th>自测方式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>解释 OFDM（正交频分复用）子载波 / CSMA/CA 退避 / BSS（基本服务集） / PHY-MAC（物理-介质访问控制层）分层，并映射到固件模块</td><td>第 2/5/6/7 课 + sup-0001 + 本课 ②</td><td>不看笔记画出本课时间线，标出每环节的固件落点</td></tr>
+      <tr><td>读懂标准关键段落（管理/数据/控制帧、PHY 前导码）</td><td>第 6 课帧格式 + <a href="../GLOSSARY.md">术语表</a> + 各课"内容来源"里的标准链接</td><td>打开 802.11 标准目录，能凭术语表定位任一帧类型的定义章节</td></tr>
+      <tr><td>在 ESP32 / Linux mac80211 上定位真实问题（关联、吞吐、射频）</td><td>第 19 课代码地图 + 第 20 课三层工具 + 第 7/9/18 课原理</td><td>走一遍第 20 课案例 A（关联失败）的完整排查流程</td></tr>
+      <tr><td>解释同一 2.4GHz 上蓝牙与 Wi-Fi 架构为何不同</td><td>第 1 课（跳频 vs 宽信道）+ 第 19 课蓝牙对照桥</td><td>给别人讲一遍"hci_recv_frame ↔ ieee80211_rx"对照表</td></tr>
+    </tbody>
+  </table>
+
+  <p>四条都能自测通过，你就完成了从"蓝牙驱动工程师"到"能上手 Wi-Fi 驱动/固件工作的工程师"的知识储备——剩下的熟练度，只能靠真实代码和真实问题喂出来。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ 毕业路径：接下来怎么走</h2>
+
+  <ul>
+    <li><strong>① 做一次全流程实验（最优先）</strong>：monitor（监听）模式抓自己手机的「扫描→关联→四次握手→数据」全过程，对照第 7/9/20 课逐帧打勾——动手一次胜过重读十课。</li>
+    <li><strong>② 读一份真实驱动</strong>：从第 19 课的地图进 <a href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/wireless/mediatek/mt76">mt76 源码</a>，先读 <span class="mono">mt7915/main.c</span> 的 ops 表，再挑一个回调（比如 <span class="mono">.tx</span>）追到 DMA（直接内存访问）。</li>
+    <li><strong>③ 备一手参考</strong>：<a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a>和<a href="../GLOSSARY.md">术语表</a>是这个工作区的长期资产，读标准/代码时开着。</li>
+    <li><strong>④ 需要时再开新课</strong>：Wi-Fi 7（MLO（多链路操作））、Beacon IE（信息元素）逐字段、抓包实验陪跑——你说一声就开。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>🎓 全课程完成</h2>
+
+  <div class="callout key">
+    <span class="callout-title">里程碑：路线图 10/10 · 100%</span>
+    <p><strong>21 节主线课 + 5 节补充课全部交付</strong>：射频基础 → PHY 深水区（含 Wi-Fi 6 全家桶）→ MAC 介质访问/帧结构/状态机 → 省电/漫游 → 安全 → 聚合/QoS/速率自适应 → Linux 驱动框架 → 调试实战 → 本次复盘。</p>
+    <p>从第 1 课"Wi-Fi 为什么不是更快的蓝牙"到这里——你现在拥有的是<strong>一条能随时回访的知识主干</strong>。祝转岗顺利，抓包愉快。📡</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>课程收官</strong> —— 没有下一课了，但有三扇门：<br>
+      <a href="../index.html">路线图（总入口）</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a> ·
+      <a href="./0020-debugging-toolbox.html">← 第 20 课</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>随时回来</strong> —— 例如：<br>
+      • 「PHY 串讲第 X 步还是有点糊，展开讲」<br>
+      • 「开 Wi-Fi 7 / MLO（多链路操作）专题课」<br>
+      • 「陪我做一次抓包实验」<br>
+      • 「mt76 某个文件带读一遍」<br>
+      课程收官，提问永久有效。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <p class="sources-list" style="margin-bottom:0.4rem">本课为复盘课，无新事实；以下是全课程反复依靠的骨干参考（每课页底另有各自的详细来源）：</p>
+  <ul class="sources-list">
+    <li><a href="https://standards.ieee.org/ieee/802.11/7028/">IEEE 802.11 标准族官方页 — IEEE Standards</a>（协议事实的最终权威）</li>
+    <li><a href="https://www.kernel.org/doc/html/latest/driver-api/80211/index.html">Linux 无线驱动开发者文档（cfg80211/mac80211）— 内核官方</a></li>
+    <li><a href="https://wireless.docs.kernel.org/">Linux Wireless 文档站</a>（iw、Minstrel、ath9k 等驱动侧文档）</li>
+    <li><a href="https://gitlab.com/wireshark/wireshark/-/wikis/CaptureSetup/WLAN">Wireshark Wiki: WLAN 抓包</a>（帧级观察）</li>
+    <li><a href="https://www.wi-fi.org/">Wi-Fi Alliance（Wi-Fi 联盟）</a>（WPA 认证与代际命名）</li>
+    <li>Matthew Gast: 802.11 Wireless Networks: The Definitive Guide（O'Reilly，经典教材，多课事实参考谱系）</li>
+    <li>CWNA-108 Study Guide（内部参考骨架，本课程未要求阅读 — LR-0006）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

@@ -86,9 +86,9 @@
 
   <h1>Sounding/NDP 帧格式实战 —— 波束成形的协议入口</h1>
 
-  <p>这是第 13 课波束成形/sounding 的<strong>协议实战深入</strong>。前两节补充（sup-0003 矩阵、sup-0004 Alamouti）是"数学为什么"，这节是<strong>"协议怎么跑"</strong>——波束成形到底用哪些帧、字段装什么、抓包怎么读。<strong>这是三个补充里和你做协议栈工作最相关的一个</strong>。</p>
+  <p>这是第 13 课波束成形/sounding（信道探测）的<strong>协议实战深入</strong>。前两节补充（sup-0003 矩阵、sup-0004 Alamouti）是"数学为什么"，这节是<strong>"协议怎么跑"</strong>——波束成形到底用哪些帧、字段装什么、抓包怎么读。<strong>这是三个补充里和你做协议栈工作最相关的一个</strong>。</p>
 
-  <p>第 13 课讲了 sounding 概念（发 NDP → 测信道 → 反馈 CSI）。这课把它<strong>拆到帧级</strong>：NDPA、NDP、VHT Compressed Beamforming、BRP 这些帧各自长啥样、谁先发、字段含义。学完你能在 Wireshark 里读懂一整套 sounding 交换。</p>
+  <p>第 13 课讲了 sounding 概念（发 NDP（空数据包） → 测信道 → 反馈 CSI（信道状态信息））。这课把它<strong>拆到帧级</strong>：NDPA、NDP、VHT Compressed Beamforming、BRP 这些帧各自长啥样、谁先发、字段含义。学完你能在 Wireshark 里读懂一整套 sounding 交换。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -121,7 +121,7 @@
   <ul>
     <li><strong>NDPA 先行</strong>：NDP 不能直接发，要先发 NDPA 告诉接收方"准备好，NDP 马上来"——否则接收方不知道这个帧是来探测信道的。</li>
     <li><strong>SIFS 间隔</strong>：每对帧之间是 SIFS（16μs），保持交换紧凑不被打断。这是第 5 课 SIFS 作为"进行中对话"优先级的体现。</li>
-    <li><strong>多 STA 轮询</strong>：MU-MIMO 场景下 AP 给多个 STA sounding，反馈按 NDPA 里的 STA 顺序逐个回，靠 BRP（Beamforming Report Poll，波束成形报告轮询）点名。</li>
+    <li><strong>多 STA 轮询</strong>：MU-MIMO（多用户 MIMO）场景下 AP（接入点）给多个 STA（站点）sounding，反馈按 NDPA 里的 STA 顺序逐个回，靠 BRP（Beamforming Report Poll，波束成形报告轮询）点名。</li>
   </ul>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -166,20 +166,20 @@ VHT NDPA 帧布局:
 
   <h2>③ NDP 帧：已知内容的"探测帧"</h2>
 
-  <p>NDP (Null Data Packet, 空数据包) 在 NDPA 后 SIFS 发出。它<strong>没有数据载荷</strong>（所以叫 Null），但有完整的 PHY 前导码（preamble）——前导码的训练字段（training fields）内容<strong>双方已知</strong>。</p>
+  <p>NDP (Null Data Packet, 空数据包) 在 NDPA 后 SIFS（短帧间间隔）发出。它<strong>没有数据载荷</strong>（所以叫 Null），但有完整的 PHY 前导码（preamble）——前导码的训练字段（training fields）内容<strong>双方已知</strong>。</p>
 
   <div class="callout key">
     <span class="callout-title">NDP 为什么能测信道</span>
     <p>接收方知道 NDP 前导码"应该是什么样"，收到后拿实际信号和"应有信号"对比，<strong>反推出每个子载波的信道响应</strong>（幅度+相位）。这就是 CSI。原理和 OFDM 的训练序列（第 2 课）一样——已知信号过未知信道，从输出推信道。</p>
   </div>
 
-  <p>NDP 在 802.11ac 叫 VHT NDP，在 802.11ax 叫 HE NDP。它们的 PHY 头标识自己"这是 NDP"（比如 VHT Signal A 字段里有 bit 标记），让接收方进 sounding 处理路径而非数据接收路径。</p>
+  <p>NDP 在 802.11ac 叫 VHT NDP，在 802.11ax 叫 HE NDP。它们的 PHY 头标识自己"这是 NDP"（VHT 靠 VHT Signal A 字段的组合值——Group ID=63、N_STS=0——来标识，没有专门的"NDP 位"），让接收方进 sounding 处理路径而非数据接收路径。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>④ VHT Compressed Beamforming：CSI 怎么传回来</h2>
 
-  <p>接收方测完信道后，要把 CSI 反馈给 AP。原始 CSI 数据量大（每个子载波×每个天线对的复数），802.11ac 用<strong>压缩格式 VHT Compressed Beamforming</strong>——传的是<strong>压缩后的 V 矩阵</strong>（sup-0003 讲的 SVD 里那个 V，发端预编码权重）。</p>
+  <p>接收方测完信道后，要把 CSI 反馈给 AP（接入点）。原始 CSI 数据量大（每个子载波×每个天线对的复数），802.11ac 用<strong>压缩格式 VHT Compressed Beamforming</strong>——传的是<strong>压缩后的 V 矩阵</strong>（sup-0003 讲的 SVD（奇异值分解）里那个 V，发端预编码权重）。</p>
 
   <div class="frame-layout">
 VHT Compressed Beamforming 帧:
@@ -206,10 +206,10 @@ VHT Compressed Beamforming 帧:
 
   <ul>
     <li>NDPA 里 STA Info 列表的<strong>第一个 STA</strong> 在 NDP 后自动回（不用点名）。</li>
-    <li>第二个及以后的 STA，AP 发 <strong>BRP 帧逐个点名</strong>："STA2，该你回了" → STA2 回 Compressed BF → AP 再 BRP STA3...</li>
+    <li>第二个及以后的 STA（站点），AP（接入点）发 <strong>BRP 帧逐个点名</strong>："STA2，该你回了" → STA2 回 Compressed BF → AP 再 BRP STA3...</li>
   </ul>
 
-  <p>这避免了多 STA 同时反馈的碰撞，代价是 sounding 时长变长（STA 越多越久）。<strong>这是 MU-MIMO 开销的来源之一</strong>——为什么 MU-MIMO 的 sounding 比 SU-MIMO 重。</p>
+  <p>这避免了多 STA 同时反馈的碰撞，代价是 sounding 时长变长（STA 越多越久）。<strong>这是 MU-MIMO 开销的来源之一</strong>——为什么 MU-MIMO 的 sounding 比 SU-MIMO（单用户 MIMO）重。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -233,7 +233,7 @@ VHT Compressed Beamforming 帧:
     </tbody>
   </table>
 
-  <p>这就是为什么 802.11ac 的 MU-MIMO 实际增益常被打折——<strong>sounding 开销吃掉了一部分波束成形增益</strong>。STA 越多、移动越快（信道变化快要反复 sounding），开销越明显。这也是 802.11ax 引入新的 HE sounding 优化（更紧凑、支持 OFDMA 并行 sounding）的动机。</p>
+  <p>这就是为什么 802.11ac 的 MU-MIMO 实际增益常被打折——<strong>sounding 开销吃掉了一部分波束成形增益</strong>。STA 越多、移动越快（信道变化快要反复 sounding），开销越明显。这也是 802.11ax 引入新的 HE sounding 优化（更紧凑、支持 OFDMA（正交频分多址）并行 sounding）的动机。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -243,10 +243,10 @@ VHT Compressed Beamforming 帧:
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>sounding 在协议栈里的落点（这节最贴你的工作）：</p>
     <ul>
-      <li><strong>NDPA/NDP 收发</strong>：AP 模式要构造并发 NDPA + NDP；STA 模式要识别 NDPA、进 sounding 路径、测信道、构造 Compressed BF 回发。SoftMAC 在 mac80211 + 固件配合；FullMAC 主要在固件。</li>
-      <li><strong>BRP 状态机</strong>：多 STA sounding 是个小型状态机（NDPA → 等 NDP → 等 STA1 反馈 → 发 BRP 点 STA2 → ...）。你要维护"当前轮到谁、超时没回怎么办"。<strong>BRP 超时是常见 bug</strong>——STA 没在 SIFS 内回反馈，AP 要重试或放弃该 STA。</li>
+      <li><strong>NDPA/NDP 收发</strong>：AP（接入点）模式要构造并发 NDPA + NDP；STA（站点）模式要识别 NDPA、进 sounding 路径、测信道、构造 Compressed BF 回发。SoftMAC（软件 MAC）在 mac80211 + 固件配合；FullMAC（全 MAC）主要在固件。</li>
+      <li><strong>BRP 状态机</strong>：多 STA sounding 是个小型状态机（NDPA → 等 NDP → 等 STA1 反馈 → 发 BRP 点 STA2 → ...）。你要维护"当前轮到谁、超时没回怎么办"。<strong>BRP 超时是常见 bug</strong>——STA 没在 SIFS（短帧间间隔）内回反馈，AP 要重试或放弃该 STA。</li>
       <li><strong>CSI/V 矩阵存储</strong>：每个 STA 的 V 矩阵要存起来用于后续波束成形。信道变化后要重新 sounding 更新。<strong>缓存过期策略</strong>（多久重 sounding）是性能/准确性权衡的关键参数。</li>
-      <li><strong>调试</strong>：Wireshark monitor mode 能看到 NDPA/NDP/Compressed BF/BRP 这套帧序列。波束成形不生效 → 先抓包看 sounding 是否完成；吞吐低 → 看 sounding 频率（是不是太频繁吃开销）。<span class="mono">iw dev wlan0 station dump</span> 里有 <span class="mono">tx bitrate flags</span> 显示是否激活了 TxBF。</li>
+      <li><strong>调试</strong>：Wireshark monitor mode 能看到 NDPA/NDP/Compressed BF/BRP 这套帧序列。波束成形不生效 → 先抓包看 sounding 是否完成；吞吐低 → 看 sounding 频率（是不是太频繁吃开销）。<span class="mono">iw dev wlan0 station dump</span> 里有 <span class="mono">tx bitrate flags</span> 显示是否激活了 TxBF（发射波束成形）。</li>
       <li><strong>常见 bug</strong>：①STA 不支持显式反馈（能力位没协商）导致 AP 发不出 NDPA；②SIFS 超时导致 BRP 链断裂；③CSI 压缩解压不对导致 V 矩阵错、波束对错方向；④移动场景下 sounding 过期未更新。</li>
     </ul>
   </div>

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企课 4 · WLAN 架构与 PoE</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    企课 4 / Enterprise 0004 · 架构与供电 · 对应书 Ch11+Ch12 ·
+    <a href="./0003-spectrum-topology-completion.html">← 企课 3</a> ·
+    <a href="./index.html">本课程首页</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="../index.html">主课程路线图</a>
+  </div>
+
+  <h1>WLAN 架构与 PoE —— AP 的"领导们"和它的电</h1>
+
+  <p>主课第 19 课讲了单台 AP 内部的软件栈（mac80211），这课拉远镜头看<strong>一群 AP 怎么被组织起来</strong>（架构三代史），以及一个容易被驱动工程师忽略的事实：<strong>企业 AP 全靠网线供电（PoE），供电问题会伪装成一切"稳定性异常"</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：架构演进 = 管理面不断搬家</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>三代架构（自治 AP → 控制器 → 云管理）变的不是 Wi-Fi 协议——802.11 该怎样还怎样——变的是<strong>三个平面放在哪</strong>：管理面（配置/监控）、控制面（关联/漫游/射频资源决策）、数据面（转发）。<strong>数据面放本地还是放中心，是性能的分叉点；控制面放哪，是排障的分叉点</strong>（出问题先问"这个决策是谁做的"）。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 三代架构一张表</h2>
+
+  <table class="compare-table">
+    <thead><tr><th></th><th>自治 AP（第 1 代）</th><th>控制器 WLC（第 2 代）</th><th>云管理（第 3 代）</th></tr></thead>
+    <tbody>
+      <tr><td><strong>管理面</strong></td><td>每台 AP 单独配（SSH（安全外壳）逐台）</td><td>集中：控制器/网管统一下发</td><td>集中：云平台（浏览器一处配全网）</td></tr>
+      <tr><td><strong>控制面</strong></td><td>AP 自己</td><td>上收控制器（关联/漫游/RF（射频）调优集中决策）</td><td>云端协同 + AP 邻居间协商</td></tr>
+      <tr><td><strong>数据面</strong></td><td>本地转发</td><td><strong>两种皆可</strong>：CAPWAP（无线接入点控制与配置协议）隧道回控制器集中转发，或本地桥接分布式转发</td><td>本地转发为主（云只管管理面）</td></tr>
+      <tr><td><strong>典型场景</strong></td><td>家用路由器、小办公室</td><td>大企业园区、漫游敏感</td><td>连锁店/分支多、IT（信息技术）人少</td></tr>
+      <tr><td><strong>弱点</strong></td><td>规模一大管不动</td><td>控制器贵、是单点</td><td>断云=不能改配置（转发不受影响）</td></tr>
+    </tbody>
+  </table>
+
+  <p>这个三平面框架和主课<a href="../lessons/sup-0001-linux-wifi-stack-frame-processing.html">补充课 1</a>的 Linux 栈分层是同一件事的不同切法——协议栈切的是"一台 AP 内部"，架构切的是"一群 AP 之间"。你写的 mac80211 驱动属于 AP 本地的实时部分，<strong>与架构代际正交</strong>（三代架构的 AP 里都跑着等价的实时 Wi-Fi 引擎）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 控制器时代的核心：CAPWAP 与 Split-MAC</h2>
+
+  <div class="cca-diagram">
+<span class="threshold">CAPWAP (RFC 5415) — AP 与控制器之间的两条隧道</span>
+  UDP 5246: 控制/管理隧道   <span class="good">DTLS(数据报传输层安全)强制加密</span>  ← 配置下发/状态上报
+  UDP 5247: 数据隧道        <span class="note">DTLS 可选, 默认不加密</span>       ← 集中转发时用户数据走这
+
+<span class="threshold">Split-MAC(分离媒体访问控制) — 干活的分工线</span>
+  留在 AP(实时性敏感, 毫秒级):
+     Beacon(信标帧)/ACK(确认帧)/重传/加密快路径/速率控制执行
+  上收控制器(非实时, 需全局视角):
+     关联认证决策/漫游协调/RF 信道功率调优/策略下发
+  <span class="note">还有 Local-MAC 模式: AP 自己干几乎全部, 控制器只管配置</span>
+</div>
+
+  <p>排障视角记一句话：<strong>"决策谁做"</strong>——漫游出问题，在控制器架构里查控制器日志（决策在它），在云架构里查云的 RF 调优策略；<strong>"数据走哪"</strong>——集中转发下，AP 到控制器之间的网络故障会表现为"射频正常但全部断网"。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 专用基础设施巡礼（知道存在即可）</h2>
+
+  <ul>
+    <li><strong>无线网桥</strong>：楼与楼点对点（企课 3 的 WDS（无线分布式系统）应用形态）。</li>
+    <li><strong>室外 AP/.mesh AP</strong>：防水防雷防紫外，本质同室内 + 更高发射功率预算。</li>
+    <li><strong>远程办公室方案</strong>：AP 经 VPN（虚拟专用网络）回总部 + <strong>ZTP（Zero-Touch Provisioning，零接触配置）</strong>——设备通电联网后自动拉配置，分公司没有 IT 也能部署。</li>
+    <li><strong>WNMS（WLAN 管理系统）</strong>：跨厂商/跨站点的统一网管（全网的"仪表盘"）。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ PoE：AP 的命脉（稳定性排查必修）</h2>
+
+  <p>企业 AP 几乎都是 PD（Powered Device，受电设备），由交换机或注入器供电。功率等级表（PSE（Power Sourcing Equipment，供电设备）端口最大输出）：</p>
+
+  <table class="compare-table">
+    <thead><tr><th>标准</th><th>类型</th><th>PSE 端口功率</th><th>PD 实得（扣线损）</th><th>俗称</th><th>典型负载</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">802.3af</td><td class="num">Type 1</td><td>15.4W（瓦）</td><td>~12.95W</td><td>PoE</td><td>单频 AP、IP 电话</td></tr>
+      <tr><td class="mono">802.3at</td><td class="num">Type 2</td><td>30W</td><td>~25.5W</td><td>PoE+</td><td>双频 AP、球机</td></tr>
+      <tr><td class="mono">802.3bt</td><td class="num">Type 3</td><td>60W</td><td>~51W</td><td>PoE++</td><td>高端 AP、视频会议终端</td></tr>
+      <tr><td class="mono">802.3bt</td><td class="num">Type 4</td><td>90W</td><td>~71.3W</td><td>PoE++</td><td>照明、大屏</td></tr>
+    </tbody>
+  </table>
+
+  <p>四个工程要点：</p>
+  <ul>
+    <li><strong>供电设备两种形态</strong>：endspan（端接式，PoE 交换机，供电+交换一体）/ midspan（中跨式，注入器，挂在普通交换机和 PD 之间"补电"）。</li>
+    <li><strong>功率协商</strong>：PD 通过物理层分级 + LLDP（链路层发现协议）报上自己要几瓦（Class 0–8）——谎报的设备会被断电。</li>
+    <li><strong>预算（power budget）是总账</strong>：48 口交换机标 "PoE 预算 370W" ≠ 每口都能拿满——<strong>超预算时交换机按策略断谁的电，被断的 AP 表现为"随机重启/掉线"</strong>。</li>
+    <li><strong>线损真实存在</strong>：长网线/劣质线让 PD 实得功率缩水——AP 在高负载（发射功率拉满+多终端）时才掉电重启，是"负载相关重启"的经典特征。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动工程师：架构落在你的固件里</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <ul>
+      <li><strong>你写的固件是"实时半边"</strong>：Split-MAC（分离媒体访问控制）留在 AP 侧的那些功能（Beacon（信标帧）/ACK（确认帧）/重传/加密），就是主课 19 课 mac80211 那张 ops（操作回调表）——无论哪代架构，这部分是你的地盘。</li>
+      <li><strong>架构差异体现在第二进程</strong>：企业 AP 固件 = Wi-Fi 实时引擎 + CAPWAP/云管理 agent（代理程序）——后者出问题时 Wi-Fi 看起来"正常"，但配置改不动/漫游失效。</li>
+      <li><strong>PoE 欠压的固件证据</strong>：随机复位先看复位原因寄存器/PMIC（电源管理芯片）日志——brownout（欠压复位）+ 复位时间与流量高峰重合 = 供电问题，不是软件 bug。别在协议栈里白找三天。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：架构与供电吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="CAPWAP 的两条隧道分别走哪个 UDP 端口、加密情况如何？"
+       data-explain="UDP 5246 = 控制/管理隧道，DTLS（数据报传输层安全）强制加密；UDP 5247 = 数据隧道，DTLS 可选（默认不加密）。记忆点：控制面必加密（凭据/配置在里面），数据面默认明文（性能优先，要加密自己开 DTLS）。RFC 5415 定义。「>
+    <script type="application/json">
+      [
+        { "text": "TCP 80/443，走网页加密", "correct": false },
+        { "text": "UDP 5246 控制（DTLS 强制）+ UDP 5247 数据（DTLS 可选）", "correct": false },
+        { "text": "UDP 5246 数据 + TCP 5247 控制，都不加密", "correct": false },
+        { "text": "UDP 5246 控制隧道（DTLS 强制加密）和 UDP 5247 数据隧道（可选加密）", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="Split-MAC（分离媒体访问控制）架构下，下面哪组功能留在 AP 本地执行？"
+       data-explain="留在 AP 的是实时性敏感（毫秒级）的功能：Beacon（信标帧）发送、ACK（确认帧）/重传、加密快路径、速率控制执行——慢一拍就影响空口效率。上收控制器的是需要全局视角、非实时的：关联认证决策、漫游协调、RF（射频）信道/功率调优。记住分工线：'对空口快慢敏感的留下，要全局视野的上收'。「>
+    <script type="application/json">
+      [
+        { "text": "关联决策、漫游协调、RF 调优", "correct": false },
+        { "text": "Beacon/ACK/重传/加密快路径——对空口时序敏感的实时功能", "correct": true },
+        { "text": "全部 802.11 功能都上收，AP 只是射频头", "correct": false },
+        { "text": "只有加密在本地，其余全部上收", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="24 口 802.3at 交换机，PoE 总预算 370W。现在接了 20 台双频 AP（每台协商 30W）。会发生什么？"
+       data-explain="20×30W = 600W 需求 > 370W 预算——交换机不会「降速」而是按策略拒绝/切断部分端口的供电（或新插入的设备拿不到电）。被断电的 AP 表现为随机重启/掉线，常被误判为「AP 质量问题」。这就是 power budget（功率预算）总账思维：端口规格 × 数量 ≠ 预算无限。「>
+    <script type="application/json">
+      [
+        { "text": "每台 AP 自动降到 15.4W 运行", "correct": false },
+        { "text": "总需求 600W 超预算 370W，部分端口被拒/断电，对应 AP 随机重启掉线", "correct": false },
+        { "text": "预算超卖（600W&gt;370W），交换机按策略断部分端口，相关 AP 表现为随机重启", "correct": true },
+        { "text": "交换机会烧掉，需要先换电源", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="办公室 AP 总在下午三点（用网高峰）随机重启，其他时间正常。第一嫌疑是什么？"
+       data-explain="负载相关重启 = 高负载时发射/处理拉满 → 功耗峰值升高 → 供电不足（PoE 线损+预算临界/劣质线/注入器老化）→ 欠压复位。证据链：复位原因寄存器显示 brownout（欠压复位）、时间与流量峰重合。先查供电再查软件——这是本课给稳定性排查的第一条「红鲱鱼排除法」（企课 8 会进总手册）。「>
+    <script type="application/json">
+      [
+        { "text": "供电：高负载功耗峰值撞上 PoE 线损/预算临界，欠压复位", "correct": true },
+        { "text": "Wi-Fi 固件内存泄漏，高峰触发 OOM（内存耗尽）", "correct": false },
+        { "text": "下午三点有人定时发 deauth（解除认证）攻击", "correct": false },
+        { "text": "信道太忙导致基带过热，热复位", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：三个平面 + 一张功率表</h2>
+  <ol>
+    <li><strong>三代架构</strong>：自治（全在 AP）→ 控制器（管理+控制上收，CAPWAP UDP（用户数据报协议） 5246 控制/5247 数据）→ 云（管理上云、数据本地）；数据面放哪 = 性能分叉，控制面在哪 = 排障分叉</li>
+    <li><strong>Split-MAC（分离媒体访问控制）</strong>：实时（Beacon/ACK/重传/加密）留 AP，全局（关联/漫游/RF 调优）上收——你的固件就是实时那半边</li>
+    <li><strong>PoE 表</strong>：af 15.4W / at 30W / bt 60·90W（Type 1–4）；PSE（供电设备）endspan（端接式）/midspan（中跨式）；PD（受电设备）经 LLDP（链路层发现协议）报 Class（功率等级）0–8</li>
+    <li><strong>两条排障铁律</strong>：预算是总账（端口×瓦数 vs 总预算）；负载相关重启先查供电（brownout 证据）再查软件</li>
+  </ol>
+
+  <p>你现在能做的：说出公司/家用网络的架构代际；查一台 AP 的协商功率 vs 交换机预算；把"随机重启"按供电/软件/攻击三条线分叉。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课</strong>：<a href="./0005-wlan-design-concepts.html">企课 5 · WLAN 设计概念</a><br>
+      <a href="./0003-spectrum-topology-completion.html">← 企课 3</a> ·
+      <a href="./index.html">本课程首页</a> ·
+      <a href="../index.html">主课程路线图</a>
+    </p>
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，继续企课 5」<br>
+      • 「想讲讲我司环境的架构对号入座」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://datatracker.ietf.org/doc/html/rfc5415">RFC 5415 — CAPWAP Protocol Specification</a>（协议权威定义）</li>
+    <li><a href="https://www.cisco.com/c/en/us/td/docs/wireless/outdoor_industrial/iw9165d/software/configuration/261x/b-iw9165d-scg-261x/g-control-and-provisioning-of-wireless-access-points/c-capwap-overview.html">Cisco — CAPWAP Overview</a>（5246/5247 端口与 Split-MAC 实务）</li>
+    <li><a href="https://networklessons.com/switching/power-over-ethernet-poe">NetworkLessons — Power over Ethernet</a>（Type1–4/endspan/midspan 体系）</li>
+    <li><a href="https://www.antaira.com/Blog-What-are-the-Different-Types-of-PoE">Antaira — Different Types of PoE</a>（af/at/bt 功率数值）</li>
+    <li><a href="https://www.omadanetworks.com/us/blog/2595/poe-vs-poe+-vs-poe++-power-over-ethernet-standards/">TP-Link Omada — PoE vs PoE+ vs PoE++</a>（线对数与 PD 实得功率）</li>
+    <li>CWNA-108 Study Guide, Ch.11 + Ch.12（本课骨架；按课程规则不要求阅读）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

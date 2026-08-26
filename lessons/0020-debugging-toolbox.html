@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 20 课 · 调试实战 —— 把不可见变可见</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .neighbor { color: #b8761c; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+  .cca-diagram .bt { color: #1d5a8a; font-weight: 600; }
+
+  .code-block {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.6;
+    background: #f7f5ef;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent);
+    border-radius: 5px;
+    padding: 0.9rem 1.1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--ink-soft);
+  }
+  .code-block .cm { color: var(--ink-faint); font-style: italic; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.5rem 0.65rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    第 20 课 / Lesson 0020 · 驱动实战 ·
+    <a href="../MISSION.md">使命</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="./0019-mac80211-driver-code-walkthrough.html">← 第 19 课</a> ·
+    <a href="../index.html">路线图</a>
+  </div>
+
+  <h1>调试实战 —— 把不可见变可见</h1>
+
+  <p>前 19 课讲的帧格式、握手、聚合、速率控制——全是<strong>"协议说应该这样"</strong>。这课给你一套工具，把"应该"变成<strong>"亲眼看见"</strong>：第 6 课的帧结构在 Wireshark（网络协议分析器）里逐字节展开，第 9 课的四次握手逐帧对时序，第 18 课的 MCS（调制与编码方案）选择在 rc_stats（速率控制统计）里逐档显示。这是从"学过"到"能排查问题"的分水岭，也是面试里"你怎么定位 Wi-Fi 问题"的标准答案。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：三层可见性，对应三个世界</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>调试的本质是<strong>把不可见变可见</strong>。按"你想看哪个世界"选工具：</p>
+    <ul>
+      <li><strong>配置态</strong>（栈认为链路怎么样）：iw（无线配置工具）—— 一句话拿出现状</li>
+      <li><strong>空口态</strong>（电波里真实发生了什么）：monitor（监听）模式 + tcpdump/Wireshark —— 帧级证据</li>
+      <li><strong>驱动态</strong>（硬件和驱动内部）：debugfs（内核调试文件系统）+ dmesg（内核日志）—— 内部状态</li>
+    </ul>
+    <p>三个世界经常互相矛盾（栈说已连接、空口全是重传、驱动说固件报错）——<strong>矛盾本身就是线索</strong>。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 配置态：iw 全家桶</h2>
+
+  <p>iw 是 nl80211（Netlink 用户态接口，第 19 课那条用户态通道）的命令行客户端，取代古老的 iwconfig。先分清两个对象：<span class="mono">phy</span>（物理射频设备，对应 wiphy）和 <span class="mono">dev</span>（网络接口，wlan0 是 phy 上开出来的一个"角色"）。</p>
+
+  <div class="code-block"><span class="cm"># 现状一句话 —— 链路诊断的起点</span>
+iw dev wlan0 link          <span class="cm"># 连到哪个 SSID（服务集标识）/ 信道 / 信号多强</span>
+
+iw dev wlan0 station dump  <span class="cm"># 每 STA（站点）一行, 字段全是前几课的知识:</span>
+<span class="cm">#   signal:        -52 dBm（分贝毫瓦）        → 第 4 课 RSSI（接收信号强度指示）</span>
+<span class="cm">#   tx bitrate:    866.7 MBit/s VHT-MCS 9 80MHz → 第 13/15/18 课 速率+带宽+MCS</span>
+<span class="cm">#   tx retries / tx failed:                  → 第 18 课 重传统计</span>
+<span class="cm">#   tx power, authorized, connected time ...</span>
+
+iw dev wlan0 scan           <span class="cm"># 扫描: 邻居 AP（接入点）列表 + 各自信道/信号/能力</span>
+iw dev wlan0 get power_save <span class="cm"># 省电状态 → 第 8 课 PS（省电）模式</span>
+iw reg get                  <span class="cm"># 当前法规域 → 第 16 课 5GHz 信道可用性</span>
+iw phy                      <span class="cm"># phy 能力全集: 支持的 band（频段）/MCS/接口组合</span></div>
+
+  <p>最常用的是 <span class="mono">station dump</span>：把<strong>链路质量（signal）、当前速率（bitrate/MCS）、可靠性（retries/failed）</strong>三样一次看清。注意它只显示"已连接"的对端——扫描列表里没有它就是没关联上，先往第 7 课的流程方向查。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 空口态：monitor 模式 + 抓包</h2>
+
+  <p>正常模式下网卡只收"发给自己"的帧。要看<strong>整个电波里的一切</strong>（别人的握手、邻居的 Beacon（信标帧）、重传、竞争），要开 monitor（监听）模式——把网卡变成"旁听者"：</p>
+
+  <div class="code-block"><span class="cm"># 加一个监听接口（不动 wlan0，原接口还能正常用）</span>
+iw phy phy0 interface add mon0 type monitor
+ip link set mon0 up
+
+<span class="cm"># 监听必须钉在某个信道上（不能边扫描边监听）</span>
+iw dev mon0 set channel 36 HT20     <span class="cm"># 信道 36, 20MHz（兆赫兹）带宽; 可选 HT40-/HE80…</span>
+
+<span class="cm"># 抓 10 秒存文件, 回 Wireshark 分析</span>
+tcpdump -i mon0 -w cap.pcap</div>
+
+  <p>抓到的每个帧前面都有一段 <strong>radiotap（无线捕获元数据头）</strong>——不是 802.11 帧的一部分，而是驱动附加的"这帧怎么收来的"元数据（第 19 课 RX 路径填的那些字段的用户态镜像）：<strong>信号强度（dBm_antsignal）、信道、速率字段（MCS/VHT/HE-MU）</strong>。比如"这帧是 HE（高效 Wi-Fi，Wi-Fi 6） MCS 11、信号 -71 dBm"——速率自适应问题（第 18 课）的现场证据就在这。</p>
+
+  <div class="callout key">
+    <span class="callout-title">实践提醒 / Practice Notes</span>
+    <p>① 不是所有网卡/驱动都支持 monitor（FullMAC（全硬件介质访问控制）芯片常受限）；② 打了硬件加密的帧抓到也是密文——EAPOL（局域网上的 EAP）握手帧没加密所以永远可读（第 9 课），数据帧在 monitor 下通常只见密文；③ 你的笔记本 Wi-Fi 多半是 macOS/Windows 管的，真要练手建议一块 USB（通用串行总线）的 monitor 友好网卡（如 ath9k/rt2x00 系）跑 Linux。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ Wireshark：过滤器实战（前 18 课的复习现场）</h2>
+
+  <p>Wireshark 的显示过滤器（display filter）用第 6 课的字段名直接过滤。常用清单（背下来）：</p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>过滤表达式</th><th>含义</th><th>对应课程</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="mono">wlan.fc.type == 0 / 1 / 2</td><td>管理帧 / 控制帧 / 数据帧（Frame Control（帧控制）字段）</td><td>第 6 课</td></tr>
+      <tr><td class="mono">wlan.fc.type_subtype == 0x0008</td><td>Beacon（信标帧）</td><td>第 5/7 课</td></tr>
+      <tr><td class="mono">wlan.fc.type_subtype == 0x0000 / 0x0001</td><td>Association Request（关联请求）/ Response（关联响应）——看 status code（状态码）</td><td>第 7 课</td></tr>
+      <tr><td class="mono">wlan.fc.type_subtype == 0x000c</td><td>Deauthentication（解除认证）——"为什么被踢"的答案在这帧里</td><td>第 7 课</td></tr>
+      <tr><td class="mono">eapol</td><td>四次握手 M1–M4（Key（密钥）消息逐帧可见）</td><td>第 9/10 课</td></tr>
+      <tr><td class="mono">wlan.addr == AA:BB:CC:DD:EE:FF</td><td>只看某个 MAC（介质访问控制地址）的收发</td><td>—</td></tr>
+      <tr><td class="mono">wlan.fc.retry == 1</td><td>只看重传帧——竞争/干扰强度的直接指标</td><td>第 5/18 课</td></tr>
+      <tr><td class="mono">radiotap.dbm_antsignal &lt; -75</td><td>信号弱于 -75 dBm 的帧</td><td>第 4 课</td></tr>
+    </tbody>
+  </table>
+
+  <p>组合拳示例：<span class="mono">wlan.fc.type == 0 &amp;&amp; wlan.addr == 你的手机MAC</span> + 时间排序 = 完整还原第 7 课的关联流程（Probe（探测）→ Auth（认证）→ Assoc（关联））+ 第 9 课的 M1–M4。<strong>每个前几课画在 ASCII 图里的帧，都能这样亲手抓一遍</strong>——这是全课程最值得做的一次实验。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 驱动态：debugfs（内核调试文件系统）</h2>
+
+  <p>第 18 课提过的 rc_stats 就住在这。路径结构（冒号在 shell 里要转义）：</p>
+
+  <div class="code-block">/sys/kernel/debug/ieee80211/phy0/
+├── netdev:wlan0/
+│   └── stations/&lt;对端MAC&gt;/     <span class="cm"># 每个已关联站点一个目录</span>
+│       ├── rc_stats            <span class="cm"># 速率控制统计: 每档 MCS 的</span>
+│       │                       <span class="cm">#   成功率/期望吞吐/EWMA/采样次数 → 第 18 课</span>
+│       ├── agg_status          <span class="cm"># 每 TID 聚合会话状态 → 第 12 课</span>
+│       └── flags ...
+└── mt76/ 或 ath9k/ ...          <span class="cm"># 驱动自己的调试文件（芯片专属）</span></div>
+
+  <p>三个前提，缺一个目录就不在：① 内核开了 <span class="mono">CONFIG_MAC80211_DEBUGFS</span>；② 只对<strong>已连接</strong>的站点生成；③ FullMAC（全硬件介质访问控制）芯片速率控制在固件里，往往没有 rc_stats——这本身就是判断"这块卡是 SoftMAC（软件介质访问控制）还是 FullMAC"的快捷方法。</p>
+
+  <p>配套两件：<strong>dmesg（内核日志）</strong>看驱动/固件的主动报告（固件崩溃、超时、掉线原因码）；<strong>动态调试（dynamic debug）</strong>按模块开详细日志：<span class="mono">echo 'module mt76 +p' &gt; /sys/kernel/debug/dynamic_debug/control</span>——排查驱动问题时把日志开到最细，结束记得关回去。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>⑤ 三个故障案例走查（把工具串成流程）</h2>
+
+  <div class="cca-diagram">
+<span class="good">案例 A: 连不上 / 关联失败</span>
+ iw scan 能看到 AP（接入点）吗?
+   ├─ 看不到 → 信号/信道/法规域问题 (iw reg get, 换位置)
+   └─ 看得到 → dmesg 驱动报错?
+        └─ 干净 → monitor 抓管理帧, 按 time（时间）排:
+             Auth（认证）没回? → 密码/加密版本不匹配 (第 9 课 WPA2/WPA3)
+             Assoc Resp（关联响应）status code? → 满员/能力不匹配 (第 7 课)
+             M1 后无 M2? → 密码错 (PMK 派生失败)
+             关联成功但立刻 Deauth（解除认证）→ 看 Deauth 里的 reason code
+
+<span class="good">案例 B: 能连但吞吐低</span>
+ station dump 三看:
+   signal 好 + bitrate 低 → 看 rc_stats: 卡在哪一档? sample 了吗? (第 18 课)
+   tx retries 高 → 抓包看 retry 帧: 碰撞多还是信号差 (第 5 课)
+   带宽只有 20MHz → 第 16 课: 邻居占满辅信道, 绑定被降级
+   别忘了查省电: get power_save + AP（接入点）侧 DTIM（投递业务指示图）设置 (第 8 课)
+
+<span class="good">案例 C: 信号差/频繁断连</span>
+ station dump signal 走势 + scan 里邻居列表:
+   同信道邻居多 → 信道拥挤, 换信道 (第 3/16 课)
+   信号随位置骤降 → 路径损耗/障碍 (第 3 课 FSPL（自由空间路径损耗）)
+   断连时 Deauth reason + 是否在漫游? (第 17 课 802.11r/k/v 有没有生效)
+</div>
+
+  <p>注意每个案例的套路都一样：<strong>先用 iw 缩小范围 → 再用抓包/日志拿帧级证据 → 最后对应到某一课的原理解释</strong>。工具是三层的，思路是闭环的。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动栈：工具背后是哪段代码</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <p>把第 19 课的代码地图和这课的工具对上——每个工具都是某段内核代码的用户态窗口：</p>
+    <ul>
+      <li><strong>iw</strong> → nl80211 消息 → cfg80211/mac80211：station dump 读的就是 <span class="mono">sta_info.c</span>（站点信息表）里的统计。</li>
+      <li><strong>monitor 接口</strong> → mac80211 在 RX（接收）路径复制一份帧给 monitor 接口（进入接收处理链之前的分发），radiotap 头由 <span class="mono">ieee80211_add_rx_radiotap_header</span> 拼装——你抓到的每个字节都能在 <span class="mono">net/mac80211/rx.c</span> 找到生成处。</li>
+      <li><strong>rc_stats</strong> → 速率控制算法经 <span class="mono">.add_sta_debugfs</span> 回调挂上的 debugfs 文件（minstrel_ht 的 <span class="mono">minstrel_ht_add_sta_debugfs</span>，代码在 <span class="mono">rc/rc80211_minstrel_debugfs.c</span>）。</li>
+      <li><strong>dmesg 驱动日志</strong> → 驱动里 <span class="mono">dev_err/dev_warn</span>（设备错误/警告日志）；固件日志通常经 MCU（微控制器）消息通道转存——mt76 的 <span class="mono">debugfs.c</span> 里就有读固件日志的入口。</li>
+    </ul>
+    <p>工程师的职业习惯：<strong>报 bug 时把这三样一起贴上</strong>——<span class="mono">iw dev wlan0 station dump</span> 输出、一段抓包、dmesg 时间线。有这三样，任何 Wi-Fi 工程师都能远程帮你。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：调试工具箱配齐了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="用户反馈「Wi-Fi 连上了但速度很慢」。你第一个该跑的命令和第一个该看的字段是？"
+       data-explain="先 iw dev wlan0 station dump 一条命令拿全三要素：signal（信号强度，链路质量）、tx/rx bitrate（当前速率，含 MCS（调制与编码方案）/带宽）、tx retries/failed（重传统计，可靠性）。三要素决定你往哪个方向查：信号好+速率低→rc_stats（速率控制统计）看速率自适应；重传高→抓包看竞争/干扰；带宽降级→查信道绑定。不要一上来就重启路由器——那是没有证据的修复。">
+    <script type="application/json">
+      [
+        { "text": "重启路由器，再看速度是否恢复", "correct": false },
+        { "text": "station dump 一次看 signal / bitrate / retries 三要素再定方向", "correct": true },
+        { "text": "直接抓包，其他信息不重要", "correct": false },
+        { "text": "换手机测试，排除设备问题", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="在 Wireshark 里想只看某台手机和 AP（接入点）之间的四次握手帧，过滤器怎么写？"
+       data-explain="四次握手是 EAPOL（局域网上的 EAP）Key 帧，直接用 eapol 过滤；要限定设备再加 wlan.addr == MAC（匹配地址字段的任意方向）。注意 EAPOL 帧本身不加密，所以 monitor 模式下永远可读——这也是第 9 课'抓包能看到握手但不能解出密钥'的原因。Beacon（信标帧）是 0x0008、Deauth（解除认证）是 0x000c，都是管理帧 type 0 的子类型。">
+    <script type="application/json">
+      [
+        { "text": "wlan.fc.type == 2，因为握手是数据帧", "correct": false },
+        { "text": "eapol，需要限定设备时再叠加 wlan.addr == 手机的MAC", "correct": true },
+        { "text": "http，因为密钥协商走网页协议", "correct": false },
+        { "text": "wlan.fc.type_subtype == 0x0008，即只看信标", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="monitor（监听）模式下抓到的数据帧大部分是密文，为什么 EAPOL（局域网上的 EAP）握手帧却永远可读？"
+       data-explain="加密密钥 PTK（成对临时密钥）正是四次握手协商的产物——M1/M2 交换随机数时密钥还不存在，M3 里才装 GTK（组临时密钥），握手帧本身不可能用它还没协商出的密钥加密（握手帧只有 MIC（消息完整性码）保护防篡改）。所以握手帧明文可读，但第 10 课讲过：SAE/WPA3 下即使全程抓包也算不出 PMK（成对主密钥）。数据帧则用已装好的 PTK 加密，抓到也是密文。">
+    <script type="application/json">
+      [
+        { "text": "因为 EAPOL 用了另一个固定密码", "correct": false },
+        { "text": "因为驱动会自动把 EAPOL 帧解密后交给抓包工具", "correct": false },
+        { "text": "因为握手发生在 PTK（成对临时密钥）协商出来之前，想加密也没密钥可用", "correct": true },
+        { "text": "因为 AP 对握手帧单独放行，所以每字节都可直接读", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="在一块网卡上找不到 /sys/kernel/debug/ieee80211/.../rc_stats（速率控制统计），最不可能的原因是？"
+       data-explain="rc_stats 缺失的常见原因：① FullMAC（全硬件介质访问控制）芯片——速率控制在固件里，mac80211 根本没实例化速率控制算法；② 内核没开 CONFIG_MAC80211_DEBUGFS；③ 当前没有已连接的站点（per-station 文件只对关联站点生成）。'驱动不支持 monitor 模式'与 debugfs 无关——monitor 是抓包能力，rc_stats 是速率统计窗口，两回事（mt76 两者都支持）。">
+    <script type="application/json">
+      [
+        { "text": "这块卡是 FullMAC（全硬件），速率控制在固件里", "correct": false },
+        { "text": "内核没开 CONFIG_MAC80211_DEBUGFS 配置", "correct": false },
+        { "text": "驱动不支持 monitor（监听）模式", "correct": true },
+        { "text": "当前没有已关联的站点，per-station 文件未生成", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：三层工具，一个闭环</h2>
+
+  <p>学完这课，你脑子里应该有：</p>
+  <ol>
+    <li><strong>三层可见性</strong>：配置态（iw）→ 空口态（monitor + tcpdump/Wireshark）→ 驱动态（debugfs + dmesg）；三个世界矛盾时，矛盾就是线索</li>
+    <li><strong>iw 三板斧</strong>：<span class="mono">link</span>（链路现状）、<span class="mono">scan</span>（邻居环境）、<span class="mono">station dump</span>（signal/bitrate/retries 三要素）</li>
+    <li><strong>monitor + radiotap</strong>（无线捕获元数据头）：钉信道抓包，radiotap 给出每帧的信号/速率证据</li>
+    <li><strong>Wireshark 过滤器</strong>：type/subtype（帧类型）分管理/控制/数据，eapol 抓握手，retry（重传）位看竞争</li>
+    <li><strong>debugfs</strong>：rc_stats 看速率自适应现场；它的存在本身区分 SoftMAC（软件介质访问控制）/FullMAC（全硬件介质访问控制）</li>
+    <li><strong>排查套路</strong>：iw 缩小范围 → 抓包/日志拿证据 → 对应课程原理解释；报 bug 必带三件套（station dump/抓包/dmesg）</li>
+  </ol>
+
+  <p>你现在能做的：</p>
+  <ul>
+    <li>用 monitor 模式完整抓一次自己手机的关联 + 四次握手，对照第 7/9 课逐帧打勾</li>
+    <li>用 <span class="mono">wlan.fc.retry == 1</span> 统计重传占比，感受不同时段的信道竞争</li>
+    <li>找到自己网卡的 rc_stats（如果有），亲眼看 EWMA（指数加权滑动平均）和采样记录</li>
+    <li>给自己定一条纪律：以后任何 Wi-Fi 问题，先跑 station dump 再说话</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课（收官）</strong>：<a href="./0021-capstone-full-journey-review.html">第 21 课 · 综合复盘 —— 一条时间线串起 21 课</a><br>
+      <a href="./0019-mac80211-driver-code-walkthrough.html">← 第 19 课</a> ·
+      <a href="../index.html">路线图</a> ·
+      <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+      <a href="../GLOSSARY.md">术语表</a>
+    </p>
+
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进收官复盘」<br>
+      • 「想加一个 XX 场景的排查走查」<br>
+      • 「我的网卡抓不了 monitor 模式，怎么办」<br>
+      • 「Wireshark 某个字段看不懂」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://www.sandilands.eu/iot/monitor-mode-wireshark-capture-layers.html">Capturing WLAN packets in monitor mode — sandilands.eu</a>（iw 建 mon0、设信道、tcpdump/Wireshark 全流程的常被引用参考）</li>
+    <li><a href="https://wireless.docs.kernel.org/en/latest/en/users/documentation/iw.html">iw documentation — Linux Wireless 文档</a>（phy/dev、scan、station dump 官方说明）</li>
+    <li><a href="https://git.kernel.org/pub/scm/linux/kernel/git/jberg/iw.git/tree/">iw 源码 — kernel.org</a>（每条命令对应一条 nl80211 消息）</li>
+    <li><a href="https://gitlab.com/wireshark/wireshark/-/wikis/CaptureSetup/WLAN">Wireshark Wiki: WLAN (802.11) capture setup</a>（monitor 模式、各平台抓包设置）</li>
+    <li><a href="https://www.wireshark.org/docs/dfref/w/wlan.html">Wireshark 显示过滤器参考: wlan / radiotap 字段</a>（wlan.fc.type、type_subtype、dbm_antsignal 等字段定义）</li>
+    <li><a href="https://www.radiotap.org/">radiotap.org</a>（radiotap 头字段的标准字段库）</li>
+    <li><a href="https://wireless.docs.kernel.org/en/latest/en/developers/documentation/mac80211/ratecontrol/minstrel.html">Minstrel rate control — Linux Wireless 文档</a>（rc_stats debugfs 表格解读）</li>
+    <li><a href="https://docs.kernel.org/driver-api/80211/mac80211.html">mac80211 subsystem docs — 内核官方文档</a>（debugfs 回调与 per-station 文件的生成条件）</li>
+    <li><a href="https://docs.kernel.org/admin-guide/dynamic-debug-howto.html">Dynamic debug — 内核官方文档</a>（按模块开关详细日志）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

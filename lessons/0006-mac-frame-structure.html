@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>第 6 课 · 802.11 MAC 帧结构 —— 协议栈工程师的主场</title>
+<title>第 6 课 · 802.11 MAC (介质访问控制层) 帧结构 —— 协议栈工程师的主场</title>
 <link rel="stylesheet" href="../assets/style.css">
 <style>
   .frame-diagram {
@@ -58,7 +58,7 @@
 <main>
 
   <div class="lesson-meta">
-    第 6 课 / Lesson 0006 · MAC 帧结构 · 协议主线 ·
+    第 6 课 / Lesson 0006 · MAC (介质访问控制层) 帧结构 · 协议主线 ·
     <a href="../MISSION.md">使命</a> ·
     <a href="../GLOSSARY.md">术语表</a> ·
     <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
@@ -67,9 +67,9 @@
 
   <h1>802.11 MAC (介质访问控制层) 帧结构 —— 协议栈工程师的主场</h1>
 
-  <p>这课完全在你的强项区。<strong>帧解析、字段含义、状态机</strong> —— 这就是你做协议栈每天干的事。我会用协议栈视角讲，而不是管理员视角。你会看到 Wi-Fi 的 MAC 帧设计精妙在哪，以及它为什么比你做过的 BT 帧复杂。</p>
+  <p>这课完全在你的强项区。<strong>帧解析、字段含义、状态机</strong> —— 这就是你做协议栈每天干的事。我会用协议栈视角讲，而不是管理员视角。你会看到 Wi-Fi 的 MAC (介质访问控制层) 帧设计精妙在哪，以及它为什么比你做过的 BT 帧复杂。</p>
 
-  <p>上一课讲了 <strong>CSMA/CA (载波侦听多址接入 / 碰撞避免) 怎么抢到介质</strong>（谁来发、什么时候发）。这课讲 <strong>抢到之后发的"东西"长什么样</strong> —— MAC 帧。这是你做驱动协议栈最常打交道的字节布局。</p>
+  <p>上一课讲了 <strong>CSMA/CA (载波侦听多址接入 / 碰撞避免) 怎么抢到介质</strong>（谁来发、什么时候发）。这课讲 <strong>抢到之后发的"东西"长什么样</strong> —— MAC (介质访问控制层) 帧。这是你做驱动协议栈最常打交道的字节布局。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -90,7 +90,7 @@
 
   <h2>帧整体布局：一张图记住</h2>
 
-  <p>这是通用 MAC (介质访问控制层) 帧的布局。注意<strong>Address 4 是可选的</strong>（只有 WDS 无线桥接才用）：</p>
+  <p>这是通用 MAC (介质访问控制层) 帧的布局。注意<strong>Address 4 是可选的</strong>（只有 WDS (无线分布式系统) 无线桥接才用）：</p>
 
   <div class="frame-diagram">
 字节偏移：
@@ -108,7 +108,7 @@
   <ul>
     <li>MAC (介质访问控制层) 地址：每个 6 字节（48 bit）—— 和以太网一致</li>
     <li>固定头：<strong>24 字节</strong>（无 Addr4）或 30 字节（WDS 含 Addr4）</li>
-    <li>Body：可变，<strong>0–2312 字节</strong>（加密后最多 2346）</li>
+    <li>Body：可变，<strong>0–2312 字节</strong>（加上 30B 头 + 4B FCS 后整帧上限 2346 字节）</li>
     <li>FCS (帧校验序列)：<strong>4 字节 CRC-32</strong>，校验失败丢弃且用 EIFS (扩展帧间间隔) 退避（回看第 5 课）</li>
   </ul>
 
@@ -169,7 +169,7 @@
       <tr>
         <td class="num">1</td><td class="num">0</td>
         <td class="mono">BSSID</td><td class="mono">SA</td><td class="mono">DA</td><td>—</td>
-        <td><strong>STA → AP</strong>（上行，帧要去 DS）</td>
+        <td><strong>STA (站点) → AP (接入点)</strong>（上行，帧要去 DS）</td>
       </tr>
       <tr>
         <td class="num">1</td><td class="num">1</td>
@@ -184,7 +184,7 @@
   <p><strong>① STA (站点) → AP (接入点)（上行）</strong>：手机发数据给 AP。RA=AP（BSSID），TA=手机自己（SA）。最终目的地在有线网（DA）。<br>
   → <span class="mono">ToDS=1, FromDS=0</span>，Addr1=BSSID, Addr2=SA, Addr3=DA。</p>
 
-  <p><strong>② AP → STA（下行）</strong>：AP 把有线网来的数据发给手机。RA=手机（DA），TA=AP（BSSID），原始来源在有线网（SA）。<br>
+  <p><strong>② AP (接入点) → STA (站点)（下行）</strong>：AP 把有线网来的数据发给手机。RA=手机（DA），TA=AP（BSSID），原始来源在有线网（SA）。<br>
   → <span class="mono">ToDS=0, FromDS=1</span>，Addr1=DA, Addr2=BSSID, Addr3=SA。</p>
 
   <p><strong>③ 管理帧（ToDS=FromDS=0）</strong>：Beacon (信标帧)、Probe、Association (关联) 这些不走有线网，三个地址够用：Addr1=DA, Addr2=SA, Addr3=BSSID。</p>
@@ -222,9 +222,9 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
 
   <h2>Duration 与 NAV (网络分配矢量)：CSMA/CA (载波侦听多址接入 / 碰撞避免) 的"虚拟侦听"</h2>
 
-  <p>第 5 课讲 CSMA/CA 靠 <strong>CCA（物理侦听）</strong>判断信道忙闲。其实还有<strong>第二套机制</strong> —— <strong>NAV（Network Allocation Vector，网络分配矢量）</strong>，叫"虚拟载波侦听"。</p>
+  <p>第 5 课讲 CSMA/CA 靠 <strong>CCA (信道空闲评估)</strong>（物理侦听）判断信道忙闲。其实还有<strong>第二套机制</strong> —— <strong>NAV（Network Allocation Vector，网络分配矢量）</strong>，叫"虚拟载波侦听"。</p>
 
-  <p>原理：每个帧的 Duration 字段告诉所有听到的 STA (站点)「<strong>这组帧交换还要占信道多久</strong>」（μs）。听到这个值的 STA，把自己的本地计数器 NAV 设上，<strong>NAV 没归零就不尝试发送</strong>，哪怕物理 CCA (信道空闲评估) 说信道闲。</p>
+  <p>原理：每个帧的 Duration 字段告诉所有听到的 STA (站点)「<strong>这组帧交换还要占信道多久</strong>」（μs）。听到这个值的 STA，把自己的本地计数器 NAV (网络分配矢量) 设上，<strong>NAV 没归零就不尝试发送</strong>，哪怕物理 CCA (信道空闲评估) 说信道闲。</p>
 
   <div class="callout key">
     <span class="callout-title">物理侦听 + 虚拟侦听 = 双保险</span>
@@ -250,7 +250,7 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
     <thead><tr><th>帧</th><th>方向</th><th>用途</th></tr></thead>
     <tbody>
       <tr><td class="num">Beacon (信标帧)</td>        <td>AP (接入点) → 广播</td>  <td>周期广播 BSS (基本服务集) 信息（SSID (服务集标识)、能力、TIM (业务指示图)）。STA (站点) 扫描靠它</td></tr>
-      <tr><td class="num">Probe Request/Response</td><td>STA ↔ AP</td><td>主动扫描。STA 发 Probe，AP 回 Response</td></tr>
+      <tr><td class="num">Probe Request/Response (探测请求 / 探测响应)</td><td>STA ↔ AP</td><td>主动扫描。STA 发 Probe，AP 回 Response</td></tr>
       <tr><td class="num">Authentication (802.11 认证帧)</td> <td>STA ↔ AP</td>  <td>认证（开系统/WPA (Wi-Fi 保护访问) 握手的第一步）</td></tr>
       <tr><td class="num">Association Req/Resp (关联)</td><td>STA ↔ AP</td><td>关联（加入 BSS）。成功后 STA 才能发数据</td></tr>
       <tr><td class="num">Deauthentication / Disassociate (取消认证 / 取消关联)</td><td>双向</td><td>断开连接</td></tr>
@@ -264,7 +264,7 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
       <tr><td class="num">ACK (确认帧)</td>     <td>确认收到。仅 14 字节，最小帧</td></tr>
       <tr><td class="num">RTS / CTS (请求发送 / 允许发送)</td><td>隐藏节点缓解（第 5 课）。带 Duration 设 NAV (网络分配矢量)</td></tr>
       <tr><td class="num">PS-Poll (省电轮询帧)</td> <td>省电模式 STA (站点) 向 AP (接入点) 取缓存帧。Duration 字段存 AID (关联标识符)</td></tr>
-      <tr><td class="num">Block ACK Request / Block ACK</td><td>批量确认（A-MPDU 聚合时用，提升效率）</td></tr>
+      <tr><td class="num">Block ACK Request / Block ACK (块确认请求 / 块确认)</td><td>批量确认（A-MPDU (聚合 MPDU) 聚合时用，提升效率）</td></tr>
     </tbody>
   </table>
 
@@ -292,7 +292,7 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
   <h2>自检：帧结构吃透了吗</h2>
 
   <div class="quiz" data-type="single"
-       data-question="一个 STA 给 AP 发数据帧（上行），ToDS 和 FromDS 分别是什么？Addr1 装什么？"
+       data-question="一个 STA (站点) 给 AP (接入点) 发数据帧（上行），ToDS 和 FromDS 分别是什么？Addr1 装什么？"
        data-explain="STA (站点)→AP (接入点) 上行，帧要去 DS：ToDS=1, FromDS=0。Addr1 恒为 RA=本跳接收方=AP=BSSID (基本服务集标识)。Addr2=TA=STA 自己=SA。Addr3=DA（有线网那边的目的）。这是最常抓到的帧方向。">
     <script type="application/json">
       [
@@ -306,20 +306,20 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
 
   <div class="quiz" data-type="single"
        data-question="为什么 802.11 帧需要 3-4 个地址字段，而以太网只要 2 个？"
-       data-explain="AP (接入点) 是桥接节点：帧从无线进有线时，"本跳接收方(RA=AP)"和"最终目的(DA=服务器)"是两个不同地址。以太网两端直连，DA/SA 够用；Wi-Fi 要额外表示"这一跳给谁(BSSID/RA/TA)"+"最终去哪(DA/SA)"。WDS 还要加"本跳发送方(TA)"和"原始来源(SA)"，用满四个。">
+       data-explain="AP (接入点) 是桥接节点：帧从无线进有线时，「本跳接收方(RA=AP)」和「最终目的(DA=服务器)」是两个不同地址。以太网两端直连，DA/SA 够用；Wi-Fi 要额外表示「这一跳给谁(BSSID/RA/TA)」+「最终去哪(DA/SA)」。WDS 还要加「本跳发送方(TA)」和「原始来源(SA)」，用满四个。">
     <script type="application/json">
       [
-        { "text": "AP 是桥接点，本跳地址(RA/TA)和最终地址(DA/SA)不同，要分开带", "correct": true },
         { "text": "Wi-Fi MAC (介质访问控制层) 地址比以太网长，需要更多字段",                          "correct": false },
         { "text": "为了支持多 BSS (基本服务集) 漫游，每个 BSS 要单独的地址",                     "correct": false },
+        { "text": "AP (接入点) 是桥接点，本跳地址(RA/TA)和最终地址(DA/SA)不同，要分开带", "correct": true },
         { "text": "Wi-Fi 是无线，信号要多个中继，每跳一个地址",                     "correct": false }
       ]
     </script>
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="NAV（网络分配矢量）和 CCA（物理侦听）的区别是什么？"
-       data-explain="CCA (信道空闲评估) 是物理层真的"听"信道（能量检测 + 载波侦听）；NAV (网络分配矢量) 是虚拟载波侦听——读帧里的 Duration 字段，知道"别人声明要占多久"，设本地计时器。STA (站点) 能不能发，要物理和虚拟都说闲才行。NAV 的价值：不用真听到数据帧也能知道信道忙（比如隐藏节点听到 CTS (允许发送) 的 Duration）。">
+       data-question="NAV（网络分配矢量）和 CCA (信道空闲评估) 的区别是什么？"
+       data-explain="CCA (信道空闲评估) 是物理层真的「听」信道（能量检测 + 载波侦听）；NAV (网络分配矢量) 是虚拟载波侦听——读帧里的 Duration 字段，知道「别人声明要占多久」，设本地计时器。STA (站点) 能不能发，要物理和虚拟都说闲才行。NAV 的价值：不用真听到数据帧也能知道信道忙（比如隐藏节点听到 CTS (允许发送) 的 Duration）。">
     <script type="application/json">
       [
         { "text": "CCA 是物理层真听；NAV 是读 Duration 字段虚拟判断", "correct": true },
@@ -335,10 +335,10 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
        data-explain="Retry=1 表示这是重传帧。Seq Ctl（序列号+分片号）相同说明和之前收过的是同一个帧。接收方要做去重——丢弃这个重复帧（因为 ACK (确认帧) 丢失导致发送方重传）。这是 Wi-Fi 链路层可靠性的去重逻辑，驱动 rx 路径必须实现。">
     <script type="application/json">
       [
-        { "text": "重传帧，接收方应去重（丢弃）",            "correct": true },
         { "text": "新帧，正常处理",                          "correct": false },
         { "text": "分片帧，需等待后续分片重组",              "correct": false },
-        { "text": "加密帧，先解密再处理",                    "correct": false }
+        { "text": "加密帧，先解密再处理",                    "correct": false },
+        { "text": "重传帧，接收方应去重（丢弃）",            "correct": true }
       ]
     </script>
   </div>
@@ -368,7 +368,7 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
 
   <div class="callout">
     <span class="callout-title">下一课：关联状态机</span>
-    <p>第 7 课计划讲 <strong>STA (站点) 关联流程</strong> —— 扫描（Beacon/Probe）→ 认证（Authentication）→ 关联（Association）→ 数据传输。用状态机视角串起来，每个状态对应哪些管理帧。这是你做协议栈移植最核心的流程，关联问题（连不上、漫游断）是最常见的调试场景。</p>
+    <p>第 7 课计划讲 <strong>STA (站点) 关联流程</strong> —— 扫描（Beacon (信标帧)/Probe）→ 认证（Authentication）→ 关联（Association）→ 数据传输。用状态机视角串起来，每个状态对应哪些管理帧。这是你做协议栈移植最核心的流程，关联问题（连不上、漫游断）是最常见的调试场景。</p>
     <p>之后会展开：省电模式（PS-Poll (省电轮询帧)/TIM (业务指示图)）、QoS (服务质量)/EDCA (增强分布式信道接入) 细节、安全（WPA (Wi-Fi 保护访问) 握手）、漫游。</p>
   </div>
 
@@ -388,7 +388,7 @@ bit:  0-1     2-3      4-7        8      9       10     11      12      13      
       • 「四道自检题答对了，进关联流程」<br>
       • 「四地址映射那张表想再多看几个真实抓包例子」<br>
       • 「WDS 四地址什么时候用？AP (接入点) 桥接的具体场景？」<br>
-      • 「A-MPDU / Block ACK (确认帧) 的聚合机制能展开讲吗？」<br>
+      • 「A-MPDU (聚合 MPDU) / Block ACK (块确认) 的聚合机制能展开讲吗？」<br>
       • 「mac80211 里 rx 路径怎么按 Type 分发的？想看代码映射」<br>
       你的反馈决定下一课切入点。
     </div>

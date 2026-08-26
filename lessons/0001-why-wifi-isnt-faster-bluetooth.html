@@ -88,7 +88,7 @@
 
   <div class="callout firmware">
     <span class="callout-title">对固件重要 / For Firmware</span>
-    <p>在 BT controller 固件里，<strong>定时精度</strong>是核心 KPI（slot 边界、sleep/wake 时序）。到了 Wi-Fi 固件，KPI 变成了 <strong>退避计时器的实现、CCA (Clear Channel Assessment, 信道空闲评估) 的灵敏度、ACK/SIFS (短帧间间隔) 的响应时序</strong>。换的是从「准时」到「抢得巧 + 反应快」。这一点你之后调 mac80211 / 厂商驱动会反复体会到。</p>
+    <p>在 BT controller 固件里，<strong>定时精度</strong>是核心 KPI（slot 边界、sleep/wake 时序）。到了 Wi-Fi 固件，KPI 变成了 <strong>退避计时器的实现、CCA (Clear Channel Assessment, 信道空闲评估) 的灵敏度、ACK (确认帧)/SIFS (短帧间间隔) 的响应时序</strong>。换的是从「准时」到「抢得巧 + 反应快」。这一点你之后调 mac80211 / 厂商驱动会反复体会到。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -102,7 +102,7 @@
   <div class="callout key">
     <span class="callout-title">记住这条因果链</span>
     <p><strong>分布式竞争 → 必须最大化单次抢占的价值 → 必须用宽信道 → 必须把宽带信号拆成正交子载波 → OFDM (正交频分复用)。</strong></p>
-    <p>反过来看蓝牙：调度式 → 单 slot 带宽够用 → 窄带 GFSK → 用跳频躲干扰 → FHSS (跳频扩频)。</p>
+    <p>反过来看蓝牙：调度式 → 单 slot 带宽够用 → 窄带 GFSK (高斯频移键控) → 用跳频躲干扰 → FHSS (跳频扩频)。</p>
   </div>
 
   <p>这两条路线不是任意选的，是<strong>同一个根选择的两个必然结果</strong>。这一条想通了，CWNA 第 2 章（RF (射频) 基础）、第 6 章（PHY (物理层)）、第 8 章（MAC (介质访问控制层)）就不再是 6 个孤立章节，而是一根线串起来的。</p>
@@ -115,13 +115,13 @@
 
   <div class="quiz" data-type="single"
        data-question="Wi-Fi 之所以用 OFDM (正交频分复用)（而非 FHSS (跳频扩频)）作为核心 PHY (物理层)，最根本的原因是？"
-       data-explain="CSMA/CA (载波侦听多址接入 / 碰撞避免) 是分布式竞争：谁抢到介质就要尽快塞尽量多数据，所以必须用宽信道 + 并行子载波 = OFDM。FHSS 的窄带 + 跳频与「最大化单次抢占价值」相矛盾，是调度式/低功耗路线的选择。">
+       data-explain="CSMA/CA (载波侦听多址接入 / 碰撞避免) 是分布式竞争：谁抢到介质就要尽快塞尽量多数据，所以必须用宽信道 + 并行子载波 = OFDM (正交频分复用)。FHSS (跳频扩频) 的窄带 + 跳频与「最大化单次抢占价值」相矛盾，是调度式/低功耗路线的选择。">
     <script type="application/json">
       [
         { "text": "因为分布式竞争要求最大化单次抢占的吞吐，所以需要宽信道与并行子载波", "correct": true },
         { "text": "因为 OFDM (正交频分复用) 比 FHSS (跳频扩频) 调制更简单、固件更容易实现",            "correct": false },
         { "text": "因为 Wi-Fi 联盟规定 802.11 必须使用 OFDM，与协议无关",   "correct": false },
-        { "text": "因为 OFDM 比单载波调制更省电，适合移动设备",             "correct": false }
+        { "text": "因为 OFDM (正交频分复用) 比单载波调制更省电，适合移动设备",  "correct": false }
       ]
     </script>
   </div>
@@ -133,10 +133,10 @@
        data-explain="退避（backoff）只在「多设备自己抢介质」时才需要 —— 没人发时刻表，只能靠随机退避减少碰撞。调度式（TDMA (时分多址)）由 master 分配 slot，天然不会撞，不需要 backoff。">
     <script type="application/json">
       [
-        { "text": "随机退避 / Random Backoff（先听 + 随机等待）", "correct": true },
         { "text": "时间槽分配 / Slot scheduling（master 分配）",  "correct": false },
         { "text": "跳频序列 / Frequency hopping sequence",        "correct": false },
-        { "text": "连接事件 / Connection event（anchor point）",  "correct": false }
+        { "text": "连接事件 / Connection event（anchor point）",  "correct": false },
+        { "text": "随机退避 / Random Backoff（先听 + 随机等待）", "correct": true }
       ]
     </script>
   </div>
@@ -149,9 +149,9 @@
 
   <ol>
     <li><strong>RF (射频) 基础 / RF 数学</strong> —— 理解 OFDM (正交频分复用) 宽带信号怎么传播、衰减、被噪声淹没。</li>
-    <li><strong>802.11 标准族（a/b/g/n/ac/ax）</strong> —— 看 PHY (物理层) 怎么从单载波 DSSS 演化到 OFDM、再到 OFDMA。</li>
-    <li><strong>MAC + 媒质访问</strong> —— CSMA/CA (载波侦听多址接入 / 碰撞避免) 的全部细节，backoff、CW (竞争窗口)、SIFS (短帧间间隔)、ACK (确认帧)、RTS/CTS (请求发送 / 允许发送)。</li>
-    <li><strong>PHY</strong> —— OFDM (正交频分复用) 子载波、preamble、调制编码（MCS (调制与编码方案)）。</li>
+    <li><strong>802.11 标准族（a/b/g/n/ac/ax）</strong> —— 看 PHY (物理层) 怎么从单载波 DSSS (直接序列扩频) 演化到 OFDM (正交频分复用)、再到 OFDMA (正交频分多址)。</li>
+    <li><strong>MAC + 媒质访问</strong> —— CSMA/CA (载波侦听多址接入 / 碰撞避免) 的全部细节，backoff (退避)、CW (竞争窗口)、SIFS (短帧间间隔)、ACK (确认帧)、RTS/CTS (请求发送 / 允许发送)。</li>
+    <li><strong>PHY (物理层)</strong> —— OFDM (正交频分复用) 子载波、preamble、调制编码（MCS (调制与编码方案)）。</li>
     <li><strong>拓扑 / 部署 / 勘测 / 安全</strong> —— 作为背景快速过，对固件不是核心。</li>
   </ol>
 

@@ -257,11 +257,11 @@
 
   <p><strong>真实的 MCS0 要求</strong>（一手来源核对）：</p>
   <ul>
-    <li>解调 SNR（在接收机噪声底 kTB+NF 之上）：约 <strong>2 dB</strong>。来源：[RF Essentials](https://rfessentials.com/rf-knowledge-base/what-is-the-sensitivity-requirement-for-a-wi-fi-7-receiver-at-the-maximum-data-r/) 明确给 ~2 dB。无编码 BPSK (二进制相移键控) @ BER (误码率) 10⁻⁵ 约 9.6 dB（[Princeton COS598A](https://www.cs.princeton.edu/courses/archive/spring17/cos598A/lectures/L3.pdf)），802.11 的 rate-½ 卷积码给 ~5–7 dB 编码增益 → 落到 ~2–4 dB。</li>
+    <li>解调 SNR（在接收机噪声底 kTB+NF 之上）：约 <strong>2 dB</strong>。来源：<a href="https://rfessentials.com/rf-knowledge-base/what-is-the-sensitivity-requirement-for-a-wi-fi-7-receiver-at-the-maximum-data-r/">RF Essentials</a> 明确给 ~2 dB。无编码 BPSK (二进制相移键控) @ BER (误码率) 10⁻⁵ 约 9.6 dB（<a href="https://www.cs.princeton.edu/courses/archive/spring17/cos598A/lectures/L3.pdf">Princeton COS598A</a>），802.11 的 rate-½ 卷积码给 ~5–7 dB 编码增益 → 落到 ~2–4 dB。</li>
     <li>RSSI (接收信号强度指示) 高于热噪声底（课件实际算的那个量）：约 <strong>7–10 dB</strong>（= NF 5–8 + 解调 SNR 2）。</li>
   </ul>
 
-  <p>另外，<strong>IEEE 802.11n/ac MCS0 @ 20 MHz 的最低灵敏度标准是 −82 dBm</strong>（[NI WLAN 测试 PDF](http://download.ni.com/evaluation/rf/Introduction_to_WLAN_Testing.pdf) 的表），不是 −93；−93 更接近 <strong>802.11ax HE20 MCS0</strong>。课件没标 PHY 代际，把不同代的数字混着用了。</p>
+  <p>另外，<strong>IEEE 802.11n/ac MCS0 @ 20 MHz 的最低灵敏度标准是 −82 dBm</strong>（<a href="http://download.ni.com/evaluation/rf/Introduction_to_WLAN_Testing.pdf">NI WLAN 测试 PDF</a> 的表），不是 −93；−93 更接近 <strong>802.11ax HE20 MCS0</strong>。课件没标 PHY 代际，把不同代的数字混着用了。</p>
 
   <div class="callout key">
     <span class="callout-title">关键的反直觉点</span>
@@ -270,12 +270,12 @@
 
   <p class="src">
     <strong>来源：</strong>
-    [RF Essentials — Noise Floor/BW/NF 关系](https://rfessentials.com/rf-knowledge-base/what-is-the-relationship-between-noise-floor-bandwidth-and-noise-figure-in-a-rec/) ·
-    [RF Essentials — Wi-Fi 7 灵敏度要求（MCS0 SNR≈2 dB）](https://rfessentials.com/rf-knowledge-base/what-is-the-sensitivity-requirement-for-a-wi-fi-7-receiver-at-the-maximum-data-r/) ·
-    [Marki Microwave — NF 与灵敏度](https://markimicrowave.com/technical-resources/application-notes/noise-figure-receiver-sensitivity-guide/) ·
-    [Rohde & Schwarz — 接收机 NF](https://www.rohde-schwarz.com/us/applications/examining-receiver-noise-figure_56279-1170880.html) ·
-    [ECC Report 288（CEPT，Wi-Fi 典型 NF 10 dB）](https://docdb.cept.org/download/4d5f88b8-7f6d/ECC%2520Report%2520288.pdf) ·
-    [NI — WLAN 测量入门（MCS0 = −82 dBm）](http://download.ni.com/evaluation/rf/Introduction_to_WLAN_Testing.pdf)
+    <a href="https://rfessentials.com/rf-knowledge-base/what-is-the-relationship-between-noise-floor-bandwidth-and-noise-figure-in-a-rec/">RF Essentials — Noise Floor/BW/NF 关系</a> ·
+    <a href="https://rfessentials.com/rf-knowledge-base/what-is-the-sensitivity-requirement-for-a-wi-fi-7-receiver-at-the-maximum-data-r/">RF Essentials — Wi-Fi 7 灵敏度要求（MCS0 SNR≈2 dB）</a> ·
+    <a href="https://markimicrowave.com/technical-resources/application-notes/noise-figure-receiver-sensitivity-guide/">Marki Microwave — NF 与灵敏度</a> ·
+    <a href="https://www.rohde-schwarz.com/us/applications/examining-receiver-noise-figure_56279-1170880.html">Rohde & Schwarz — 接收机 NF</a> ·
+    <a href="https://docdb.cept.org/download/4d5f88b8-7f6d/ECC%2520Report%2520288.pdf">ECC Report 288（CEPT，Wi-Fi 典型 NF 10 dB）</a> ·
+    <a href="http://download.ni.com/evaluation/rf/Introduction_to_WLAN_Testing.pdf">NI — WLAN 测量入门（MCS0 = −82 dBm）</a>
   </p>
 
   <div class="callout">
@@ -299,7 +299,7 @@
   <div class="audit ok">
     <span class="audit-tag">✅ 公式对</span>
     <p class="audit-title">四分量公式本身是标准原文</p>
-    <p>这个公式逐字见于 [CWNP《802.11 Arbitration》白皮书](https://www.cwnp.com/uploads/802-11_arbitration.pdf)、IEEE TGj 的 comment-resolution 记录、Rutgers WINLAB 的 802.11 MAC 字典。<strong>形式正确。</strong></p>
+    <p>这个公式逐字见于 <a href="https://www.cwnp.com/uploads/802-11_arbitration.pdf">CWNP《802.11 Arbitration》白皮书</a>、IEEE TGj 的 comment-resolution 记录、Rutgers WINLAB 的 802.11 MAC 字典。<strong>形式正确。</strong></p>
   </div>
 
   <div class="audit ok">
@@ -312,8 +312,8 @@
     <span class="audit-tag">⚠️ 数字需修</span>
     <p class="audit-title">「0.5 / 12.5 / 0.5 / 2 μs」不是标准值</p>
     <p>IEEE Table 93（OFDM PHY (物理层) 特性表）<strong>只钉死总和 16 μs + 两个上界</strong>：<span class="mono">aRxTxTurnaroundTime &lt; 2 μs</span>、<span class="mono">aMACProcessingDelay &lt; 2 μs</span>。而 <span class="mono">aRxRFDelay</span> / <span class="mono">aRxPLCPDelay</span> 标的是「Implementation dependent」——<strong>标准不给他们固定数值</strong>。</p>
-    <p>课件那组 <span class="wrong">0.5 / 12.5 / 0.5 / 2</span> 实际来自 [专利 WO2015186941A1](https://patentimages.storage.googleapis.com/04/3e/0a/34a7fb5624f67a/WO2015186941A1.pdf) 的一个示例，不是标准值。</p>
-    <p><strong>更权威的拆解</strong>来自 [IEEE 802.11-99/062](https://www.ieee802.org/11/Documents/DocumentArchives/1999_docs/906272W-LB17-Comment-802.pdf)（NTT 的 Morikura 在 1999 年定稿时的意见）：接收机处理 ~14 μs = AFC 4 μs + 串并转换 4 μs + FFT 4 μs + 译码 2 μs。[NI 的参考实现](https://www.ni.com/en/support/documentation/supplemental/16/labview-communications-802-11-application-framework-2-0-and-2-0-.html)实测 D1 ≈ 12 μs。</p>
+    <p>课件那组 <span class="wrong">0.5 / 12.5 / 0.5 / 2</span> 实际来自 <a href="https://patentimages.storage.googleapis.com/04/3e/0a/34a7fb5624f67a/WO2015186941A1.pdf">专利 WO2015186941A1</a> 的一个示例，不是标准值。</p>
+    <p><strong>更权威的拆解</strong>来自 <a href="https://www.ieee802.org/11/Documents/DocumentArchives/1999_docs/906272W-LB17-Comment-802.pdf">IEEE 802.11-99/062</a>（NTT 的 Morikura 在 1999 年定稿时的意见）：接收机处理 ~14 μs = AFC 4 μs + 串并转换 4 μs + FFT 4 μs + 译码 2 μs。<a href="https://www.ni.com/en/support/documentation/supplemental/16/labview-communications-802-11-application-framework-2-0-and-2-0-.html">NI 的参考实现</a>实测 D1 ≈ 12 μs。</p>
     <p>所以「78%」「12.5 μs PLCP」这个<strong>量级站得住</strong>，但「12.5 μs PLCP」把 FFT、串并转换都算进 PLCP 了——FFT 是数字前端，不严格属于 PLCP。<strong>更准的说法</strong>：接收机侧处理（含 AFC、FFT、译码）是大头（~12–14 μs）。</p>
   </div>
 
@@ -349,10 +349,10 @@
 
   <p class="src">
     <strong>来源：</strong>
-    [FCC §15.247（2.4 GHz）](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-C/subject-group-ECFR2f2e5828339709e/section-15.247) ·
-    [FCC Part 15 Subpart E（U-NII / 5 GHz）](https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-E) ·
-    [ETSI EN 300 328（2.4 GHz，EIRP 20 dBm）](https://www.etsi.org/deliver/etsi_en/300300_300399/300328/02.00.20_20/en_300328v020020a.pdf) ·
-    [ETSI EN 301 893（5 GHz，室内 23 dBm）](https://www.etsi.org/deliver/etsi_en/301800_301899/301893/02.02.01_60/en_301893v020201p.pdf)
+    <a href="https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-C/subject-group-ECFR2f2e5828339709e/section-15.247">FCC §15.247（2.4 GHz）</a> ·
+    <a href="https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-E">FCC Part 15 Subpart E（U-NII / 5 GHz）</a> ·
+    <a href="https://www.etsi.org/deliver/etsi_en/300300_300399/300328/02.00.20_20/en_300328v020020a.pdf">ETSI EN 300 328（2.4 GHz，EIRP 20 dBm）</a> ·
+    <a href="https://www.etsi.org/deliver/etsi_en/301800_301899/301893/02.02.01_60/en_301893v020201p.pdf">ETSI EN 301 893（5 GHz，室内 23 dBm）</a>
   </p>
 
   <div class="callout">

@@ -254,10 +254,10 @@
 
   <p>把上面所有东西串起来，就是链路预算。它回答一个问题：<strong>「给定发射功率、距离、频率，接收端信号够不够强？」</strong></p>
 
-  <p>我们做一道完整的，<strong>每一步都解释</strong>。场景：手机连 5 GHz Wi-Fi AP (接入点)，距离 20 米。</p>
+  <p>我们做一道完整的，<strong>每一步都解释</strong>。场景：手机连 2.4 GHz Wi-Fi AP (接入点)，距离 20 米。</p>
 
   <div class="worked">
-    <span class="label">完整链路预算 / Full Link Budget（手机 → AP, 5 GHz, 20 m）</span>
+    <span class="label">完整链路预算 / Full Link Budget（手机 → AP, 2.4 GHz, 20 m）</span>
 
     <span class="step">① 发射功率（手机）       Tx Power        = <span class="gain">+15 dBm</span>   <span style="color:var(--ink-faint)">手机典型最大</span></span>
     <span class="step">② 发射天线增益           Tx Ant Gain     = <span class="gain">+0 dBi</span>    <span style="color:var(--ink-faint)">手机天线几乎无增益</span></span>
@@ -279,7 +279,7 @@
 
   <div class="callout firmware">
     <span class="callout-title">关于 66 dB 这个数（教学坦白）</span>
-    <p>代入 5 GHz、20 m（=0.02 km），完整公式算出约 <strong>66 dB</strong>。这个数对 5 GHz 室内 20 米是合理量级。要点不是手算精确值，而是<strong>掌握方法：所有 RF (射频) 损耗都是 dB 加减</strong>。实战中你会用工具或厂商 SDK 算精确值，但脑子里能估算量级是基本功。别死记数字，记方法。</p>
+    <p>代入 2.4 GHz、20 m（=0.02 km），完整公式算出约 <strong>66 dB</strong>。这个数对 2.4 GHz 室内 20 米是合理量级。要点不是手算精确值，而是<strong>掌握方法：所有 RF (射频) 损耗都是 dB 加减</strong>。实战中你会用工具或厂商 SDK 算精确值，但脑子里能估算量级是基本功。别死记数字，记方法。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -330,8 +330,8 @@
        data-explain="23 − 20 = +3 dB。而 +3 dB = 功率 ×2。所以接收信号也翻倍。这就是为什么 dB 之间直接相减就能得到比值变化。">
     <script type="application/json">
       [
-        { "text": "功率翻倍（×2）", "correct": true },
         { "text": "功率增加 3 mW",  "correct": false },
+        { "text": "功率翻倍（×2）", "correct": true },
         { "text": "功率 ×10",       "correct": false },
         { "text": "几乎不变",        "correct": false }
       ]
@@ -343,10 +343,10 @@
        data-explain="−75 dBm 介于 MCS3 灵敏度（−78，刚好够）和 MCS7（−64，不够）之间。所以选 MCS3 最稳。MCS0（−93）也能用但浪费速率，MCS7/9 信号不够。这就是速率自适应算法每天在做的判断。">
     <script type="application/json">
       [
-        { "text": "MCS3（16-QAM (正交幅度调制)）最稳", "correct": true },
         { "text": "MCS0（BPSK (二进制相移键控)，最稳但慢）", "correct": false },
         { "text": "MCS7（64-QAM (正交幅度调制)，高速）", "correct": false },
-        { "text": "MCS9（256-QAM (正交幅度调制)，最快）", "correct": false }
+        { "text": "MCS9（256-QAM (正交幅度调制)，最快）", "correct": false },
+        { "text": "MCS3（16-QAM (正交幅度调制)）最稳", "correct": true }
       ]
     </script>
   </div>
@@ -361,12 +361,12 @@
     <li>见到 <code>20 dBm</code> 知道是 100 mW，<code>−80 dBm</code> 知道是「中等可用信号」</li>
     <li>能用 dB 加减算一道完整链路预算，得到 RSSI (接收信号强度指示)</li>
     <li>用 RSSI 对照灵敏度表，判断可达 MCS (调制与编码方案)</li>
-    <li>明白为什么 RSSI 是负数（接收功率天生小于 1 mW）</li>
+    <li>明白为什么 RSSI (接收信号强度指示) 是负数（接收功率天生小于 1 mW）</li>
   </ul>
 
   <p><strong>没掌握热噪声和 SNR (信噪比) 公式没关系</strong> —— 那是下一课（第 4 课）的内容，会从「为什么 Wi-Fi 灵敏度比蓝牙差」切入，讲噪声底和 SNR (信噪比)。本课只要求 dB/dBm 和链路预算扎实。</p>
 
-  <p>再下一课（第 5 课）回到协议主线，讲 <strong>CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避机制</strong>（backoff / CW / BEB / DIFS-SIFS）—— 那是你做驱动协议栈时的强项区。</p>
+  <p>再下一课（第 5 课）回到协议主线，讲 <strong>CSMA/CA (载波侦听多址接入 / 碰撞避免) 退避机制</strong>（backoff (退避) / CW (竞争窗口) / BEB (二进制指数退避) / DIFS-SIFS (帧间间隔)）—— 那是你做驱动协议栈时的强项区。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 

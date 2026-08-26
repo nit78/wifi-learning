@@ -47,13 +47,13 @@
 
   <h1>Alamouti STBC 数学 —— 正交编码怎么盲发分集</h1>
 
-  <p>这是第 13 课 STBC 的数学深入。第 13 课说 STBC 是"发射端盲发冗余副本，不需 CSI"。这课用最经典的 <strong>Alamouti 码（2×1）</strong>展示这套魔法到底怎么运作——为什么"正交"二字能让你不看信道也能分开合并。</p>
+  <p>这是第 13 课 STBC（空时块编码）的数学深入。第 13 课说 STBC 是"发射端盲发冗余副本，不需 CSI（信道状态信息）"。这课用最经典的 <strong>Alamouti 码（2×1）</strong>展示这套魔法到底怎么运作——为什么"正交"二字能让你不看信道也能分开合并。</p>
 
   <div class="callout key">
     <span class="callout-title">Alamouti 码为什么值得单独讲</span>
     <p>它是 1998 年 Siavash Alamouti 提出的，是<strong>第一个实用的空时码</strong>。优雅、完整、好懂：</p>
     <ul>
-      <li><strong>满分集</strong>（2 发 1 收达到 2 阶分集，等于 1 发 2 收 MRC 的效果）</li>
+      <li><strong>满分集</strong>（2 发 1 收达到 2 阶分集，等于 1 发 2 收 MRC（最大比合并）的效果）</li>
       <li><strong>全速率</strong>（不丢吞吐——这是它和一般 STBC 的区别，下文解释）</li>
       <li><strong>线性译码</strong>（不需复杂 ML 搜索，简单加权合并）</li>
     </ul>
@@ -69,7 +69,7 @@
 
   <h2>① 场景：2 发 1 收</h2>
 
-  <p>Alamouti 原始设计：2 根发射天线，1 根接收天线。两个要发的符号 s₁、s₂（复数，代表 QAM 星座点）。</p>
+  <p>Alamouti 原始设计：2 根发射天线，1 根接收天线。两个要发的符号 s₁、s₂（复数，代表 QAM（正交幅度调制）星座点）。</p>
 
   <div class="math-block">物理设置:
   发天线 1 ──h₁──▶ 收天线 (一个)
@@ -126,7 +126,7 @@ h₁, h₂: 两根发天线到收天线的信道系数（复数）
 代入展开 s̃₁:
   s̃₁ = h₁*·(h₁·s₁ + h₂·s₂ + n₁) + h₂·(h₁·(-s₂*) + h₂·s₁* + n₂)*
       = h₁*·h₁·s₁ + h₁*·h₂·s₂ + h₁*·n₁
-        + h₂·(-h₁*·s₂) + h₂·h₂·s₁ + h₂·n₂*
+        + h₂·(-h₁*·s₂) + h₂·h₂*·s₁ + h₂·n₂*
       = (<span class="hl2">|h₁|² + |h₂|²</span>)·s₁ + <span class="hl3">0·s₂</span> + (h₁*·n₁ + h₂·n₂*)
           ↑                ↑
     <span class="hl2">增益增强!</span>      <span class="hl3">s₂ 项【完全抵消】!</span>
@@ -140,7 +140,7 @@ h₁, h₂: 两根发天线到收天线的信道系数（复数）
       <li>s̃₁ 里 s₂ 的系数 = 0（干净分离）</li>
       <li>s̃₁ 里 s₁ 的系数 = |h₁|² + |h₂|²（两路信道的能量<strong>相干叠加</strong>，增益翻倍）</li>
     </ul>
-    <strong>不需要 CSI 就盲发，但接收端只要知道 h₁、h₂（这个收端自己能测）就能合并。</strong> 这就是"盲发分集"的意思——发射端不信道，但接收端用自己测的信道做合并。
+    <strong>不需要 CSI（信道状态信息）就盲发，但接收端只要知道 h₁、h₂（这个收端自己能测）就能合并。</strong> 这就是"盲发分集"的意思——发射端不信道，但接收端用自己测的信道做合并。
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -190,9 +190,9 @@ h₁, h₂: 两根发天线到收天线的信道系数（复数）
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>和 sup-0003 的 SVD 一样，<strong>Alamouti 的编译码在硬件/基带 DSP 里</strong>，驱动看不到。但懂这个数学的好处：</p>
     <ul>
-      <li><strong>知道 STBC 为什么"不需 CSI"</strong>：发射端盲发，靠编码正交性；接收端用自己测的 h₁ h₂ 合并。这就是为什么 STBC 比 TxBF 简单（后者要 sounding 拿 CSI）。</li>
+      <li><strong>知道 STBC 为什么"不需 CSI"</strong>：发射端盲发，靠编码正交性；接收端用自己测的 h₁ h₂ 合并。这就是为什么 STBC 比 TxBF（发射波束成形）简单（后者要 sounding（信道探测）拿 CSI）。</li>
       <li><strong>调试 STBC 问题</strong>：抓包看到 STBC 模式吞吐没提升，可能是接收端的信道估计 h₁ h₂ 不准（正交合并依赖准确的 h），导致交叉项没完全抵消 → 残留干扰。这指向前导码/训练字段解析问题。</li>
-      <li><strong>理解 802.11n STBC 选项的价值</strong>：对单天线接收的小设备（IoT、远距离手机），STBC 是"免费的"可靠性提升——只要 AP 支持，STA 不用改硬件就受益。</li>
+      <li><strong>理解 802.11n STBC 选项的价值</strong>：对单天线接收的小设备（IoT、远距离手机），STBC 是"免费的"可靠性提升——只要 AP（接入点）支持，STA（站点）不用改硬件就受益。</li>
     </ul>
   </div>
 
@@ -202,7 +202,7 @@ h₁, h₂: 两根发天线到收天线的信道系数（复数）
 
   <div class="callout key">
     <p>Alamouti STBC 的魔法在于<strong>编码矩阵的正交性</strong>：把两个符号 s₁、s₂ 在 2 天线 × 2 时隙里按 <code>[s₁ -s₂*; s₂ s₁*]</code> 交织分布，使得接收端做简单线性合并 <code>s̃₁ = h₁*y₁ + h₂*y₂*</code> 时，<strong>交叉项因正交性完全抵消</strong>，只剩目标符号 × (|h₁|²+|h₂|²) 的增益增强。</p>
-    <p><strong>全速率、满分集、线性译码、不需 CSI</strong>——这就是为什么它是 STBC 的经典。第 13 课的"吞吐减半"说法在此更正：那是针对一般冗余 STBC，Alamouti 是全速率的特例。</p>
+    <p><strong>全速率、满分集、线性译码、不需 CSI（信道状态信息）</strong>——这就是为什么它是 STBC 的经典。第 13 课的"吞吐减半"说法在此更正：那是针对一般冗余 STBC，Alamouti 是全速率的特例。</p>
   </div>
 
   <div class="lesson-foot">

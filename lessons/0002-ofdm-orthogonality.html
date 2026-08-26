@@ -86,16 +86,16 @@
           "wifi": "I/Q (同相 / 正交) 在单载波内；OFDM (正交频分复用) 在多子载波间" },
         { "aspect": "正交对象 Orthogonality of",
           "bt":   "—",
-          "wifi": "I/Q: 两个基带信号；OFDM: 多个子载波函数" },
+          "wifi": "I/Q (同相 / 正交): 两个基带信号；OFDM (正交频分复用): 多个子载波函数" },
         { "aspect": "机制 Mechanism",
           "bt":   "—",
-          "wifi": "I/Q: 相位差 90°；OFDM: 频率间隔 = 1/T" },
+          "wifi": "I/Q (同相 / 正交): 相位差 90°；OFDM (正交频分复用): 频率间隔 = 1/T" },
         { "aspect": "效果 Effect",
           "bt":   "—",
-          "wifi": "I/Q: 单载波容量翻倍；OFDM: 频谱重叠互不干扰" },
+          "wifi": "I/Q (同相 / 正交): 单载波容量翻倍；OFDM (正交频分复用): 频谱重叠互不干扰" },
         { "aspect": "谁用谁 Who uses it",
-          "bt":   "BT GFSK（高斯频移键控）也用 I/Q（FSK 调制在 I/Q 上）",
-          "wifi": "WiFi 两者都用：I/Q 在每个子载波内部，OFDM 在子载波之间" }
+          "bt":   "BT GFSK（高斯频移键控）也用 I/Q (同相 / 正交)（FSK 调制在 I/Q 上）",
+          "wifi": "WiFi 两者都用：I/Q (同相 / 正交) 在每个子载波内部，OFDM (正交频分复用) 在子载波之间" }
       ]
     </script>
   </div>
@@ -117,7 +117,7 @@
 
   <p>最朴素的办法：每个载波之间留<strong>保护频带</strong>（guard band），互不重叠 —— 这叫 <strong>FDM</strong>（Frequency Division Multiplexing，传统频分复用，无线电早期就这么干）。FDM 简单但<strong>浪费频谱</strong>：保护频带占了大头。</p>
 
-  <p>OFDM (正交频分复用) 的天才之处：能不能让子载波<strong>重叠</strong>，又<strong>互不干扰</strong>？答案就是「频率间隔 = 1/T」。这把 FDM 的保护频带全节省了，频谱效率直接翻几倍。</p>
+  <p>OFDM (正交频分复用) 的天才之处：能不能让子载波<strong>重叠</strong>，又<strong>互不干扰</strong>？答案就是「频率间隔 = 1/T」。这把 FDM (频分复用) 的保护频带全节省了，频谱效率直接翻几倍。</p>
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From sub-GHz</span>
@@ -192,7 +192,7 @@
           "wifi": "多子载波叠加偶尔出现大峰值 → 功放易饱和、耗电（驱动要做功率回退）" },
         { "aspect": "多径敏感 → 需 CP（循环前缀）",
           "bt":   "窄带 + FHSS (跳频扩频) 跳频天然抗多径",
-          "wifi": "符号要插 Guard Interval（保护间隔）/ Cyclic Prefix 吸收多径时延（占带宽 ~20%）" },
+          "wifi": "符号要插 Guard Interval（保护间隔）/ Cyclic Prefix（循环前缀）吸收多径时延（0.8μs GI + 3.2μs 符号，约多花 20% 时间）" },
         { "aspect": "频偏 / 相位噪声敏感",
           "bt":   "窄带对晶振精度要求低",
           "wifi": "Δf 只有 312.5 kHz，几 kHz 频偏就破坏正交 → ICI (子载波间干扰)；要求高精度晶振" }
@@ -224,23 +224,23 @@
        data-explain="每个子载波频谱是 sinc 函数，零点间距 = 1/T = Δf。把其他子载波放在 Δf 的整数倍处，恰好落在彼此的零点。内积为零 = 正交。">
     <script type="application/json">
       [
-        { "text": "它们的 sinc 频谱零点恰好落在该子载波中心", "correct": true },
         { "text": "它们的相位彼此相差精确 90 度",              "correct": false },
         { "text": "它们的幅度被发射机预先压到了零",            "correct": false },
+        { "text": "它们的 sinc 频谱零点恰好落在该子载波中心", "correct": true },
         { "text": "接收机用模拟滤波器把它们滤掉了",            "correct": false }
       ]
     </script>
   </div>
 
   <div class="quiz" data-type="single"
-       data-question="下面哪一条是 OFDM (正交频分复用) 相对单载波 FDM（带保护频带）的核心优势？"
-       data-explain="FDM 用保护频带隔离子载波，浪费频谱。OFDM 让子载波频谱重叠（零点对齐），省掉了保护频带，频谱效率大幅提升。代价是 PAPR (峰均功率比)、多径敏感、频偏敏感。">
+       data-question="下面哪一条是 OFDM (正交频分复用) 相对单载波 FDM (频分复用)（带保护频带）的核心优势？"
+       data-explain="FDM (频分复用) 用保护频带隔离子载波，浪费频谱。OFDM (正交频分复用) 让子载波频谱重叠（零点对齐），省掉了保护频带，频谱效率大幅提升。代价是 PAPR (峰均功率比)、多径敏感、频偏敏感。">
     <script type="application/json">
       [
-        { "text": "子载波频谱可重叠，省掉保护频带，频谱效率高", "correct": true },
         { "text": "功放效率更高，更省电",                        "correct": false },
         { "text": "对晶振精度要求更低，硬件更便宜",              "correct": false },
-        { "text": "天然抗多径，不需要保护间隔",                  "correct": false }
+        { "text": "天然抗多径，不需要保护间隔",                  "correct": false },
+        { "text": "子载波频谱可重叠，省掉保护频带，频谱效率高", "correct": true }
       ]
     </script>
   </div>
@@ -272,7 +272,7 @@
 
   <div class="lesson-foot">
     <p>
-      <strong>下一课预告</strong>：第 3 课 — CSMA/CA（载波侦听多址接入 / 碰撞避免）退避机制（backoff / CW / 二进制指数退避 / DIFS-SIFS）。<br>
+      <strong>下一课预告</strong>：第 3 课 — RF (射频) 基础：dB 与 dBm（对数单位、功率换算、链路预算——Wi-Fi 工程师的射频地基）。<br>
       <a href="./0001-why-wifi-isnt-faster-bluetooth.html">← 第 1 课</a> ·
       <a href="../GLOSSARY.md">术语表</a> ·
       <a href="../RESOURCES.md">资源</a> ·
@@ -281,7 +281,7 @@
 
     <div class="ask-prompt">
       💡 <strong>学完请回来问</strong> —— 例如：<br>
-      • 「FFT 是怎么把重叠的子载波分开的？需要多少点？」<br>
+      • 「FFT (快速傅里叶变换) 是怎么把重叠的子载波分开的？需要多少点？」<br>
       • 「802.11ax 为什么把 Δf 砍到 78.125 kHz？更长符号怎么抗多径？」<br>
       • 「PAPR (峰均功率比) 在驱动层会看到什么具体现象？怎么知道是 PAPR 问题？」<br>
       • 「我做 sub-GHz 时晶振精度要求低，WiFi 到底要多少 ppm？」<br>

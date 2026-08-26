@@ -75,7 +75,7 @@
 
   <p>第 5 课讲了 CSMA/CA (载波侦听多址接入 / 碰撞避免) 的<strong>基础版 DCF (分布式协调函数)</strong>——所有 STA (站点) 平等竞争，CWmin=15/CWmax=1023，没有优先级。问题是：<strong>Voice 帧和 Background 下载帧排一队竞争，语音可能被挤得卡顿</strong>。802.11e（2005）就是来修这个的：把数据分成 4 个优先级，让语音/视频优先抢信道。</p>
 
-  <p>这课对你做驱动的落点很直接——<strong>tx 队列按 TID (业务标识符) 分流</strong>就是 EDCA 的实现。你做 BT 协议栈时按 ACL 链路类型分流的经验直接迁移，只是 Wi-Fi 多了 AIFS (任意帧间间隔)/CW (竞争窗口)/TXOP 三套旋钮。</p>
+  <p>这课对你做驱动的落点很直接——<strong>tx 队列按 TID (业务标识符) 分流</strong>就是 EDCA 的实现。你做 BT 协议栈时按 ACL 链路类型分流的经验直接迁移，只是 Wi-Fi 多了 AIFS (仲裁帧间间隔)/CW (竞争窗口)/TXOP (传输机会) 三套旋钮。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -83,11 +83,11 @@
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
-    <p>EDCA 是 802.11e 的 QoS 版 DCF。它<strong>没有引入中央调度</strong>（还是分布式竞争），而是给每个 AC (接入类别)（接入类别）配三套参数，让高优先级 AC 抢到信道的概率更大：</p>
+    <p>EDCA 是 802.11e 的 QoS 版 DCF。它<strong>没有引入中央调度</strong>（还是分布式竞争），而是给每个 AC (接入类别) 配三套参数，让高优先级 AC 抢到信道的概率更大：</p>
     <ol>
-      <li><strong>AIFS</strong>（第一道闸门）：发之前要等的时间。语音等最短，背景等最长。</li>
+      <li><strong>AIFS (仲裁帧间间隔)</strong>（第一道闸门）：发之前要等的时间。语音等最短，背景等最长。</li>
       <li><strong>CWmin/CWmax</strong>（第二道闸门）：退避窗口范围。语音最小，背景最大。</li>
-      <li><strong>TXOP</strong>（第三道闸门）：抢到信道后能连续发多久。语音/视频有配额，普通数据只发一帧。</li>
+      <li><strong>TXOP (传输机会)</strong>（第三道闸门）：抢到信道后能连续发多久。语音/视频有配额，普通数据只发一帧。</li>
     </ol>
     <p>三道闸门协同：高优先级 AC <strong>等得短、退避少、发了能多发</strong>。低优先级相反。<strong>这是概率上的"优先"，不是绝对优先</strong>——语音仍可能被背景帧碰撞，只是概率小得多。</p>
   </div>
@@ -96,7 +96,7 @@
 
   <h2>四个 AC：优先级从高到低</h2>
 
-  <p>802.11e 定义 4 个 AC (Access Category)，对应 4 种业务类型：</p>
+  <p>802.11e 定义 4 个 AC (接入类别)，对应 4 种业务类型：</p>
 
   <table class="edca-table">
     <thead>
@@ -132,21 +132,21 @@
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From BT</span>
-    <p>BLE 没有完全对应的优先级机制（BLE 是 master 调度的，slave 按分配的 slot 发，不存在竞争）。但 BT 经典的 ACL 链路有类似思路：<strong>DH/DM 链路类型、flush timeout、QoS setup</strong> 请求，都是在区分业务优先级。Wi-Fi 的 AC 是更彻底的版本——把优先级刻进介质访问本身（AIFS/CW），而不是靠上层调度。你做 sub-GHz 协议栈时如果做过"应急报文优先于周期上报"，那是上层优先级，和 EDCA 的 MAC (介质访问控制层) 层优先级不冲突，可以叠加。</p>
+    <p>BLE 没有完全对应的优先级机制（BLE 是 master 调度的，slave 按分配的 slot 发，不存在竞争）。但 BT 经典的 ACL 链路有类似思路：<strong>DH/DM 链路类型、flush timeout、QoS setup</strong> 请求，都是在区分业务优先级。Wi-Fi 的 AC (接入类别) 是更彻底的版本——把优先级刻进介质访问本身（AIFS/CW），而不是靠上层调度。你做 sub-GHz 协议栈时如果做过"应急报文优先于周期上报"，那是上层优先级，和 EDCA 的 MAC (介质访问控制层) 层优先级不冲突，可以叠加。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>第一道闸门：AIFS</h2>
 
-  <p>第 5 课讲 DCF 里所有 STA 都等 <strong>DIFS (DCF 帧间间隔) = SIFS (短帧间间隔) + 2×SlotTime</strong>。EDCA 把这个固定值换成<strong>按 AC 变化的 AIFS</strong>：</p>
+  <p>第 5 课讲 DCF 里所有 STA 都等 <strong>DIFS (DCF 帧间间隔) = SIFS (短帧间间隔) + 2×SlotTime</strong>。EDCA 把这个固定值换成<strong>按 AC 变化的 AIFS (仲裁帧间间隔)</strong>：</p>
 
   <div class="timeline">
 AIFS[AC] = SIFS + AIFSN[AC] × SlotTime
                        ↑
               AIFSN ≥ 2 (AC 自己决定要等几个 slot)
 
-802.11a/g (SlotTime=9μs, SIFS=16μs) 默认值:
+802.11a (SlotTime=9μs, SIFS=16μs) 默认值:
   <span class="vo">AC_VO</span>: AIFSN=2  →  AIFS = 16 + 2×9  = <span class="frame">34 μs</span>
   <span class="vi">AC_VI</span>: AIFSN=2  →  AIFS = 16 + 2×9  = <span class="frame">34 μs</span>
   <span class="be">AC_BE</span>: AIFSN=3  →  AIFS = 16 + 3×9  = <span class="frame">43 μs</span>
@@ -162,7 +162,7 @@ AIFS[AC] = SIFS + AIFSN[AC] × SlotTime
 
   <h2>第二道闸门：CWmin/CWmax</h2>
 
-  <p>AIFS 决定"什么时候开始竞争"，CW 决定"竞争时退避多久"。第 5 课讲 DCF 的 CW 是 [15, 1023]。EDCA 给不同 AC 不同的 CW 范围：</p>
+  <p>AIFS 决定"什么时候开始竞争"，CW (竞争窗口) 决定"竞争时退避多久"。第 5 课讲 DCF 的 CW 是 [15, 1023]。EDCA 给不同 AC 不同的 CW 范围：</p>
 
   <table class="edca-table">
     <thead>
@@ -180,7 +180,7 @@ AIFS[AC] = SIFS + AIFSN[AC] × SlotTime
 
   <div class="callout key">
     <span class="callout-title">内部碰撞 (Internal Collision)</span>
-    <p>EDCA 特有的现象：同一个 STA 内部，多个 AC 同时退避计数到 0，因为它们独立计数。<strong>怎么决定谁先发？</strong></p>
+    <p>EDCA 特有的现象：同一个 STA 内部，多个 AC (接入类别) 同时退避计数到 0，因为它们独立计数。<strong>怎么决定谁先发？</strong></p>
     <p>规则：高优先级 AC（AIFS 短/CW 小）胜出发送，低优先级 AC 当成发生碰撞一样 <strong>CW 倍增</strong>。这是 EDCA 在<strong>单设备内部</strong>实现优先级的方式——4 个 AC 像同一个 STA 里的 4 个虚拟竞争者，内部先比一轮。</p>
   </div>
 
@@ -229,7 +229,7 @@ AIFS[AC] = SIFS + AIFSN[AC] × SlotTime
 
   <!-- ─────────────────────────────────────────────── -->
 
-  <h2>完整参数表（802.11a/g 默认值）</h2>
+  <h2>完整参数表（802.11a 默认值）</h2>
 
   <table class="edca-table">
     <thead>
@@ -332,7 +332,7 @@ IP 层 DSCP (6 bit, 区分服务码点)
 
   <div class="quiz" data-type="single"
        data-question="EDCA 区分 4 个 AC 优先级的三道闸门里，哪一道最基础（决定性强）？"
-       data-explain="AIFS 最基础。因为退避计数器在 AIFS 结束后才开始递减，AIFS 长的 AC 根本来不及开始退避竞争。AC_BK (后台)（AIFSN (AIFS 数)=7）要等 7 个 slot 才能开始计数，而 AC_VO (语音)（AIFSN=2）2 个 slot 就能抢——大多数情况下信道早被高优先级抢走了。CW (竞争窗口) 和 TXOP 是在'已经能竞争'之后的第二层区分，AIFS 是'能不能赶上竞争'的第一层。注意 AC_BE (尽力而为) 和 AC_BK 的 CWmin/CWmax 数值相同，它们优先级差异完全靠 AIFS。">
+       data-explain="AIFS (仲裁帧间间隔) 最基础。因为退避计数器在 AIFS 结束后才开始递减，AIFS 长的 AC 根本来不及开始退避竞争。AC_BK (后台)（AIFSN (AIFS 数)=7）要等 7 个 slot 才能开始计数，而 AC_VO (语音)（AIFSN=2）2 个 slot 就能抢——大多数情况下信道早被高优先级抢走了。CW (竞争窗口) 和 TXOP (传输机会) 是在'已经能竞争'之后的第二层区分，AIFS 是'能不能赶上竞争'的第一层。注意 AC_BE (尽力而为) 和 AC_BK 的 CWmin/CWmax 数值相同，它们优先级差异完全靠 AIFS。">
     <script type="application/json">
       [
         { "text": "AIFS（决定能不能赶上竞争）",  "correct": true },
@@ -345,12 +345,12 @@ IP 层 DSCP (6 bit, 区分服务码点)
 
   <div class="quiz" data-type="single"
        data-question="AC_BE 和 AC_BK 的 CWmin/CWmax 数值相同（都是 15/1023），它们的优先级差异靠什么实现？"
-       data-explain="完全靠 AIFS 区分。AC_BE 的 AIFSN=3（等 43μs），AC_BK (后台) 的 AIFSN=7（等 79μs）。AIFSN=7 意味着 AC_BK 要多等 4 个 slot 才能开始退避计数，这段时间信道大概率已被 AC_BE 抢走。这正好印证'AIFS 是最基础的闸门'——CW 相同时，AIFS 单独就能排出优先级。">
+       data-explain="完全靠 AIFS (仲裁帧间间隔) 区分。AC_BE (尽力而为) 的 AIFSN=3（等 43μs），AC_BK (后台) 的 AIFSN=7（等 79μs）。AIFSN=7 意味着 AC_BK 要多等 4 个 slot 才能开始退避计数，这段时间信道大概率已被 AC_BE 抢走。这正好印证'AIFS 是最基础的闸门'——CW 相同时，AIFS 单独就能排出优先级。">
     <script type="application/json">
       [
-        { "text": "AIFS（AC_BK 的 AIFSN=7 比 AC_BE 的 3 长）", "correct": true },
         { "text": "TXOP（AC_BK 的 TXOP 更小）",                 "correct": false },
         { "text": "帧大小（AC_BK 的帧更大）",                   "correct": false },
+        { "text": "AIFS（AC_BK 的 AIFSN=7 比 AC_BE 的 3 长）", "correct": true },
         { "text": "物理层调制（AC_BK 用低速率）",               "correct": false }
       ]
     </script>
@@ -371,12 +371,12 @@ IP 层 DSCP (6 bit, 区分服务码点)
 
   <div class="quiz" data-type="single"
        data-question="上层怎么把一个 VoIP 语音包标记成高优先级送到 MAC 层？"
-       data-explain="链路是：IP 层 DSCP（区分服务码点）→ 802.11 QoS Data 帧的 QoS Control 字段的 TID (业务标识符) → 4 个 AC 之一。VoIP 通常 DSCP=EF（加速转发），映射到 TID 6/7 → AC_VO (语音)。驱动 tx 路径按 TID 分到 AC_VO 硬件队列，该队列用 AIFSN=2/CWmin=3/TXOP=1.504ms 抢信道。这就是 EDCA 的完整实现链路——第 6 课讲的 QoS Data 帧 QoS Control 字段就是这条链路的承载点。">
+       data-explain="链路是：IP 层 DSCP（区分服务码点）→ 802.11 QoS Data 帧的 QoS Control 字段的 TID (业务标识符) → 4 个 AC (接入类别) 之一。VoIP 通常 DSCP=EF（加速转发），映射到 TID 6/7 → AC_VO (语音)。驱动 tx 路径按 TID 分到 AC_VO 硬件队列，该队列用 AIFSN=2/CWmin=3/TXOP=1.504ms 抢信道。这就是 EDCA 的完整实现链路——第 6 课讲的 QoS Data 帧 QoS Control 字段就是这条链路的承载点。">
     <script type="application/json">
       [
-        { "text": "IP 层 DSCP → QoS Data 帧的 TID → 映射到 AC_VO", "correct": true },
         { "text": "TCP 端口号 → AP 识别 → 分配 AC",                 "correct": false },
         { "text": "帧大小 → 小帧自动进 AC_VO",                     "correct": false },
+        { "text": "IP 层 DSCP → QoS Data 帧的 TID → 映射到 AC_VO", "correct": true },
         { "text": "应用层直接调用专门的语音 socket",               "correct": false }
       ]
     </script>
@@ -409,8 +409,8 @@ IP 层 DSCP (6 bit, 区分服务码点)
   <h2>下一步</h2>
 
   <div class="callout">
-    <span class="callout-title">下一课：聚合 / Block ACK (确认帧)</span>
-    <p>第 12 课计划讲 <strong>帧聚合 / Block ACK</strong>（兑现第 6 课伏笔）：A-MPDU / A-MSDU 怎么把多个帧打包成一个发出去提升吞吐、Block ACK 怎么一次确认多个帧、为什么这是高吞吐 Wi-Fi 的命脉。和这课 TXOP 的"连续发"机制会连起来。</p>
+    <span class="callout-title">下一课：聚合 / Block ACK (块确认)</span>
+    <p>第 12 课计划讲 <strong>帧聚合 / Block ACK (块确认)</strong>（兑现第 6 课伏笔）：A-MPDU / A-MSDU 怎么把多个帧打包成一个发出去提升吞吐、Block ACK 怎么一次确认多个帧、为什么这是高吞吐 Wi-Fi 的命脉。和这课 TXOP 的"连续发"机制会连起来。</p>
     <p>或者换路线：<strong>MIMO/OFDMA</strong>（PHY (物理层) 深水区，Wi-Fi 6 核心，最大的洞）、<strong>漫游/802.11r</strong>。</p>
   </div>
 
@@ -418,7 +418,7 @@ IP 层 DSCP (6 bit, 区分服务码点)
 
   <div class="lesson-foot">
     <p>
-      <strong>下一课预告</strong>：第 12 课 — 帧聚合 / Block ACK (确认帧)（A-MPDU/A-MSDU，吞吐命脉）。<br>
+      <strong>下一课预告</strong>：第 12 课 — 帧聚合 / Block ACK (块确认)（A-MPDU/A-MSDU，吞吐命脉）。<br>
       <a href="./0010-wpa2-wpa3-implementation-4way-details.html">← 第 10 课</a> ·
       <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
       <a href="../GLOSSARY.md">术语表</a> ·

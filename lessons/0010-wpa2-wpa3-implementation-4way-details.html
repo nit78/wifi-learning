@@ -99,7 +99,7 @@
 
   <div class="callout key">
     <span class="callout-title">本课支点 / Core Insight</span>
-    <p>第 9 课讲过：<strong>4-Way Handshake 本身是固定的</strong>，无论 WPA2 还是 WPA3 都要走 M1-M4。两代的全部差异都在<strong>握手之前怎么把 PMK 准备好</strong>：</p>
+    <p>第 9 课讲过：<strong>4-Way Handshake 本身是固定的</strong>，无论 WPA2 还是 WPA3 都要走 M1-M4。两代的全部差异都在<strong>握手之前怎么把 PMK (成对主密钥) 准备好</strong>：</p>
     <ul>
       <li><strong>WPA2-PSK (预共享密钥)</strong>：PMK = PBKDF2 (基于密码的密钥派生函数 2)(密码, SSID (服务集标识)) —— 双方各自离线算，无网络交互</li>
       <li><strong>WPA3-SAE (对等同步认证)</strong>：PMK 由 Dragonfly 握手（Commit/Confirm 两对帧）在线协商，与密码非线性关联</li>
@@ -111,7 +111,7 @@
 
   <h2>① WPA2-PSK 的 PMK：PBKDF2 一步派生</h2>
 
-  <p>WPA2-Personal（家用）最简单。密码（passphrase）和 SSID 在本地就能算出 PMK，<strong>不需要任何网络交互</strong>：</p>
+  <p>WPA2-Personal（家用）最简单。密码（passphrase）和 SSID (服务集标识) 在本地就能算出 PMK (成对主密钥)，<strong>不需要任何网络交互</strong>：</p>
 
   <div class="code-block">PMK = PBKDF2-HMAC-SHA1(passphrase, SSID, 4096, 32)
      │              │           │      │     │
@@ -125,12 +125,12 @@
   <p>四个关键参数，每个都有设计意图：</p>
   <ul>
     <li><strong>密码 8–63 字符</strong>：WFA 认证要求 ≥8 字符。短密码是 WPA2 的最大软肋。</li>
-    <li><strong>SSID 当盐</strong>：这是反预计算的关键。同一密码"TP-LINK_1234"和"Netgear_5678"派生出<strong>完全不同的 PMK</strong>。所以早期有人用常见 SSID（"linksys"、"netgear"）做预计算彩虹表，但 SSID 一变就失效。</li>
-    <li><strong>4096 轮</strong>：故意慢。单次 PBKDF2 在 CPU (中央处理器) 上要几十毫秒，抬高离线爆破成本。但 GPU/ASIC 并行后仍可每秒试几万到几十万个密码——这就是为什么弱密码的 WPA2 网络几小时就能被 aircrack-ng 破。</li>
-    <li><strong>32 字节输出</strong>：正好是 PMK 的长度。HMAC-SHA1 单次输出 20 字节，要 32 字节需要 PBKDF2 内部跑两个块拼接。</li>
+    <li><strong>SSID (服务集标识) 当盐</strong>：这是反预计算的关键。同一密码"TP-LINK_1234"和"Netgear_5678"派生出<strong>完全不同的 PMK</strong>。所以早期有人用常见 SSID（"linksys"、"netgear"）做预计算彩虹表，但 SSID 一变就失效。</li>
+    <li><strong>4096 轮</strong>：故意慢。单次 PBKDF2 (基于密码的密钥派生函数 2) 在 CPU (中央处理器) 上要几十毫秒，抬高离线爆破成本。但 GPU/ASIC 并行后仍可每秒试几万到几十万个密码——这就是为什么弱密码的 WPA2 网络几小时就能被 aircrack-ng 破。</li>
+    <li><strong>32 字节输出</strong>：正好是 PMK (成对主密钥) 的长度。HMAC-SHA1 单次输出 20 字节，要 32 字节需要 PBKDF2 内部跑两个块拼接。</li>
   </ul>
 
-  <p>派生完后，<strong>STA (站点) 和 AP (接入点) 都持有同一个 PMK，但 PMK 从不在空中传</strong>。接下来直接进 4-Way Handshake。</p>
+  <p>派生完后，<strong>STA (站点) 和 AP (接入点) 都持有同一个 PMK (成对主密钥)，但 PMK 从不在空中传</strong>。接下来直接进 4-Way Handshake。</p>
 
   <div class="callout bridge">
     <span class="callout-title">桥梁 / From BT</span>
@@ -141,9 +141,9 @@
 
   <h2>② WPA3-SAE 的 PMK：Dragonfly 两阶段在线协商</h2>
 
-  <p>WPA3-Personal 用 <strong>SAE (对等同步认证)</strong> 替代 PSK。SAE 基于 <strong>Dragonfly 握手</strong>（RFC 7664，PAKE 协议家族），核心改动：PMK 不再等于 f(密码)，而是经过<strong>椭圆曲线上的随机运算</strong>派生，抓包无法离线爆破。</p>
+  <p>WPA3-Personal 用 <strong>SAE (对等同步认证)</strong> 替代 PSK (预共享密钥)。SAE 基于 <strong>Dragonfly 握手</strong>（RFC 7664，PAKE 协议家族），核心改动：PMK (成对主密钥) 不再等于 f(密码)，而是经过<strong>椭圆曲线上的随机运算</strong>派生，抓包无法离线爆破。</p>
 
-  <p>SAE 分两个阶段，<strong>都发生在关联之前</strong>（取代了 WPA2 里 PSK 那个"无网络交互"的环节）：</p>
+  <p>SAE 分两个阶段，<strong>都发生在关联之前</strong>（取代了 WPA2 里 PSK (预共享密钥) 那个"无网络交互"的环节）：</p>
 
   <div class="seq-diagram">
 <span class="phase">阶段 A: 双方各自派生 PWE (Password Element)</span>
@@ -175,27 +175,27 @@
   <p>四个要点解释为什么 SAE 抗爆破：</p>
   <ul>
     <li><strong>PWE (密码元素) 派生不泄漏密码</strong>：H2E（Hash-to-Element）把密码确定性映射到曲线上一点，<strong>输出看不出密码信息</strong>。老方法 HNP（Hunting-and-Pecking）迭代试值，迭代次数泄漏密码信息——Dragonblood 侧信道攻击的基础。新固件应支持 H2E。</li>
-    <li><strong>Commit 交换不泄漏 PMK</strong>：双方发的 scalar/element 是 PWE + 随机私钥的运算结果。攻击者抓到 Commit 也推不出 PMK——因为这等价于解椭圆曲线离散对数（ECDLP，目前不可行）。</li>
+    <li><strong>Commit 交换不泄漏 PMK</strong>：双方发的 scalar/element 是 PWE + 随机私钥的运算结果。攻击者抓到 Commit 也推不出 PMK (成对主密钥)——因为这等价于解椭圆曲线离散对数（ECDLP，目前不可行）。</li>
     <li><strong>Confirm 防中间人</strong>：双方互发用 PMK 签的 token，验证对方确实算出了同一个 PMK。攻击者不知道密码 → 算不出 PWE → 算不出正确 PMK → token 校验失败。</li>
-    <li><strong>在线才能验证猜测</strong>：要试一个密码，必须和 AP 真做一次 SAE 交换（在线）。AP 可以限速/锁定，<strong>离线爆破不可行</strong>。这是 SAE 相对 PSK 的根本优势。</li>
+    <li><strong>在线才能验证猜测</strong>：要试一个密码，必须和 AP (接入点) 真做一次 SAE (对等同步认证) 交换（在线）。AP 可以限速/锁定，<strong>离线爆破不可行</strong>。这是 SAE 相对 PSK (预共享密钥) 的根本优势。</li>
   </ul>
 
   <div class="callout key">
     <span class="callout-title">SAE 的代价</span>
-    <p>椭圆曲线运算（标量乘、点加）比 PBKDF2 的 HMAC 重得多，<strong>SAE 对 STA 和 AP 的 CPU 都有要求</strong>。低端 IoT 芯片做 SAE 可能要几百毫秒。这也是为什么 WPA3 强制 PMF (受保护管理帧) 但允许 WPA3 Transition Mode（WPA2/WPA3 混合）——给老设备留过渡。</p>
+    <p>椭圆曲线运算（标量乘、点加）比 PBKDF2 的 HMAC 重得多，<strong>SAE (对等同步认证) 对 STA (站点) 和 AP (接入点) 的 CPU 都有要求</strong>。低端 IoT 芯片做 SAE 可能要几百毫秒。这也是为什么 WPA3 强制 PMF (受保护管理帧) 但允许 WPA3 Transition Mode（WPA2/WPA3 混合）——给老设备留过渡。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>⚠️ 常见误区：既然都走四次握手，PMK 不是还能算出来？</h2>
 
-  <p>这是学完前两节后最自然的疑问：<strong>"4-Way Handshake 在 WPA2 和 WPA3 里完全一样，那 PMK 不还是能算出来？这次会话的数据不还是能被解密？"</strong></p>
+  <p>这是学完前两节后最自然的疑问：<strong>"4-Way Handshake 在 WPA2 和 WPA3 里完全一样，那 PMK (成对主密钥) 不还是能算出来？这次会话的数据不还是能被解密？"</strong></p>
 
-  <p>结论先给：<strong>WPA2 里能，WPA3 里不能</strong>。差别在 PMK 的派生方式，不在四次握手。</p>
+  <p>结论先给：<strong>WPA2 里能，WPA3 里不能</strong>。差别在 PMK (成对主密钥) 的派生方式，不在四次握手。</p>
 
   <div class="callout key">
     <span class="callout-title">误区根源：PMK 是不是"可被旁观者复算"</span>
-    <p>两种 PMK 派生公式对比：</p>
+    <p>两种 PMK (成对主密钥) 派生公式对比：</p>
     <div class="code-block">WPA2-PSK:   PMK = PBKDF2(密码, SSID, 4096)
                      ↑ 完全确定, 抓包者能离线复算
 
@@ -205,7 +205,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
                                       用完即弃        用完即弃
                                       不在空中传      不在空中传
 </div>
-    <p>WPA3 的 PMK 依赖两个<strong>一次性随机私钥</strong>，它们用完即弃、从不在空中明文传。攻击者抓到的 SAE Commit 帧里只有它们的"运算结果"（scalar/element），从结果反推随机私钥等价于解<strong>椭圆曲线离散对数问题（ECDLP）</strong>——目前公认不可行的数学难题。</p>
+    <p>WPA3 的 PMK (成对主密钥) 依赖两个<strong>一次性随机私钥</strong>，它们用完即弃、从不在空中明文传。攻击者抓到的 SAE (对等同步认证) Commit 帧里只有它们的"运算结果"（scalar/element），从结果反推随机私钥等价于解<strong>椭圆曲线离散对数问题（ECDLP）</strong>——目前公认不可行的数学难题。</p>
   </div>
 
   <table class="eapol-tbl">
@@ -233,17 +233,17 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
 
   <p>中间那一行就是<strong>前向保密 (Forward Secrecy)</strong>：密码今天泄露，<strong>解密不了昨天抓的包</strong>。WPA2-PSK 没有这个性质（密码泄露 → 所有历史抓包全解）。</p>
 
-  <p>攻击者要验证一个密码猜测，唯一办法是<strong>和 AP 真做一次在线 SAE 交换</strong>（AP 生成新的随机私钥参与运算）。在线 = 可被限速、锁定、检测。<strong>这就是 SAE 根治离线爆破的原因</strong>——不是改了四次握手，而是让 PMK 从"密码的确定性函数"变成了"一次性随机协商的产物"。</p>
+  <p>攻击者要验证一个密码猜测，唯一办法是<strong>和 AP (接入点) 真做一次在线 SAE (对等同步认证) 交换</strong>（AP 生成新的随机私钥参与运算）。在线 = 可被限速、锁定、检测。<strong>这就是 SAE 根治离线爆破的原因</strong>——不是改了四次握手，而是让 PMK (成对主密钥) 从"密码的确定性函数"变成了"一次性随机协商的产物"。</p>
 
   <span class="sidenote">
-    类比你熟悉的：这就是 Diffie-Hellman 密钥交换的思路——双方用各自的随机私钥在公开信道协商共享秘密，旁观者算不出来。SAE = PAKE（密码认证的 DH），BLE 配对里用的 ECDH 也是同源思想。
+    类比你熟悉的：这就是 Diffie-Hellman 密钥交换的思路——双方用各自的随机私钥在公开信道协商共享秘密，旁观者算不出来。SAE (对等同步认证) = PAKE（密码认证的 DH），BLE 配对里用的 ECDH 也是同源思想。
   </span>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>③ 4-Way Handshake：WPA2 和 WPA3 的汇合点</h2>
 
-  <p>无论 PMK 来自 PBKDF2（WPA2）还是 SAE（WPA3），<strong>从这一步开始两条路完全一样</strong>。四帧握手用同一个 PMK 派生 PTK。下面把四帧逐个拆到字段级：</p>
+  <p>无论 PMK (成对主密钥) 来自 PBKDF2（WPA2）还是 SAE（WPA3），<strong>从这一步开始两条路完全一样</strong>。四帧握手用同一个 PMK 派生 PTK (成对临时密钥)。下面把四帧逐个拆到字段级：</p>
 
   <div class="seq-diagram">
   <span class="sta">STA</span>                                       <span class="ap">AP</span>
@@ -296,7 +296,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
 
   <h2>逐帧字段表：抓包解码钥匙</h2>
 
-  <p>这张表是<strong>在 Wireshark 里读 EAPOL-Key 帧的解码表</strong>。每帧带哪些字段、为什么带：</p>
+  <p>这张表是<strong>在 Wireshark 里读 EAPOL-Key (局域网上的 EAP) 帧的解码表</strong>。每帧带哪些字段、为什么带：</p>
 
   <table class="eapol-tbl">
     <thead>
@@ -316,7 +316,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
         <td class="no">—</td>
         <td class="no">—</td>
         <td class="no">—</td>
-        <td>AP 的随机数，只在 M1 出现一次。STA 收到才能算 PTK。</td>
+        <td>AP 的随机数，只在 M1 出现一次。STA 收到才能算 PTK (成对临时密钥)。</td>
       </tr>
       <tr>
         <td class="m">SNonce</td>
@@ -327,12 +327,12 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
         <td>STA 的随机数，只在 M2 出现一次。AP 收到才能算 PTK。</td>
       </tr>
       <tr>
-        <td class="m">MIC</td>
+        <td class="m">MIC (消息完整性码)</td>
         <td class="no">无</td>
         <td class="yes">有</td>
         <td class="yes">有</td>
         <td class="yes">有</td>
-        <td>M1 无 MIC（PTK 还没算出来）。M2-M4 都用 KCK 签，证明算对了 PTK。</td>
+        <td>M1 无 MIC（PTK 还没算出来）。M2-M4 都用 KCK (密钥确认密钥) 签，证明算对了 PTK。</td>
       </tr>
       <tr>
         <td class="m">RSN-IE</td>
@@ -397,9 +397,9 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
     <span class="callout-title">怎么记这张表</span>
     <p>三条规律：</p>
     <ol>
-      <li><strong>Nonce 各发一次</strong>：ANonce 只在 M1，SNonce 只在 M2。凑齐了双方都能算 PTK。</li>
+      <li><strong>Nonce 各发一次</strong>：ANonce 只在 M1，SNonce 只在 M2。凑齐了双方都能算 PTK (成对临时密钥)。</li>
       <li><strong>MIC 从 M2 开始</strong>：M1 还没 PTK 签不出 MIC；M2-M4 都有。</li>
-      <li><strong>M3 是"大包"</strong>：GTK、Install、Secure、Encrypted 都在 M3 出现——M3 是信息量最大的一帧。</li>
+      <li><strong>M3 是"大包"</strong>：GTK (组临时密钥)、Install、Secure、Encrypted 都在 M3 出现——M3 是信息量最大的一帧。</li>
     </ol>
     <p>记不住细节没关系，<strong>抓包时对照这张表读一遍就熟了</strong>。</p>
   </div>
@@ -427,7 +427,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
       <tr>
         <td class="m">扫描/认证/关联</td>
         <td>Beacon/Probe → Auth → Assoc（第 7 课）</td>
-        <td>Beacon/Probe → <strong>SAE Commit/Confirm</strong> → Auth → Assoc</td>
+        <td>Beacon/Probe → Auth（<strong>SAE Commit/Confirm</strong> 就装在 Auth 帧里，算法号=3）→ Assoc</td>
       </tr>
       <tr>
         <td class="m">4-Way Handshake</td>
@@ -435,7 +435,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
         <td>M1-M4（用 SAE 派生的 PMK）<strong>—— 完全相同</strong></td>
       </tr>
       <tr>
-        <td class="m">PMF (管理帧保护)</td>
+        <td class="m">PMF (受保护管理帧)</td>
         <td class="diff">可选（通常关）</td>
         <td><strong>强制</strong></td>
       </tr>
@@ -447,7 +447,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
       <tr>
         <td class="m">密码要求</td>
         <td>≥8 字符</td>
-        <td><strong>≥12 字符</strong>（WFA 认证要求）</td>
+        <td><strong>仍为 8–63 字符</strong>（无 ≥12 强制；SAE 密码规范上最长 128 字节）</td>
       </tr>
       <tr>
         <td class="m">抗离线爆破</td>
@@ -464,14 +464,14 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
 
   <div class="callout key">
     <span class="callout-title">关键认知</span>
-    <p>WPA3 <strong>没有</strong>重新发明 4-Way Handshake，也没有换加密算法（仍用 AES-CCMP (基于 AES 的加密+完整性协议)）。它做的只有两件事：<strong>①</strong>把 PMK 的来源从"离线 PBKDF2"换成"在线 SAE"，根治离线爆破；<strong>②</strong>强制 PMF，根治 Deauth 攻击。<strong>4-Way Handshake 和 CCMP 是 WPA2/WPA3 共享的基石</strong>，你做固件时这两块的代码 WPA2/WPA3 通用。</p>
+    <p>WPA3 <strong>没有</strong>重新发明 4-Way Handshake，也没有换加密算法（仍用 AES-CCMP (基于 AES 的加密+完整性协议)）。它做的只有两件事：<strong>①</strong>把 PMK (成对主密钥) 的来源从"离线 PBKDF2"换成"在线 SAE"，根治离线爆破；<strong>②</strong>强制 PMF (受保护管理帧)，根治 Deauth 攻击。<strong>4-Way Handshake 和 CCMP 是 WPA2/WPA3 共享的基石</strong>，你做固件时这两块的代码 WPA2/WPA3 通用。</p>
   </div>
 
   <!-- ─────────────────────────────────────────────── -->
 
   <h2>对企业版（802.1X）的一句话补充</h2>
 
-  <p>WPA2/WPA3-Enterprise 走 802.1X/EAP (可扩展认证协议)：STA 和 RADIUS 服务器做 EAP 认证（EAP-TLS/PEAP/TTLS），AP 当中间人，认证成功后 RADIUS 把 MSK 给 AP，AP 和 STA 各自从 MSK 截取出 PMK。<strong>之后同样走标准的 4-Way Handshake</strong>。所以对企业版，PMK 来自 EAP/MSK；对 Personal 版，PMK 来自 PSK 或 SAE——<strong>4-Way Handshake 是三条路的共同汇合点</strong>。</p>
+  <p>WPA2/WPA3-Enterprise 走 802.1X/EAP (可扩展认证协议)：STA (站点) 和 RADIUS 服务器做 EAP 认证（EAP-TLS/PEAP/TTLS），AP (接入点) 当中间人，认证成功后 RADIUS 把 MSK 给 AP，AP 和 STA 各自从 MSK 截取出 PMK (成对主密钥)。<strong>之后同样走标准的 4-Way Handshake</strong>。所以对企业版，PMK 来自 EAP/MSK；对 Personal 版，PMK 来自 PSK (预共享密钥) 或 SAE (对等同步认证)——<strong>4-Way Handshake 是三条路的共同汇合点</strong>。</p>
 
   <!-- ─────────────────────────────────────────────── -->
 
@@ -481,10 +481,10 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
     <span class="callout-title">对驱动重要 / For Driver Stack</span>
     <p>WPA2/WPA3 实现在 Linux 栈里的代码分布：</p>
     <ul>
-      <li><strong>PMK 派生</strong>（PBKDF2 / SAE）：<strong>全在 wpa_supplicant 用户态</strong>。内核和驱动看不到 PMK 的派生过程，只收到 install 命令。SAE 的椭圆曲线运算（PWE/Commit/Confirm）也在 wpa_supplicant，靠 <span class="mono">crypto.h</span> 抽象的 ECC 库实现。</li>
-      <li><strong>4-Way Handshake 状态机</strong>：wpa_supplicant 的 <span class="mono">wpa.c</span>（<span class="mono">wpa_sm</span> 结构）维护 M1-M4 状态，处理收到的 EAPOL-Key 帧、派生 PTK、校验 MIC (消息完整性码)、生成回复。</li>
+      <li><strong>PMK (成对主密钥) 派生</strong>（PBKDF2 / SAE）：<strong>全在 wpa_supplicant 用户态</strong>。内核和驱动看不到 PMK 的派生过程，只收到 install 命令。SAE 的椭圆曲线运算（PWE/Commit/Confirm）也在 wpa_supplicant，靠 <span class="mono">crypto.h</span> 抽象的 ECC 库实现。</li>
+      <li><strong>4-Way Handshake 状态机</strong>：wpa_supplicant 的 <span class="mono">wpa.c</span>（<span class="mono">wpa_sm</span> 结构）维护 M1-M4 状态，处理收到的 EAPOL-Key 帧、派生 PTK (成对临时密钥)、校验 MIC (消息完整性码)、生成回复。</li>
       <li><strong>密钥 install 到硬件</strong>：wpa_supplicant 算出 PTK/GTK 后，通过 nl80211 的 <span class="mono">NL80211_CMD_NEW_KEY</span> 把密钥下发到内核 cfg80211 → mac80211 → 驱动 → 芯片 key table。芯片硬件做 CCMP (基于 AES 的加密+完整性协议) 加解密。</li>
-      <li><strong>SAE 新特性</strong>：内核侧要支持 <span class="mono">NL80211_CMD_EXTERNAL_AUTH</span>（SAE 在用户态做，内核触发）。驱动需在 Assoc Request 里正确设置 SAE 认证类型。<strong>老的只支持 WPA2 的固件不能直接上 WPA3</strong>，要确认芯片固件和 wpa_supplicant 版本。</li>
+      <li><strong>SAE 新特性</strong>：内核侧要支持 <span class="mono">NL80211_CMD_EXTERNAL_AUTH</span>（SAE 在用户态做，内核触发）。驱动需在 Authentication 请求里正确设置 SAE 认证类型。<strong>老的只支持 WPA2 的固件不能直接上 WPA3</strong>，要确认芯片固件和 wpa_supplicant 版本。</li>
       <li><strong>调试</strong>：<span class="mono">wpa_supplicant -ddd</span> 日志能看到完整的 M1-M4 交换、PTK 派生、MIC 校验。MIC 校验失败（<span class="mono">MIC check failed</span>）通常是 PMK 派生错误（密码/SSID (服务集标识) 拼接错）或 KCK (密钥确认密钥) 截取错误。</li>
     </ul>
   </div>
@@ -495,7 +495,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
 
   <div class="quiz" data-type="single"
        data-question="WPA2-PSK 里 SSID (服务集标识) 在 PMK 派生中起什么作用？为什么这么设计？"
-       data-explain="SSID 作为 PBKDF2 的盐：PMK = PBKDF2(密码, SSID, 4096, 32)。同一密码在不同 SSID 下派生出完全不同的 PMK。这是为了防预计算彩虹表——攻击者不能用一套通用字典攻击所有网络，必须针对每个 SSID 重新计算。历史上有人对常见 SSID（linksys/netgear 等出厂默认名）做预计算，所以建议改默认 SSID。">
+       data-explain="SSID 作为 PBKDF2 的盐：PMK = PBKDF2(密码, SSID, 4096, 32)。同一密码在不同 SSID 下派生出完全不同的 PMK (成对主密钥)。这是为了防预计算彩虹表——攻击者不能用一套通用字典攻击所有网络，必须针对每个 SSID 重新计算。历史上有人对常见 SSID（linksys/netgear 等出厂默认名）做预计算，所以建议改默认 SSID。">
     <script type="application/json">
       [
         { "text": "作盐，同一密码在不同 SSID 派生出不同 PMK，防彩虹表", "correct": true },
@@ -508,12 +508,12 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
 
   <div class="quiz" data-type="single"
        data-question="4-Way Handshake 的 M1 为什么没有 MIC (消息完整性码)，而 M2/M3/M4 都有？"
-       data-explain="MIC 用 PTK 里的 KCK (密钥确认密钥) 计算。M1 是 AP 发 ANonce——此刻 STA 还没生成 SNonce，PTK 还没派生出来，AP 自然没法用 KCK 签 MIC。STA 收到 M1 后生成 SNonce 才能算 PTK，所以从 M2 起才能签 MIC。M2 的 MIC 是 STA 第一次证明"我算出了正确 PTK"。">
+       data-explain="MIC (消息完整性码) 用 PTK (成对临时密钥) 里的 KCK (密钥确认密钥) 计算。M1 是 AP 发 ANonce——此刻 STA 还没生成 SNonce，PTK 还没派生出来，AP 自然没法用 KCK 签 MIC。STA 收到 M1 后生成 SNonce 才能算 PTK，所以从 M2 起才能签 MIC。M2 的 MIC 是 STA 第一次证明「我算出了正确 PTK」。">
     <script type="application/json">
       [
-        { "text": "M1 时 PTK 还没派生出来，没法用 KCK 签 MIC", "correct": true },
         { "text": "M1 是明文帧，不允许带加密字段",              "correct": false },
         { "text": "AP 不支持计算 MIC，只有 STA 会",            "correct": false },
+        { "text": "M1 时 PTK 还没派生出来，没法用 KCK 签 MIC", "correct": true },
         { "text": "M1 的内容太短，不需要 MIC",                 "correct": false }
       ]
     </script>
@@ -521,7 +521,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
 
   <div class="quiz" data-type="single"
        data-question="WPA3 的 SAE (对等同步认证) 握手在哪一步完成，相对于关联和 4-Way Handshake？"
-       data-explain="SAE 的 Commit/Confirm 在关联之前完成（它取代了 WPA2 里 PSK (预共享密钥) 那个无网络交互的 PMK 派生环节）。顺序：Beacon/Probe → SAE Commit/Confirm → Auth → Assoc → 4-Way Handshake。SAE 产出 PMK 后，4-Way Handshake 完全照 WPA2 的 M1-M4 走——4-Way Handshake 是 WPA2/WPA3 的共同汇合点。">
+       data-explain="SAE 的 Commit/Confirm 在关联之前完成（它取代了 WPA2 里 PSK (预共享密钥) 那个无网络交互的 PMK (成对主密钥) 派生环节）。顺序：Beacon/Probe → Auth（SAE Commit/Confirm 就装在 Auth 帧里）→ Assoc → 4-Way Handshake。SAE 产出 PMK 后，4-Way Handshake 完全照 WPA2 的 M1-M4 走——4-Way Handshake 是 WPA2/WPA3 的共同汇合点。">
     <script type="application/json">
       [
         { "text": "关联之前，SAE Commit/Confirm 产出 PMK，然后正常走 4-Way", "correct": true },
@@ -537,9 +537,9 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
        data-explain="Replay Counter 防重放攻击。STA 收到 EAPOL-Key 帧时检查 Replay Counter，比上次记录的小就丢弃。著名的 KRACK 攻击（Vanhoef 2017）就是绕过这个——通过阻塞 M3、伪造重放多个 M3 给 STA，强制 STA 重置 nonce（重装密钥），导致同一个 nonce 加密多个帧，破坏 CCMP (基于 AES 的加密+完整性协议) 的安全性。所以 Replay Counter 是 KRACK 的防御前线，但实现 bug 仍可能被绕过。">
     <script type="application/json">
       [
-        { "text": "重放攻击（如 KRACK 强制 nonce 重用）", "correct": true },
         { "text": "中间人攻击",                          "correct": false },
         { "text": "离线字典攻击",                        "correct": false },
+        { "text": "重放攻击（如 KRACK 强制 nonce 重用）", "correct": true },
         { "text": "Deauth 攻击",                         "correct": false }
       ]
     </script>
@@ -563,7 +563,7 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
     <li>说清 WPA2 和 WPA3 在哪一步开始相同、哪一步不同</li>
     <li>理解 PBKDF2 的 SSID 盐、4096 轮、SAE 的 PWE/Commit/Confirm 各自的设计意图</li>
     <li>定位 MIC 校验失败、4-Way 超时该查 wpa_supplicant 的哪段代码</li>
-    <li>知道为什么做新固件该上 WPA3 + H2E + PMF</li>
+    <li>知道为什么做新固件该上 WPA3 + H2E + PMF (受保护管理帧)</li>
   </ul>
 
   <!-- ─────────────────────────────────────────────── -->
@@ -574,8 +574,8 @@ WPA3-SAE:   PMK = f( 密码派生的PWE,  STA的随机私钥,  AP的随机私钥
     <span class="callout-title">下一课：回到 MAC 主线</span>
     <p>安全分支（第 9 + 10 课）讲完了。接下来回到 MAC 主线，按固件优先级：</p>
     <ul>
-      <li><strong>第 11 课 · QoS (服务质量) / EDCA (增强分布式信道接入) 细节</strong>：四个 AC (接入类别)（语音/视频/尽力/背景）的 AIFS (任意帧间间隔)/CWmin/CWmax/TXOP 怎么分级调度。兑现第 5 课伏笔，是你做驱动 tx 队列按 TID (业务标识符) 分流的理论基础。</li>
-      <li><strong>第 12 课 · 聚合 / Block ACK (确认帧)</strong>：A-MPDU/A-MSDU 怎么打包提吞吐。兑现第 6 课伏笔。</li>
+      <li><strong>第 11 课 · QoS (服务质量) / EDCA (增强分布式信道接入) 细节</strong>：四个 AC (接入类别)（语音/视频/尽力/背景）的 AIFS (仲裁帧间间隔)/CWmin/CWmax/TXOP 怎么分级调度。兑现第 5 课伏笔，是你做驱动 tx 队列按 TID (业务标识符) 分流的理论基础。</li>
+      <li><strong>第 12 课 · 聚合 / Block ACK (块确认)</strong>：A-MPDU/A-MSDU 怎么打包提吞吐。兑现第 6 课伏笔。</li>
       <li><strong>第 13 课起 · PHY (物理层) 深水区</strong>：MIMO/OFDMA/BSS Color（Wi-Fi 6 PHY 核心，最大的洞）。</li>
     </ul>
     <p>或者你想继续深挖安全（SAE 的 Dragonfly 数学、GCMP vs CCMP、802.1X/EAP-TLS 实战），告诉我。</p>

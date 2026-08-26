@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企课 7 · 安全运营与访客 —— 攻击者的视角与门外汉的入口</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    企课 7 / Enterprise 0007 · 安全运营 · 对应书 Ch16 + Ch17/18 节选 ·
+    <a href="./0006-site-survey-validation.html">← 企课 6</a> ·
+    <a href="./index.html">本课程首页</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="../index.html">主课程路线图</a>
+  </div>
+
+  <h1>安全运营与访客 —— 攻击者的视角与门外汉的入口</h1>
+
+  <p>主课第 9/10 课讲了"怎么加密、怎么认证"（协议的正当面）；这课看<strong>反面（攻击者视角）和企业为外人准备的门</strong>（EAP（可扩展认证协议）家族、访客接入、Hotspot 2.0）。贯穿一个实用动机：<strong>很多"稳定性异常"其实是攻击（deauth 泛洪）或被误判为攻击（换信道、邻居干扰）</strong>——会识别，才不冤枉好人也不放过真凶。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：安全 = 认证 + 加密 + 监测</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>主课完成了前两件（认证：SAE（对等同步认证）/802.1X（基于端口的网络接入控制）；加密：CCMP（计数器模式密码块链消息认证码协议）/GCMP（伽罗瓦计数器模式协议））。企业安全还有<strong>第三件：监测</strong>——WIPS（无线入侵防御系统）持续监听空口找异常。<strong>攻击者的所有手段，都能映射回你学过的帧结构</strong>：deauth（解除认证）不过是第 7 课那帧的滥用，evil twin（恶魔双子）不过是第 7 课扫描机制的伪造。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 攻击面一巡（全部能对回已学知识）</h2>
+
+  <div class="cca-diagram">
+<span class="bad">窃听</span>          开放网络明文/抓包分析 (主课 20 monitor(监听)的双刃剑面)
+<span class="bad">WPA2-PSK 离线爆破</span>  抓四次握手回家跑字典 (主课 9: PMK(成对主密钥)只由密码+SSID(服务集标识)决定)
+<span class="bad">Rogue AP(非法接入点)</span>  未经授权的 AP 接进内网 → 私接/后门
+<span class="bad">Evil Twin(恶魔双子)</span>  同名同 BSSID(基本服务集标识)的假 AP 钓鱼
+<span class="bad">Deauth 泛洪</span>      海量解除认证帧踢人下线 — 无线层的拒绝服务
+                   <span class="good">对策: PMF(受保护管理帧, 11w, 主课 10)</span>
+<span class="bad">KRACK</span>           M3(第三个握手消息)重放致 nonce(临时值)重装 (主课 10)
+<span class="bad">Dragonblood</span>      SAE 侧信道/降级 (主课 10; SAE 防离线爆破但防不了在线 DoS(拒绝服务)阻塞)
+<span class="bad">WPS PIN</span>         弱校验位可暴力破解 (老路由器时代遗产)
+</div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② WIPS：第三只眼</h2>
+
+  <p>WIPS（Wireless Intrusion Prevention System，无线入侵防御系统）= <strong>专用传感器</strong>（盯空口的监听射频）+ <strong>分类引擎</strong>（把见到的设备分成：友方 authorized（授权）/ 邻居 neighbor（别人的网，无害）/ 流氓 rogue（有害））+ <strong>处置动作</strong>（告警，或"抑制 containment"——例如对 rogue AP（非法接入点）的客户端反向发 deauth（解除认证）把它们赶走。有趣吧：<strong>防御系统用的正是攻击者的招</strong>）。</p>
+
+  <p>你排查时的对照：抓包里看到 deauth 帧<strong>先别喊攻击</strong>——AP 重启、漫游配合、信道调整也会发；<strong>洪泛式（短时间成百上千、无差别）才是攻击特征</strong>；有 PMF（受保护管理帧）的网络上加密管理帧无法伪造，是判别依据之一。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 企业认证的实操面：EAP 家族</h2>
+
+  <p>802.1X 的三角色（主课 9 讲过）：supplicant（请求者，客户端）/ authenticator（认证者，AP 只当"看门的"）/ authentication server（认证服务器，RADIUS（远程认证拨号用户服务））。框架是 EAP（RFC 3748），方法按"证书要求"排：</p>
+
+  <table class="compare-table">
+    <thead><tr><th>方法</th><th>服务端证书</th><th>客户端凭据</th><th>内层认证</th><th>一句话定位</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">EAP-TLS</td><td>要</td><td>证书</td><td>无需（TLS 双向直接认证）</td><td><strong>金标准</strong>，无密码钓鱼面；PKI（公钥基础设施）部署贵</td></tr>
+      <tr><td class="mono">PEAP</td><td>要</td><td>用户名/密码</td><td>通常 MS-CHAPv2（微软质询握手协议第二版）</td><td>最普及；弱在内层是密码</td></tr>
+      <tr><td class="mono">EAP-TTLS</td><td>要</td><td>灵活</td><td>PAP/CHAP/MS-CHAP/EAP 皆可</td><td>和 PEAP 同思路，内层更灵活（对接异构目录）</td></tr>
+      <tr><td class="mono">EAP-FAST</td><td>不要</td><td>PAC（受保护接入凭据）</td><td>多种</td><td>思科系、免证书；渐被 TLS 取代</td></tr>
+      <tr><td class="mono">EAP-SIM/AKA</td><td>—</td><td>SIM/USIM（通用用户识别模块）卡</td><td>—</td><td>运营商 Wi-Fi：信任委托给手机卡</td></tr>
+    </tbody>
+  </table>
+
+  <p>选型直觉：<strong>新部署选 EAP-TLS（业界推荐），存量密码体系用 PEAP/TTLS</strong>。所有"隧道方法"（PEAP/TTLS/FAST）都是外层 TLS（传输层安全）隧道 + 内层第二道认证的结构——像"先关上门再对暗号"。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 门外汉的门：开放网络、访客、Hotspot 2.0</h2>
+
+  <ul>
+    <li><strong>OWE / Enhanced Open（增强开放，RFC 8110）</strong>：开放网络的现代化——无密码但用 Diffie-Hellman（迪菲-赫尔曼密钥交换，主课 10 讲过）给每个客户端做"机会主义加密"：防路过窃听，<strong>但不认证网络</strong>（对主动中间人无防）。有 OWE 过渡模式（同时广播一个传统开放 SSID 兼容老设备）。</li>
+    <li><strong>访客接入（Guest）</strong>：强制门户（captive portal，网页认证）+ <strong>客户端隔离</strong>（访客之间互相不可见）+ 独立 VLAN（虚拟局域网）分段——"让外人上网，但别让外人进内网"的三板斧。</li>
+    <li><strong>Hotspot 2.0 / Passpoint（通行证认证）</strong>：基于 802.11u（互通）——手机用 <strong>ANQP（接入网络查询协议）</strong>在<strong>关联之前</strong>问 AP："你是哪家运营商的网？用什么 EAP？收费吗？"，匹配凭据后自动连接自动认证（运营商场景配 EAP-SIM/AKA，手机卡就是凭据）。R2 的 OSU（在线注册）机制已于 2023 年 6 月被 Wi-Fi Alliance（Wi-Fi 联盟）弃用，改由 App/凭据下发等现代方式配置。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动工程师：安全特性落在固件哪层</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <ul>
+      <li><strong>PMF（受保护管理帧）</strong>：管理帧加密（SAE（对等同步认证）单播用 CCMP（计数器模式密码块链消息认证码协议）加密、组播用 BIP（广播完整性协议）完整性保护）——mac80211 的 MFP 支持由 wpa_supplicant（认证器客户端）经 nl80211 协商，硬件要支持管理帧走加密路径。嵌入式产品做 WPA3 认证必须开 PMF。</li>
+      <li><strong>嵌入式设备的 802.1X</strong>：产品要接企业网 = wpa_supplicant 企业模式配置（EAP-TLS 装证书）——固件工程师的真实交付项之一。</li>
+      <li><strong>deauth 攻击的抓包识别</strong>：主课 20 的过滤器 <span class="mono">wlan.fc.type_subtype == 0x000c</span> 直接数帧——洪泛特征一分钟现形。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：安全运营吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="抓包发现网络里出现 deauth（解除认证）帧，下面哪个判别路径是对的？"
+       data-explain="deauth 不等于攻击：AP（接入点）重启/信道调整、漫游配合都会正常发。攻击特征是「洪泛式」——短时间大量、无差别。判别步骤：先看数量与节奏（洪泛？），再看目标（无差别还是特定客户端），再看网络是否启用 PMF（受保护管理帧）——PMF 网络上管理帧带 MIC（消息完整性码），伪造的 deauth 直接被丢弃。「>
+    <script type="application/json">
+      [
+        { "text": "出现即攻击，立刻断网报警", "correct": false },
+        { "text": "先看数量节奏（洪泛？）与目标（无差别？），再结合 PMF 是否启用判真伪", "correct": false },
+        { "text": "看节奏与目标是否洪泛无差别，PMF 网络可凭 MIC 直接识别伪造 deauth", "correct": true },
+        { "text": "deauth 帧只会由攻击者发出", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="PEAP 和 EAP-TTLS 的核心区别是什么？"
+       data-explain="两者结构同构：服务端证书建外层 TLS（传输层安全）隧道 + 隧道内跑第二道认证。区别在内层：PEAP 内层几乎总是 MS-CHAPv2（微软生态密码认证）；TTLS 支持更广的内层方法（PAP/CHAP/MS-CHAP/EAP 本身），方便对接非微软目录。EAP-TLS 则根本不需要内层——客户端证书直接完成双向认证。「>
+    <script type="application/json">
+      [
+        { "text": "TTLS 不要证书，PEAP 要", "correct": false },
+        { "text": "外层隧道结构相同，区别在内层方法：PEAP 通常 MS-CHAPv2，TTLS 支持多种内层", "correct": true },
+        { "text": "PEAP 更安全，TTLS 已被淘汰", "correct": false },
+        { "text": "TTLS 是 TLS 的旧版本", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="OWE（增强开放）提供什么、不提供什么？"
+       data-explain="OWE（RFC 8110）用 Diffie-Hellman（迪菲-赫尔曼密钥交换）给开放网络加「机会主义加密」：每个客户端与 AP 协商独立密钥，防的是路过窃听（被动抓包）。但它<strong>不认证网络</strong>——客户端无法确认连的是不是真 AP，主动中间人（evil twin（恶魔双子）类）不在防护范围。一句话：防偷看，不防假冒。要防假冒得上认证（SAE（对等同步认证）/802.1X）。「>
+    <script type="application/json">
+      [
+        { "text": "防窃听（被动抓包），不防主动中间人假冒（无网络认证）", "correct": false },
+        { "text": "既防窃听也防假冒，等同 WPA3", "correct": false },
+        { "text": "防假冒接入点，不防窃听", "correct": false },
+        { "text": "提供免密码的逐客户端加密防窃听；无网络认证，不防主动中间人", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="手机在机场连运营商 Wi-Fi 时「没输密码就连上并认证了」，哪套机制在幕后工作？"
+       data-explain="Hotspot 2.0/Passpoint（通行证认证）链：802.11u 让手机用 ANQP（接入网络查询协议）在关联前问清「这是谁家的网、用什么 EAP（可扩展认证协议）」；凭据匹配（运营商场景通常是 EAP-SIM/AKA——手机卡就是凭据，信任委托给运营商）后自动关联自动认证。全程无密码输入，因为认证材料是 SIM（用户识别模块）卡。「>
+    <script type="application/json">
+      [
+        { "text": "WPS（Wi-Fi 保护设置）一键连接", "correct": false },
+        { "text": "Hotspot 2.0：802.11u+ANQP 关联前发现，凭 EAP-SIM/AKA 用手机卡自动认证", "correct": true },
+        { "text": "OWE 自动加密了所以不用认证", "correct": false },
+        { "text": "机场网络没加密，谁都能直接连", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：攻击全映射 + 一张 EAP 表</h2>
+  <ol>
+    <li><strong>攻击面全映射</strong>：窃听/PSK 离线爆破/rogue（非法接入点）/evil twin（恶魔双子）/deauth 泛洪/KRACK/Dragonblood——每一个都能对回已学帧结构和握手</li>
+    <li><strong>WIPS 三件</strong>：传感器（监听射频）+ 分类（授权/邻居/流氓）+ 处置（抑制也是发 deauth（解除认证））；判攻击看"洪泛无差别"，PMF（受保护管理帧）网络可验伪</li>
+    <li><strong>EAP（可扩展认证协议）表</strong>：TLS（传输层安全，双证书金标准）/PEAP（密码内层，最普及）/TTLS（内层灵活）/FAST（思科免证书）/SIM·AKA（手机卡凭据）</li>
+    <li><strong>门三道</strong>：OWE（RFC 8110，防窃听不防假冒）+ 访客三板斧（门户/隔离/分段）+ Hotspot 2.0（802.11u+ANQP（接入网络查询协议）关联前发现，EAP-SIM 免密）</li>
+  </ol>
+
+  <p>你现在能做的：用主课 20 的过滤器数一次 deauth 帧；给自己的嵌入式设备规划一次 EAP-TLS 接入；把"稳定性异常"排查树里加上"攻击"分支（企课 8 汇总）。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课（收官）</strong>：<a href="./0008-streaming-stability-playbook.html">企课 8 · 拉流与稳定性排查实战</a><br>
+      <a href="./0006-site-survey-validation.html">← 企课 6</a> ·
+      <a href="./index.html">本课程首页</a> ·
+      <a href="../index.html">主课程路线图</a>
+    </p>
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，进收官实战」<br>
+      • 「公司的 EAP 部署想对号入座」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://www.intel.com/content/www/us/en/support/articles/000006999/wireless/legacy-intel-wireless-products.html">Intel — 802.1X Overview and EAP Types</a>（EAP 方法证书/内层要求）</li>
+    <li><a href="https://www.purple.ai/en-gb/guides/eap-methods-compared-peap-eap-tls-eap-ttls-and-eap-fast">Purple.ai — EAP Methods Compared</a>（PEAP/TTLS/FAST 结构对比）</li>
+    <li><a href="https://en.wikipedia.org/wiki/Opportunistic_Wireless_Encryption">Wikipedia — Opportunistic Wireless Encryption</a>（OWE RFC 8110 与过渡模式）</li>
+    <li><a href="https://arubanetworking.hpe.com/techdocs/aos/wifi-design-deploy/security/modes/enhanced-open/">Aruba TechDocs — Enhanced Open</a>（OWE 部署实务）</li>
+    <li><a href="https://www.ironwifi.com/blogs/hotspot-2-0-wifi-guide/">IronWiFi — Hotspot 2.0 Guide</a>（802.11u/ANQP/OSU 框架）</li>
+    <li><a href="https://source.android.com/docs/core/connect/wifi-passpoint">Android Open Source — Passpoint</a>（含 OSU 于 2023-06 被弃用的说明）</li>
+    <li><a href="https://wpa3.mathyvanhoef.com/">Dragonblood — Mathy Vanhoef</a>（SAE 侧信道与 DoS 面研究）</li>
+    <li>CWNA-108 Study Guide, Ch.16–Ch.18（本课骨架；按课程规则不要求阅读）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>

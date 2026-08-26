@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企课 5 · WLAN 设计概念 —— 覆盖与容量的拔河</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .cca-diagram {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    line-height: 1.65;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1rem;
+    margin: 1.3rem 0;
+    overflow-x: auto;
+    color: var(--ink-soft);
+    white-space: pre;
+  }
+  .cca-diagram .mine { color: #2f6b42; font-weight: 700; }
+  .cca-diagram .note { color: var(--ink-faint); font-style: italic; }
+  .cca-diagram .threshold { color: var(--accent); font-weight: 700; }
+  .cca-diagram .bad { color: #9a2a16; font-weight: 600; }
+  .cca-diagram .good { color: #2f6b42; font-weight: 600; }
+
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    margin: 1.3rem 0;
+    background: #fff;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .compare-table th, .compare-table td {
+    padding: 0.45rem 0.6rem;
+    text-align: left;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  .compare-table thead th {
+    background: #f3efe6;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .compare-table tbody tr:last-child td { border-bottom: none; }
+  .compare-table tbody tr:nth-child(even) { background: #fbf9f4; }
+  .compare-table .mono { font-family: var(--mono); }
+  .compare-table .num { font-family: var(--mono); color: var(--accent); font-weight: 600; }
+
+  .sources-list {
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    padding-left: 1.2rem;
+  }
+  .sources-list li { margin-bottom: 0.3rem; }
+  .sources-list a { color: var(--accent); text-decoration: none; }
+  .sources-list a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main>
+
+  <div class="lesson-meta">
+    企课 5 / Enterprise 0005 · 设计概念 · 对应书 Ch13 ·
+    <a href="./0004-wlan-architecture-poe.html">← 企课 4</a> ·
+    <a href="./index.html">本课程首页</a> ·
+    <a href="../GLOSSARY.md">术语表</a> ·
+    <a href="../reference/wifi-terms-cheatsheet.html">术语速查表</a> ·
+    <a href="../index.html">主课程路线图</a>
+  </div>
+
+  <h1>WLAN 设计概念 —— 覆盖与容量的拔河</h1>
+
+  <p>"晚高峰全员卡顿""会议室一开会就卡""走到茶水间视频就糊"——<strong>这类问题多数不是协议 bug，是设计账没算对</strong>。这课给你设计者的判断力：知道一个环境的信号/负载/信道"应该长什么样"，才能判断它"现在是不是本来就不行"。这也是企课 8（拉流排查手册）的理论半边。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>支点：先问"到不到"，再问"够不够分"</h2>
+
+  <div class="callout key">
+    <span class="callout-title">本课支点 / Core Insight</span>
+    <p>设计只有两种失败模式：<strong>覆盖失败</strong>（信号没到——角落没信号）和<strong>容量失败</strong>（信号到了但空口不够分——人一多全卡）。修法完全相反：<strong>覆盖不足加 AP（发射功率），容量不足也要加 AP（缩小小区）——但加密 AP 必须同时管好信道复用，否则同频干扰自伤</strong>。现代高密度 Wi-Fi 的主矛盾几乎都是容量。</p>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>① 覆盖设计：目标值一张表</h2>
+
+  <table class="compare-table">
+    <thead><tr><th>指标</th><th>目标值</th><th>用途</th></tr></thead>
+    <tbody>
+      <tr><td>小区边缘信号</td><td class="num">−67 dBm（分贝毫瓦）</td><td>语音/实时级设计线（Cisco/CWNA 惯例）</td></tr>
+      <tr><td>小区边缘信号</td><td class="num">−70 dBm</td><td>一般数据级设计线（Apple 设计指南底线）</td></tr>
+      <tr><td>SNR（信噪比）</td><td class="num">≥ 25 dB</td><td>语音级；数据可放宽到 ~20dB</td></tr>
+      <tr><td>漫游重叠区</td><td class="num">次强 AP −70 ~ −75 dBm</td><td>保证切换不断流（主课 17 的漫游决策有得选）</td></tr>
+      <tr><td>重试率</td><td class="num">&lt; 15%</td><td>健康网络经验线</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>覆盖设计的头号反模式：信号不够就加大功率</strong>。后果三连：① 手持设备上行功率跟不上（手机发不回 AP——下行喊得远、上行喊不应，链路预算其实不对称）；② 小区变大塞进更多终端 → 容量雪崩；③ 挤进邻居信道 → 干扰半径扩大。<strong>正确动作是加 AP 缩小区，而不是加功率</strong>。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>② 容量设计：airtime（空口时间）才是终极货币</h2>
+
+  <div class="cca-diagram">
+容量账算法 (粗糙但有效):
+  并发用户数 N × 每用户需求吞吐 R  ≤  单 AP 实际吞吐 × 同时关联能力
+  例: 会议室 30 人 × 2Mbps(视频会议) = 60Mbps 持续需求
+      一台 11ac AP 实际吞吐 ≈ 标称的 <span class="bad">一半甚至更低</span> (半双工+管理帧+竞争)
+      → 单 AP 勉强; 加上信令/突发 → 该拆双 AP 或引导到 5GHz/6GHz
+
+<span class="good">高密度四板斧:</span>
+  ① 缩小小区 (AP 密一些, 功率调低)
+  ② 频段引导 band steering(频段引导): 把能上 5/6GHz 的终端赶出 2.4GHz
+  ③ <span class="threshold">关掉低速率集</span> (禁 1/2/5.5Mbps): 慢帧占空口时间 → 企课 3 的 11b 遗产
+  ④ 双 5GHz / SDR(软件定义射频): 一个射频软切成第二个 5G, 容量翻倍
+<span class="note">信道利用率(CU)健康线: 语音级环境 &lt;20-30%; 超过 = 空口排队, 延迟抖动全来</span>
+</div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>③ 信道设计：宁可同频，不可邻频</h2>
+
+  <p>这是全书最反直觉的一条：<strong>同频复用（CCI，同信道干扰）是"礼貌排队"——两台同信道 AP 下的设备靠 CSMA/CA（载波侦听多址接入/碰撞避免，主课 5）互相让路，是可协调的损耗；邻频重叠（ACI，邻信道干扰）是"野蛮插队"——半重叠信道互相把对方当噪声，不退避、不协调，损耗更狠</strong>。所以信道规划宁可让相邻 AP 用同一个干净信道（分时），也不要用只隔开一点的半重叠信道。2.4GHz 只有 1/6/11 三个干净位置（企课 3/主课 16）；5GHz 规划同理 + DFS（动态频率选择）雷达避让；边界设计常参考同信道小区边界约 −82dBm。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>④ 漫游与视频：把你的拉流场景接上</h2>
+
+  <ul>
+    <li><strong>漫游设计</strong>：小区重叠 15–20% 够用（太多重叠 = 同频干扰，太少 = 漫游空洞）；切换阈值经验 −70dBm 上下；5GHz 边缘要"赶"设备下 2.4GHz 或贴新 AP——<strong>粘性客户端（sticky client）</strong>抱死弱信号 AP 是"移动时卡"的高频原因（主课 17 讲过机制，这里是设计侧配平）。</li>
+    <li><strong>视频拉流设计侧</strong>：视频是"高吞吐 + 持续 + 抖动敏感"负载。设计要点：给常看视频的区域留 SNR（信噪比）余量（保 MCS（调制与编码方案）稳定不抖，主课 18）；<strong>别让用户在小区边缘拉流</strong>（边缘 = 速率自适应震荡区）；4K（超高清）按 ~25Mbps/路做容量账；组播视频（IPTV（交互式网络电视）类）在 Wi-Fi 上不可靠（组播无重传，主课 12），通常要转单播或走优先级队列（主课 11 的视频 AC（接入类别））。</li>
+  </ul>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>对驱动工程师：设计参数落在哪层</h2>
+
+  <div class="callout firmware">
+    <span class="callout-title">对驱动重要 / For Driver Stack</span>
+    <ul>
+      <li><strong>关低速率集</strong> = 改 basic rates（基本速率集）：AP（接入点）的 Beacon（信标帧）/组播速率与关联协商下限——驱动侧就是 regdomain/rate mask 配置（主课 19 的能力声明）。</li>
+      <li><strong>频段引导 / 负载均衡</strong>：有的在固件（拒绝关联/引导Probe（探测）响应），有的在控制器/云——排查"设备连不上好频段"时先分清谁在做决策（企课 4 的控制面问题）。</li>
+      <li><strong>Airtime fairness（空口时间公平）</strong>：mac80211 的 txq（每站点发送队列，主课 19 黑话）就是执行机构——设计目标"别让一个慢终端拖死全场"的代码落点。</li>
+    </ul>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>自检：设计概念吃透了吗</h2>
+
+  <div class="quiz" data-type="single"
+       data-question="相邻两个 5GHz AP 的信道只隔开 20MHz（半重叠）。为什么说这比「干脆用同一个信道」更糟？"
+       data-explain="同信道干扰（CCI）是可协调的：双方设备互相侦听、CSMA/CA 分时让路，是「礼貌排队」。邻信道干扰（ACI）不可协调：半重叠信道互相把对方当底噪抬升，既不退避也无同步，SNR（信噪比）双降。所以信道规划的原则是「宁可同频复用，不可邻频重叠」——反直觉但可验证。「>
+    <script type="application/json">
+      [
+        { "text": "同信道设备会用 CSMA/CA 互相协调分时；半重叠信道互当噪声且无法协调", "correct": true },
+        { "text": "邻信道信号强度总是更强，会盖住对方", "correct": false },
+        { "text": "半重叠信道会触发法规违规", "correct": false },
+        { "text": "其实邻频更好，题目的说法过时了", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="某仓库角落信号弱，运维把 AP 发射功率从 14dBm 拉满到 30dBm。最可能的三连后果是？"
+       data-explain="① 上行不对称：AP 喊得更远，但手持设备的发射功率跟不上，「听得到连不上」；② 小区变大 → 关联终端更多 → 容量下降（更多设备分享同一空口）；③ 干扰半径扩大，伤及邻近信道/邻居网络。正确做法是加 AP 缩小区。这就是覆盖设计的头号反模式。「>
+    <script type="application/json">
+      [
+        { "text": "只是覆盖变好，没有副作用", "correct": false },
+        { "text": "上行跟不上、小区内终端变多容量降、干扰半径扩大", "correct": false },
+        { "text": "AP 过热导致夜间重启", "correct": false },
+        { "text": "上下行不对称、容量被摊薄、干扰半径扩大——该加 AP 而不是加功率", "correct": true }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="高密度部署里「禁用 1/2/5.5Mbps 低速率」为什么能提升全网体验？"
+       data-explain="低速帧的空口时间成本极高：同样 1500 字节，1Mbps 要占约 12ms，MCS 高档只要几十微秒——差几百倍。只要有一个终端在用低速率（哪怕只是组播/信标），全小区的空口时间就被大量吃掉。禁用低速率集 = 把「慢车」请出快车道。这是空口时间（airtime）思维的直接应用，也是企课 3 里 11b 遗产的治理手段。「>
+    <script type="application/json">
+      [
+        { "text": "低速帧占用的空口时间比高速帧高几百倍，一个慢设备能拖累全小区", "correct": false },
+        { "text": "低速帧单位比特的空口时间成本高几百倍，禁掉它们释放全小区空口时间", "correct": true },
+        { "text": "低速率辐射更大，禁用为了健康", "correct": false },
+        { "text": "法规要求高密度必须禁用 11b", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <div class="quiz" data-type="single"
+       data-question="会议室 40 人各看一路 1080p（约 5Mbps）视频，物业只在会议室装了一台双频 AP。最贴切的判断是？"
+       data-explain="容量账：40×5Mbps=200Mbps 持续需求；单台双频 AP 的实际吞吐（约标称一半，2.4GHz 那半还帮不上忙）大概率不够，且 40 终端共享空口的排队延迟会让视频先抖后卡。这是典型的容量失败场景：信号可能都很好（覆盖 OK），但空口不够分。解法：拆多 AP 小区+频段引导+可能的专用视频区域设计。「>
+    <script type="application/json">
+      [
+        { "text": "容量不足：约 200Mbps 持续需求超单 AP 实际能力，需要多 AP 拆分小区", "correct": true },
+        { "text": "没问题，AP 标称 1.7Gbps 远大于 200Mbps", "correct": false },
+        { "text": "是覆盖问题，AP 功率开大即可", "correct": false },
+        { "text": "是安全问题，人多时认证服务器忙不过来", "correct": false }
+      ]
+    </script>
+  </div>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <h2>这课的钉子：两问 + 一反 + 一直觉</h2>
+  <ol>
+    <li><strong>两问</strong>：信号到不到（覆盖，−67/−70dBm（分贝毫瓦）线）？空口够不够分（容量，airtime（空口时间）账）？失败模式不同修法相反</li>
+    <li><strong>一反模式</strong>：信号差就加功率——上行不对称/容量摊薄/干扰扩大三连；正确解是加 AP 缩小区</li>
+    <li><strong>一反直觉</strong>：宁可同频复用（可协调的 CSMA/CA 排队），不可邻频半重叠（不可协调的噪声）</li>
+    <li><strong>视频设计线</strong>：SNR 留余量保 MCS 稳、别在小区边缘拉流、按 25Mbps/4K 做容量账、组播视频不可靠</li>
+    <li><strong>高密度四板斧</strong>：缩小区 / 频段引导 / 禁低速率 / 双 5GHz（SDR（软件定义射频））</li>
+  </ol>
+
+  <p>你现在能做的：给自家网络算一次容量账；看看周围 2.4GHz 有没有半重叠信道；判断"晚高峰卡"是覆盖还是容量失败。</p>
+
+  <!-- ─────────────────────────────────────────────── -->
+
+  <div class="lesson-foot">
+    <p>
+      <strong>下一课</strong>：<a href="./0006-site-survey-validation.html">企课 6 · 勘测与验证</a><br>
+      <a href="./0004-wlan-architecture-poe.html">← 企课 4</a> ·
+      <a href="./index.html">本课程首页</a> ·
+      <a href="../index.html">主课程路线图</a>
+    </p>
+    <div class="ask-prompt">
+      💡 <strong>学完请回来反馈</strong> —— 例如：<br>
+      • 「四道自检题答对了，继续企课 6」<br>
+      • 「给我公司的环境做一次设计对号入座」<br>
+      你的反馈决定下一课切入点。
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <h2>内容来源</h2>
+  <ul class="sources-list">
+    <li><a href="https://hcsonline.com/support/resources/white-papers/wireless-network-design-with-apple-devices">Apple — Wireless Network Design Guide</a>（−70dBm/SNR 25dB 设计线）</li>
+    <li><a href="https://documentation.meraki.com/Platform_Management/Dashboard_Administration/Design_and_Configure/Architectures_and_Best_Practices/Cisco_Meraki_Best_Practice_Design/Best_Practice_Design_-_MR_Wireless/High_Density_Wi-Fi_Deployments">Cisco Meraki — High-Density Wi-Fi Design</a>（高密度目标值与 25dB SNR）</li>
+    <li><a href="https://www.netally.com/tech-tips/understand-noise-with-wi-fi-snr/">NetAlly — Wi-Fi SNR 指南</a>（语音级 25dB 与噪声诊断）</li>
+    <li><a href="https://www.cisco.com/c/en/us/td/docs/wireless/controller/technotes/8-7/b_wireless_high_client_density_design_guide.html">Cisco — High Client Density Design Guide</a>（信道利用率与容量规划）</li>
+    <li><a href="https://support.huawei.com/enterprise/en/doc/EDOC1100545198">Huawei WLAN Design Guide</a>（信道利用率 &lt;20% 服务目标）</li>
+    <li><a href="https://www.cwnp.com/uploads/cwna-108-2020-objectives.pdf">CWNP — CWNA-108 考纲</a>（coverage/capacity/voice 设计要点定义）</li>
+    <li>CWNA-108 Study Guide, Ch.13（本课骨架；按课程规则不要求阅读）</li>
+  </ul>
+
+</main>
+
+<script src="../assets/compare-table.js"></script>
+<script src="../assets/quiz.js"></script>
+<script src="../assets/note-taker.js"></script>
+</body>
+</html>
